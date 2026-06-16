@@ -2,6 +2,14 @@
 
 独立浏览器/PWA 枪瞄配置 App。主链路按 BLE 设计，兼容 PC Chromium 和 Android Chrome；开发阶段可通过现有上位机 `http://127.0.0.1:8766/api/call` 做本地桥接和 C 弹道核心校验。
 
+## 在线访问
+
+```text
+https://fasfqwr12.github.io/j57aa-scope-connect/
+```
+
+远端访问走 GitHub Pages HTTPS，浏览器 BLE 权限可正常触发。其他人不需要装上位机即可打开配置界面；只有开发调试用的本地 Bridge 需要在各自电脑上运行。
+
 ## 定位
 
 - 管理弹药 Profile、枪/归零参数、目标与 SCI 最低能量阈值。
