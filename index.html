@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07090d">
   <title>J57AA Scope Connect</title>
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./src/app.css?v=20260616_mobile_scroll2">
+  <link rel="stylesheet" href="./src/app.css?v=20260616_profile_verify1">
 </head>
 <body>
   <div class="app-shell">
@@ -131,6 +131,7 @@
                 <input id="import-profile" type="file" accept="application/json">
               </label>
             </div>
+            <div class="profile-info" id="profile-info"></div>
             <div class="form-grid">
               <label><span>Profile 名称</span><input data-bind="profile.name" type="text"></label>
               <label><span>弹药/弹头</span><input data-bind="profile.ammo" type="text"></label>
@@ -225,6 +226,33 @@
         <div class="section-panel" data-panel="sync">
           <div class="field-band">
             <div class="band-head">
+              <h3>弹道算法验证</h3>
+              <span class="source-pill live">py-ballisticcalc 2.2.10</span>
+            </div>
+            <div class="validation-grid">
+              <div>
+                <strong>1. 参考表</strong>
+                <span>用开源 3DoF 库生成 golden table：drop、wind、TOF、末速、能量。</span>
+              </div>
+              <div>
+                <strong>2. 固件回归</strong>
+                <span>同一输入喂给固件 C，允许误差按距离分档，超过阈值必须查模型/单位。</span>
+              </div>
+              <div>
+                <strong>3. 靶场校准</strong>
+                <span>实测初速、镜高、归零、100-800m 靶纸落点，反校 BC/初速。</span>
+              </div>
+              <div>
+                <strong>4. HUD 验收</strong>
+                <span>确认阵列行列、红点位置、NO SHOT X、TOO FAR/ZOOM OUT 和能量阈值一致。</span>
+              </div>
+            </div>
+            <div class="validation-note">
+              当前网页 JS 是交互预览解算，不作为最终认证。正式判定以 py-ballisticcalc 参考表、固件 C 输出和实测靶纸三方闭环为准。
+            </div>
+          </div>
+          <div class="field-band">
+            <div class="band-head">
               <h3>同步 DOPE</h3>
               <span class="source-pill pending">固件写入命令待定</span>
             </div>
@@ -290,6 +318,6 @@
     <nav class="mobile-tabs" id="mobile-tabs" aria-label="移动端导航"></nav>
   </div>
 
-  <script type="module" src="./src/app.js?v=20260616_ble_scan2"></script>
+  <script type="module" src="./src/app.js?v=20260616_profile_verify1"></script>
 </body>
 </html>

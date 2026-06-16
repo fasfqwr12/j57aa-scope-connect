@@ -222,6 +222,75 @@ input[type="range"] { padding: 0; accent-color: var(--red); height: 24px; }
 .preset-row select { flex: 1; min-width: 180px; }
 .action-row { margin-bottom: 0; margin-top: 12px; }
 
+.profile-info {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-2);
+  padding: 10px;
+  margin-bottom: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, .8fr);
+  gap: 10px;
+}
+.profile-info-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.profile-info-main span {
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 800;
+}
+.profile-info-main strong {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.profile-info-main p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.profile-info-specs,
+.validation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.profile-info-specs div,
+.validation-grid div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255,255,255,.025);
+  padding: 8px;
+}
+.profile-info-specs span,
+.validation-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.profile-info-specs strong,
+.validation-grid strong {
+  display: block;
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+.validation-note {
+  margin-top: 10px;
+  border: 1px solid rgba(245,158,11,.28);
+  border-radius: 6px;
+  background: rgba(245,158,11,.08);
+  color: #f9d77d;
+  padding: 9px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .metric-grid, .preview-metrics, .sync-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
@@ -541,6 +610,7 @@ input[type="range"] { padding: 0; accent-color: var(--red); height: 24px; }
     margin-right: auto;
   }
   .form-grid { grid-template-columns: 1fr 1fr; }
+  .profile-info { grid-template-columns: 1fr; }
   .field-band { padding: 10px; }
   .mobile-tabs {
     position: fixed;
@@ -557,6 +627,8 @@ input[type="range"] { padding: 0; accent-color: var(--red); height: 24px; }
   .brand-mark { width: 38px; }
   .top-status { max-width: 100px; overflow: hidden; white-space: nowrap; }
   .form-grid { grid-template-columns: 1fr; }
+  .profile-info-specs,
+  .validation-grid { grid-template-columns: 1fr; }
   .preset-row select, .preset-row .btn { flex: 1 1 auto; }
   .action-row .btn { flex: 1 1 44%; }
   .hud-cell.primary strong { font-size: 28px; }

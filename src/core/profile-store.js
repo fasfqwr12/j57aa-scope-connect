@@ -1,12 +1,91 @@
 const KEY = "j57aa_scope_connect_state_v1";
 
 export const ammoPresets = {
-  "223_55_vmax": { name: "223 REM 55gr V-MAX", ammo: "223 REM 55gr V-MAX", bc: 0.255, model: "G1", velocity_ms: 990, bullet_weight_g: 3.56, baseline_mm: 20, zero_range_m: 100, min_energy_j: 850 },
-  "556_62_fmj": { name: "5.56 NATO 62gr FMJ", ammo: "5.56 NATO 62gr FMJ", bc: 0.304, model: "G1", velocity_ms: 920, bullet_weight_g: 4.02, baseline_mm: 20, zero_range_m: 100, min_energy_j: 900 },
-  "243_95_sst": { name: ".243 WIN 95gr SST", ammo: ".243 WIN 95gr SST", bc: 0.355, model: "G1", velocity_ms: 940, bullet_weight_g: 6.16, baseline_mm: 20, zero_range_m: 180, min_energy_j: 1200 },
-  "65cm_143_eldx": { name: "6.5 Creedmoor 143gr ELD-X", ammo: "6.5 Creedmoor 143gr ELD-X", bc: 0.315, model: "G7", velocity_ms: 823, bullet_weight_g: 9.27, baseline_mm: 20, zero_range_m: 200, min_energy_j: 1500 },
-  "308_168_match": { name: ".308 WIN 168gr Match", ammo: ".308 WIN 168gr Match", bc: 0.223, model: "G7", velocity_ms: 808, bullet_weight_g: 10.89, baseline_mm: 20, zero_range_m: 100, min_energy_j: 1600 },
-  "300wm_178_eldx": { name: ".300 WM 178gr ELD-X", ammo: ".300 WM 178gr ELD-X", bc: 0.278, model: "G7", velocity_ms: 900, bullet_weight_g: 11.53, baseline_mm: 20, zero_range_m: 200, min_energy_j: 1800 }
+  "223_55_vmax": {
+    name: "223 REM 55gr V-MAX",
+    ammo: "223 REM 55gr V-MAX",
+    bc: 0.255,
+    model: "G1",
+    velocity_ms: 990,
+    bullet_weight_g: 3.56,
+    baseline_mm: 20,
+    zero_range_m: 100,
+    min_energy_j: 850,
+    role: "小口径高速 / 低后坐",
+    summary: ".223 Remington 常见轻弹头配置，弹道平、后坐小，适合作为小口径训练和小型目标 Profile。"
+  },
+  "556_62_fmj": {
+    name: "5.56 NATO 62gr FMJ",
+    ammo: "5.56 NATO 62gr FMJ",
+    bc: 0.304,
+    model: "G1",
+    velocity_ms: 920,
+    bullet_weight_g: 4.02,
+    baseline_mm: 20,
+    zero_range_m: 100,
+    min_energy_j: 900,
+    role: "AR 平台常见 / 通用基线",
+    summary: "5.56 NATO 62gr 全被甲常见于半自动平台，适合做 5.56 口径的通用调试基线。"
+  },
+  "243_95_sst": {
+    name: ".243 WIN 95gr SST",
+    ammo: ".243 WIN 95gr SST",
+    bc: 0.355,
+    model: "G1",
+    velocity_ms: 940,
+    bullet_weight_g: 6.16,
+    baseline_mm: 20,
+    zero_range_m: 180,
+    min_energy_j: 1200,
+    role: "高速低后坐 / 中小型目标",
+    summary: ".243 Winchester 速度高、弹道平，常用于鹿、羊这类中小型猎物或中距离靶场校验。"
+  },
+  "65cm_143_eldx": {
+    name: "6.5 Creedmoor 143gr ELD-X",
+    ammo: "6.5 Creedmoor 143gr ELD-X",
+    bc: 0.315,
+    model: "G7",
+    velocity_ms: 823,
+    bullet_weight_g: 9.27,
+    baseline_mm: 20,
+    zero_range_m: 200,
+    min_energy_j: 1500,
+    role: "远距离 / 抗风偏",
+    summary: "6.5 Creedmoor 高 BC 弹头保速好、风偏小，适合中远距离弹道和风偏验证。"
+  },
+  "308_168_match": {
+    name: ".308 WIN 168gr Match",
+    ammo: ".308 WIN 168gr Match",
+    bc: 0.223,
+    model: "G7",
+    velocity_ms: 808,
+    bullet_weight_g: 10.89,
+    baseline_mm: 20,
+    zero_range_m: 100,
+    min_energy_j: 1600,
+    role: "成熟基准 / 靶场对照",
+    summary: ".308 Winchester 168gr Match 数据资料多、平台常见，适合作为算法回归和靶纸校准基准。"
+  },
+  "300wm_178_eldx": {
+    name: ".300 WM 178gr ELD-X",
+    ammo: ".300 WM 178gr ELD-X",
+    bc: 0.278,
+    model: "G7",
+    velocity_ms: 900,
+    bullet_weight_g: 11.53,
+    baseline_mm: 20,
+    zero_range_m: 200,
+    min_energy_j: 1800,
+    role: "大能量 / 远距离",
+    summary: ".300 Winchester Magnum 能量和速度余量大，适合远距离能量阈值、TOO FAR 和阵列边界验证。"
+  }
+};
+
+export const profileIntroCatalog = {
+  DA_556: {
+    role: "项目默认 / 调试占位",
+    summary: "DA_556 是当前默认自定义 Profile，用来跑通 5.56 类输入、HUD 显示和 BLE 流程；正式使用前必须替换成实测初速、镜高和归零数据。"
+  }
 };
 
 export function defaultState() {

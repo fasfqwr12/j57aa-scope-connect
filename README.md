@@ -42,6 +42,17 @@ http://127.0.0.1:5188/
 - 如果设备能选中但连接失败，优先核对 Service/RX/TX UUID，常见透传模块可能是 `FFF0/FFF1/FFF2` 或 `FFE0/FFE1`。
 - 如果列表里完全没有设备，确认瞄具处于广播状态，且没有被手机蓝牙、上位机或其他浏览器标签占用。
 
+## 弹道验证
+
+参考解算器使用开源 [`py-ballisticcalc`](https://github.com/o-murphy/py-ballisticcalc) / [PyPI](https://pypi.org/project/py-ballisticcalc/) `2.2.10`，脚本在 `tools/generate_reference_trajectory.py`。
+
+```powershell
+python -m pip install py-ballisticcalc==2.2.10
+python tools\generate_reference_trajectory.py --profile 308_168_match --max-range-m 1000 --step-m 100
+```
+
+完整流程见 `docs/ballistics-validation.md`。网页 JS 只做交互预览，正式校准以开源参考表、固件 C 和实测靶纸三方闭环为准。
+
 ## 当前限制
 
 固件 Profile/DOPE 写入命令还没有在现有协议中定版，所以 App 里的“同步到瞄具”会先保存本地 Profile，并在协议层返回 `PROFILE_WRITE_NOT_DEFINED`。具体字段建议见 `docs/firmware-io-contract.md`。

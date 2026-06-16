@@ -1,7 +1,7 @@
-import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_ble_scan2";
-import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=20260616_ble_scan2";
-import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_ble_scan2";
-import { ammoPresets, currentProfile, loadState, makeProfileId, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_ble_scan2";
+import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_profile_verify1";
+import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=20260616_profile_verify1";
+import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_profile_verify1";
+import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_profile_verify1";
 
 const steps = [
   { id: "device", label: "设备", title: "设备连接", kicker: "DEVICE" },
@@ -154,6 +154,7 @@ function refreshAll(options = {}) {
   renderPreview(input, state.lastSolution);
   renderDeviceMetrics();
   renderSyncSummary(input);
+  renderProfileInfo();
   scheduleSave();
   scheduleBridgeSolve(input);
 }
@@ -282,6 +283,31 @@ function renderSyncSummary(input) {
     <div><span>弹道</span><strong>${escapeHtml(profile.model)} / BC ${Number(profile.bc).toFixed(3)}</strong></div>
     <div><span>DOPE 预览</span><strong>${Math.round(input.range_m)} m / ${Math.round(input.min_energy_j)} J</strong></div>
     <div><span>HUD</span><strong>${Object.values(state.hud.zones).filter(Boolean).length}/10 区开启</strong></div>
+  `;
+}
+
+function renderProfileInfo() {
+  const host = $("#profile-info");
+  if (!host) return;
+  const profile = currentProfile(state);
+  const preset = Object.values(ammoPresets).find(p => p.name === profile.name || p.ammo === profile.ammo);
+  const intro = preset || profileIntroCatalog[profile.name] || profileIntroCatalog[profile.ammo] || {
+    role: "自定义枪弹组合",
+    summary: "这是用户自定义 Profile。正式使用前需要用测速仪、靶纸和参考弹道表校准初速、BC、镜高和归零距离。"
+  };
+  const energy = Number(profile.min_energy_j) || 0;
+  host.innerHTML = `
+    <div class="profile-info-main">
+      <span>${escapeHtml(intro.role || "枪弹组合")}</span>
+      <strong>${escapeHtml(profile.name || profile.ammo || "Profile")}</strong>
+      <p>${escapeHtml(intro.summary || "")}</p>
+    </div>
+    <div class="profile-info-specs">
+      <div><span>模型</span><strong>${escapeHtml(profile.model || "--")}</strong></div>
+      <div><span>BC</span><strong>${Number(profile.bc || 0).toFixed(3)}</strong></div>
+      <div><span>初速</span><strong>${Math.round(Number(profile.velocity_ms) || 0)} m/s</strong></div>
+      <div><span>阈值</span><strong>${energy > 0 ? `${Math.round(energy)} J` : "OFF"}</strong></div>
+    </div>
   `;
 }
 
