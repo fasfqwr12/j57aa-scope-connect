@@ -1,7 +1,7 @@
-import { LocalBridgeAdapter } from "./adapters/local-bridge.js";
-import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js";
-import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js";
-import { ammoPresets, currentProfile, loadState, makeProfileId, saveState, setCurrentProfile } from "./core/profile-store.js";
+import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_ble_scan2";
+import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=20260616_ble_scan2";
+import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_ble_scan2";
+import { ammoPresets, currentProfile, loadState, makeProfileId, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_ble_scan2";
 
 const steps = [
   { id: "device", label: "设备", title: "设备连接", kicker: "DEVICE" },

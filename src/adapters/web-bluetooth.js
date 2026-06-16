@@ -6,7 +6,7 @@ import {
   parseBallisticReply,
   parseMeasurement,
   parseSensorReply
-} from "../protocol/scope-protocol.js";
+} from "../protocol/scope-protocol.js?v=20260616_ble_scan2";
 
 export class WebBluetoothAdapter {
   constructor(config, log = () => {}) {
