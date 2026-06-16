@@ -107,6 +107,7 @@ export function makeProfileId(name) {
 function mergeState(base, saved) {
   const out = { ...base, ...saved };
   out.connection = { ...base.connection, ...(saved.connection || {}) };
+  if (!["all", "name", "service"].includes(out.connection.scanMode)) out.connection.scanMode = "all";
   out.profiles = { ...base.profiles, ...(saved.profiles || {}) };
   out.environment = { ...base.environment, ...(saved.environment || {}) };
   out.target = { ...base.target, ...(saved.target || {}) };
