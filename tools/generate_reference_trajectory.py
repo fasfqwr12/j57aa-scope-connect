@@ -95,6 +95,36 @@ PROFILES = {
         "zero_range_m": 200,
         "min_energy_j": 1800,
     },
+    "375ct_350_elr": {
+        "name": ".375 CheyTac 350gr ELR",
+        "bc": 0.470,
+        "model": "G7",
+        "velocity_ms": 930,
+        "bullet_weight_g": 22.68,
+        "baseline_mm": 55,
+        "zero_range_m": 300,
+        "min_energy_j": 1500,
+    },
+    "408ct_419_elr": {
+        "name": ".408 CheyTac 419gr ELR",
+        "bc": 0.475,
+        "model": "G7",
+        "velocity_ms": 884,
+        "bullet_weight_g": 27.15,
+        "baseline_mm": 55,
+        "zero_range_m": 300,
+        "min_energy_j": 1600,
+    },
+    "50bmg_750_amax": {
+        "name": ".50 BMG 750gr A-MAX",
+        "bc": 0.520,
+        "model": "G7",
+        "velocity_ms": 860,
+        "bullet_weight_g": 48.60,
+        "baseline_mm": 70,
+        "zero_range_m": 300,
+        "min_energy_j": 2500,
+    },
 }
 
 DRAG_TABLES = {

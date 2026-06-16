@@ -78,6 +78,48 @@ export const ammoPresets = {
     min_energy_j: 1800,
     role: "大能量 / 远距离",
     summary: ".300 Winchester Magnum 能量和速度余量大，适合远距离能量阈值、TOO FAR 和阵列边界验证。"
+  },
+  "375ct_350_elr": {
+    name: ".375 CheyTac 350gr ELR",
+    ammo: ".375 CheyTac 350gr ELR",
+    bc: 0.470,
+    model: "G7",
+    velocity_ms: 930,
+    bullet_weight_g: 22.68,
+    baseline_mm: 55,
+    zero_range_m: 300,
+    min_energy_j: 1500,
+    hud: { reticle_max_range_m: 2200, reticle_mil_per_row_at_10x: 1.9 },
+    role: "ELR / 2000m 下限",
+    summary: ".375 CheyTac 属于超远距离组合，2000m 仍可保留约 1500J 级能量，适合验证 2000m 有效命中下限和阵列极限。"
+  },
+  "408ct_419_elr": {
+    name: ".408 CheyTac 419gr ELR",
+    ammo: ".408 CheyTac 419gr ELR",
+    bc: 0.475,
+    model: "G7",
+    velocity_ms: 884,
+    bullet_weight_g: 27.15,
+    baseline_mm: 55,
+    zero_range_m: 300,
+    min_energy_j: 1600,
+    hud: { reticle_max_range_m: 2200, reticle_mil_per_row_at_10x: 1.9 },
+    role: "ELR / 2000m 有效",
+    summary: ".408 CheyTac 是典型 ELR 组合，2000m 末端能量可接近或超过 1600J，用来闭环远距离能量阈值和 HUD TOO FAR 状态。"
+  },
+  "50bmg_750_amax": {
+    name: ".50 BMG 750gr A-MAX",
+    ammo: ".50 BMG 750gr A-MAX",
+    bc: 0.520,
+    model: "G7",
+    velocity_ms: 860,
+    bullet_weight_g: 48.60,
+    baseline_mm: 70,
+    zero_range_m: 300,
+    min_energy_j: 2500,
+    hud: { reticle_max_range_m: 2200, reticle_mil_per_row_at_10x: 1.9 },
+    role: "重型 ELR / 能量充足",
+    summary: ".50 BMG 重弹在 2000m 仍有明显能量余量，适合验证大能量阈值、长飞行时间和设备远距边界。"
   }
 };
 

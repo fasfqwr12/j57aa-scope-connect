@@ -4,7 +4,14 @@
 
 本项目用开源 [`py-ballisticcalc`](https://github.com/o-murphy/py-ballisticcalc) / [PyPI](https://pypi.org/project/py-ballisticcalc/) 作为第一层参考解算器，版本固定为 `2.2.10`。它提供 G1/G7 等阻力表、点质量 3DoF 轨迹计算、风偏、末速、能量和飞行时间输出。
 
-网页内的 JS 解算只用于交互预览和 HUD 位置估算，不作为最终弹道认证。固件 C 算法需要对齐参考表和实测靶纸。
+网页内的 JS 解算只用于交互预览、能量阈值预判和 HUD 位置估算，不作为最终弹道认证。固件 C 算法需要对齐参考表和实测靶纸。
+
+当前 2000m 闭环结论：
+
+- `.308 WIN 168gr Match @ 2000m`：参考能量约 247 J，低于 1600 J 阈值，应显示 `NO SHOT`。
+- `.408 CheyTac 419gr ELR @ 2000m`：参考能量约 1600 J 级，能量刚过阈值；ELR HUD 参数下可显示落点。
+- `.50 BMG 750gr A-MAX @ 2000m`：参考能量 3000 J 以上，能量充足；ELR HUD 参数下可显示落点。
+- JS 预览在 ELR 2000m 的能量/可射击状态与参考方向一致，但下坠角仍可能有数 mil 误差，不能作为最终红点认证。
 
 ## 生成参考表
 
@@ -19,6 +26,14 @@ python -m pip install py-ballisticcalc==2.2.10
 ```powershell
 python tools\generate_reference_trajectory.py --profile 308_168_match --max-range-m 1000 --step-m 100 --out data\reference\308_168_match.json
 ```
+
+运行网页 JS 预览闭环对比：
+
+```powershell
+python tools\run_ballistic_closure.py --profile 408ct_419_elr --range-m 2000
+```
+
+闭环脚本会同时输出 `reference`、`js_preview`、`deltas` 和能量/射击状态匹配结果。
 
 带横风参考：
 

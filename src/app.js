@@ -1,7 +1,7 @@
-import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_profile_verify1";
-import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=20260616_profile_verify1";
-import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_profile_verify1";
-import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_profile_verify1";
+import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closure1";
+import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=20260616_closure1";
+import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
+import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
 
 const steps = [
   { id: "device", label: "设备", title: "设备连接", kicker: "DEVICE" },
@@ -431,7 +431,9 @@ function deleteProfile() {
 
 function applyAmmoPreset(id) {
   if (!id || !ammoPresets[id]) return;
-  setCurrentProfile(state, ammoPresets[id]);
+  const preset = ammoPresets[id];
+  setCurrentProfile(state, preset);
+  if (preset.hud) state.hud = { ...state.hud, ...preset.hud };
   $("#ammo-preset").value = "";
   refreshAll();
 }
