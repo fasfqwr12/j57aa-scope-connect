@@ -29,28 +29,39 @@ export class WebBluetoothAdapter {
       throw new Error("当前浏览器不支持 Web Bluetooth，请用 Chrome/Edge 或切换 Bridge");
     }
     const serviceUuid = normalizeUuid(this.config.serviceUuid);
-    const filters = [];
     const namePrefix = String(this.config.namePrefix || "").trim();
-    if (namePrefix) filters.push({ namePrefix, services: [serviceUuid] });
-    filters.push({ services: [serviceUuid] });
+    const scanMode = this.config.scanMode || "all";
+    const requestOptions = makeRequestOptions({ scanMode, namePrefix, serviceUuid });
 
-    this.device = await navigator.bluetooth.requestDevice({
-      filters,
-      optionalServices: [serviceUuid]
-    });
+    this.log("SYS", `BLE 扫描: ${scanModeLabel(scanMode)}${namePrefix ? ` / ${namePrefix}` : ""}`);
+    try {
+      this.device = await navigator.bluetooth.requestDevice(requestOptions);
+    } catch (err) {
+      if (err?.name === "NotFoundError") {
+        throw new Error("没有选中 BLE 设备。扫不到时请用“显示全部 BLE”，并确认设备已开机、未被其他手机或上位机占用");
+      }
+      throw err;
+    }
     this.device.addEventListener("gattserverdisconnected", () => {
       this.connected = false;
       this.log("WARN", "BLE 已断开");
     });
     this.server = await this.device.gatt.connect();
-    const service = await this.server.getPrimaryService(serviceUuid);
-    this.rx = await service.getCharacteristic(normalizeUuid(this.config.rxUuid));
-    this.tx = await service.getCharacteristic(normalizeUuid(this.config.txUuid));
+    const deviceName = this.device.name || this.device.id;
+    let service;
+    try {
+      service = await this.server.getPrimaryService(serviceUuid);
+      this.rx = await service.getCharacteristic(normalizeUuid(this.config.rxUuid));
+      this.tx = await service.getCharacteristic(normalizeUuid(this.config.txUuid));
+    } catch (err) {
+      await this.disconnect();
+      throw new Error(`已选中 ${deviceName}，但没有找到当前 UART 服务/特征。请核对 Service/RX/TX UUID，当前 Service=${serviceUuid}`);
+    }
     await this.rx.startNotifications();
     this.rx.addEventListener("characteristicvaluechanged", ev => this.onNotify(ev));
     this.connected = true;
-    this.log("SYS", `BLE 已连接: ${this.device.name || this.device.id}`);
-    return { connected: true, name: this.device.name || this.device.id };
+    this.log("SYS", `BLE 已连接: ${deviceName}`);
+    return { connected: true, name: deviceName };
   }
 
   async disconnect() {
@@ -148,4 +159,23 @@ function normalizeUuid(uuid) {
   const text = String(uuid || "").trim().toLowerCase();
   if (/^[0-9a-f]{4}$/.test(text)) return `0000${text}-0000-1000-8000-00805f9b34fb`;
   return text;
+}
+
+function makeRequestOptions({ scanMode, namePrefix, serviceUuid }) {
+  const options = { optionalServices: [serviceUuid] };
+  if (scanMode === "service") {
+    const filters = [{ services: [serviceUuid] }];
+    if (namePrefix) filters.unshift({ namePrefix, services: [serviceUuid] });
+    return { ...options, filters };
+  }
+  if (scanMode === "name" && namePrefix) {
+    return { ...options, filters: [{ namePrefix }] };
+  }
+  return { ...options, acceptAllDevices: true };
+}
+
+function scanModeLabel(scanMode) {
+  if (scanMode === "service") return "按服务 UUID";
+  if (scanMode === "name") return "只按设备名";
+  return "显示全部 BLE";
 }

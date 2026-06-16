@@ -15,6 +15,7 @@ export function defaultState() {
     currentProfileId: "default",
     connection: {
       mode: "web-bluetooth",
+      scanMode: "all",
       namePrefix: "E104",
       serviceUuid: "0000fff0-0000-1000-8000-00805f9b34fb",
       rxUuid: "0000fff1-0000-1000-8000-00805f9b34fb",

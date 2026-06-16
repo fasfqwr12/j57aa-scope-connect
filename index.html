@@ -64,6 +64,14 @@
                 </select>
               </label>
               <label>
+                <span>扫描模式</span>
+                <select data-bind="connection.scanMode">
+                  <option value="all">显示全部 BLE</option>
+                  <option value="name">只按设备名</option>
+                  <option value="service">按服务 UUID</option>
+                </select>
+              </label>
+              <label>
                 <span>设备名过滤</span>
                 <input data-bind="connection.namePrefix" type="text" spellcheck="false">
               </label>

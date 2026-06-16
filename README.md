@@ -36,6 +36,12 @@ http://127.0.0.1:5188/
 2. 上位机 Bridge：开发兜底，调用现有 `scope_read_sensor`、`scope_read_measurement`、`scope_ballistic_solve_local`、`scope_ballistic_solve`。
 3. iOS Safari 当前不作为主 BLE 目标，后续如需 iOS 蓝牙应走 Capacitor/原生壳。
 
+## BLE 扫描排查
+
+- 默认使用“显示全部 BLE”，避免设备未广播 UART Service UUID 时被 Chrome 过滤掉。
+- 如果设备能选中但连接失败，优先核对 Service/RX/TX UUID，常见透传模块可能是 `FFF0/FFF1/FFF2` 或 `FFE0/FFE1`。
+- 如果列表里完全没有设备，确认瞄具处于广播状态，且没有被手机蓝牙、上位机或其他浏览器标签占用。
+
 ## 当前限制
 
 固件 Profile/DOPE 写入命令还没有在现有协议中定版，所以 App 里的“同步到瞄具”会先保存本地 Profile，并在协议层返回 `PROFILE_WRITE_NOT_DEFINED`。具体字段建议见 `docs/firmware-io-contract.md`。
