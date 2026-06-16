@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07090d">
+  <title>J57AA Scope Connect</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./src/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <span class="brand-mark">J57AA</span>
+        <div>
+          <h1>Scope Connect</h1>
+          <span class="brand-sub">BLE Profile / DOPE / HUD</span>
+        </div>
+      </div>
+
+      <div class="top-status" aria-live="polite">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="connection-label">未连接</span>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn primary" id="btn-connect" type="button">连接 BLE</button>
+        <button class="btn" id="btn-open-hud" type="button">打开 HUD</button>
+      </div>
+    </header>
+
+    <main class="app-layout">
+      <nav class="flow-rail" aria-label="配置流程">
+        <div class="rail-title">流程</div>
+        <div class="step-list" id="step-list"></div>
+      </nav>
+
+      <section class="workspace" aria-label="配置工作区">
+        <div class="workspace-head">
+          <div>
+            <span class="section-kicker" id="section-kicker">DEVICE</span>
+            <h2 id="section-title">设备连接</h2>
+          </div>
+          <div class="profile-strip">
+            <select id="profile-select" aria-label="当前弹药 Profile"></select>
+            <button class="btn compact" id="btn-new-profile" type="button">新建</button>
+            <button class="btn compact" id="btn-save-profile" type="button">保存</button>
+          </div>
+        </div>
+
+        <div class="section-panel active" data-panel="device">
+          <div class="field-band">
+            <div class="band-head">
+              <h3>蓝牙链路</h3>
+              <span class="source-pill live">主链路</span>
+            </div>
+            <div class="form-grid">
+              <label>
+                <span>连接方式</span>
+                <select data-bind="connection.mode">
+                  <option value="web-bluetooth">浏览器 BLE</option>
+                  <option value="local-bridge">上位机 Bridge</option>
+                </select>
+              </label>
+              <label>
+                <span>设备名过滤</span>
+                <input data-bind="connection.namePrefix" type="text" spellcheck="false">
+              </label>
+              <label>
+                <span>Service UUID</span>
+                <input data-bind="connection.serviceUuid" type="text" spellcheck="false">
+              </label>
+              <label>
+                <span>Notify/RX UUID</span>
+                <input data-bind="connection.rxUuid" type="text" spellcheck="false">
+              </label>
+              <label>
+                <span>Write/TX UUID</span>
+                <input data-bind="connection.txUuid" type="text" spellcheck="false">
+              </label>
+              <label>
+                <span>Bridge 地址</span>
+                <input data-bind="connection.bridgeBase" type="text" spellcheck="false">
+              </label>
+            </div>
+            <div class="action-row">
+              <button class="btn primary" id="btn-connect-panel" type="button">连接</button>
+              <button class="btn" id="btn-disconnect" type="button">断开</button>
+              <button class="btn" id="btn-read-env" type="button">读环境</button>
+              <button class="btn" id="btn-listen-range" type="button">监听测距</button>
+            </div>
+          </div>
+
+          <div class="field-band">
+            <div class="band-head">
+              <h3>设备状态</h3>
+              <span class="source-pill" id="adapter-label">未选择</span>
+            </div>
+            <div class="metric-grid">
+              <div class="metric"><span>距离</span><strong id="metric-range">-- m</strong></div>
+              <div class="metric"><span>电量</span><strong id="metric-battery">--</strong></div>
+              <div class="metric"><span>环境</span><strong id="metric-env">手动</strong></div>
+              <div class="metric"><span>解算源</span><strong id="metric-solver">JS</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-panel" data-panel="profile">
+          <div class="field-band">
+            <div class="band-head">
+              <h3>弹药 Profile</h3>
+              <span class="source-pill manual">BurrisConnect 对应层</span>
+            </div>
+            <div class="preset-row">
+              <select id="ammo-preset" aria-label="常用弹种预设">
+                <option value="">选择常用弹种</option>
+              </select>
+              <button class="btn compact" id="btn-delete-profile" type="button">删除</button>
+              <button class="btn compact" id="btn-export-profile" type="button">导出</button>
+              <label class="btn compact file-btn">
+                导入
+                <input id="import-profile" type="file" accept="application/json">
+              </label>
+            </div>
+            <div class="form-grid">
+              <label><span>Profile 名称</span><input data-bind="profile.name" type="text"></label>
+              <label><span>弹药/弹头</span><input data-bind="profile.ammo" type="text"></label>
+              <label><span>弹道模型</span><select data-bind="profile.model"><option>G1</option><option>G2</option><option>GA</option><option>G5</option><option>G6</option><option>G7</option><option>G8</option><option>GL</option></select></label>
+              <label><span>BC</span><input data-bind="profile.bc" data-number type="number" step="0.001" min="0.05"></label>
+              <label><span>初速 m/s</span><input data-bind="profile.velocity_ms" data-number type="number" step="1" min="100"></label>
+              <label><span>弹头重量 g</span><input data-bind="profile.bullet_weight_g" data-number type="number" step="0.01" min="0.5"></label>
+              <label><span>镜高 mm</span><input data-bind="profile.baseline_mm" data-number type="number" step="1" min="0"></label>
+              <label><span>归零距离 m</span><input data-bind="profile.zero_range_m" data-number type="number" step="5" min="25"></label>
+              <label><span>SCI 最低能量 J</span><input data-bind="profile.min_energy_j" data-number type="number" step="50" min="0"></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-panel" data-panel="environment">
+          <div class="field-band">
+            <div class="band-head">
+              <h3>环境 / 传感器</h3>
+              <span class="source-pill live">BMP388 / SHT40</span>
+            </div>
+            <div class="form-grid">
+              <label><span>海拔 m</span><input data-bind="environment.altitude_m" data-number type="number" step="1"></label>
+              <label><span>温度 C</span><input data-bind="environment.temp_c" data-number type="number" step="0.5"></label>
+              <label><span>湿度 %</span><input data-bind="environment.humidity_pct" data-number type="number" step="1" min="0" max="100"></label>
+              <label><span>气压 Pa</span><input data-bind="environment.pressure_pa" data-number type="number" step="10"></label>
+            </div>
+            <div class="action-row">
+              <button class="btn primary" id="btn-read-env-panel" type="button">从瞄具读取</button>
+              <button class="btn" id="btn-reset-env" type="button">标准大气</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-panel" data-panel="target">
+          <div class="field-band">
+            <div class="band-head">
+              <h3>目标 / Shotcall</h3>
+              <span class="source-pill manual">现场输入</span>
+            </div>
+            <div class="form-grid">
+              <label>
+                <span>目标类型</span>
+                <select data-bind="target.type">
+                  <option value="deer">鹿</option>
+                  <option value="sheep">羊</option>
+                  <option value="boar">野猪</option>
+                  <option value="steel">钢靶</option>
+                </select>
+              </label>
+              <label>
+                <span>姿态</span>
+                <select data-bind="target.pose">
+                  <option value="broadside">侧身</option>
+                  <option value="quartering">斜侧</option>
+                  <option value="frontal">正面</option>
+                </select>
+              </label>
+              <label><span>目标宽度 m</span><input data-bind="target.width_m" data-number type="number" step="0.05" min="0.1"></label>
+              <label><span>SCI 最低能量 J</span><input data-bind="profile.min_energy_j" data-number type="number" step="50" min="0"></label>
+              <label><span>测距 m</span><input data-bind="target.range_m" data-number type="number" step="1" min="5"></label>
+              <label><span>射角 deg</span><input data-bind="target.angle_deg" data-number type="number" step="1" min="-60" max="60"></label>
+              <label><span>横风 m/s</span><input data-bind="target.cross_wind_ms" data-number type="number" step="0.1"></label>
+              <label><span>纵风 m/s</span><input data-bind="target.head_wind_ms" data-number type="number" step="0.1"></label>
+              <label><span>倍率 x</span><input data-bind="hud.zoom_x" data-number type="number" step="1" min="4" max="20"></label>
+            </div>
+            <div class="range-stack">
+              <label><span>测距</span><input data-bind="target.range_m" data-number type="range" min="5" max="2000" step="5"></label>
+              <label><span>倍率</span><input data-bind="hud.zoom_x" data-number type="range" min="4" max="20" step="1"></label>
+              <label><span>横风</span><input data-bind="target.cross_wind_ms" data-number type="range" min="-20" max="20" step="0.5"></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-panel" data-panel="hud">
+          <div class="field-band">
+            <div class="band-head">
+              <h3>HUD 分区</h3>
+              <span class="source-pill manual">最多 10 区</span>
+            </div>
+            <div class="toggle-grid" id="hud-zone-toggles"></div>
+            <div class="form-grid small-grid">
+              <label><span>单位</span><select data-bind="hud.units"><option value="metric">公制</option><option value="imperial">英制</option></select></label>
+              <label><span>DIST/WIND 互换</span><select data-bind="hud.swapRangeWind"><option value="false">关闭</option><option value="true">开启</option></select></label>
+              <label><span>最小阵列距离 m</span><input data-bind="hud.reticle_min_range_m" data-number type="number" step="10"></label>
+              <label><span>最大阵列距离 m</span><input data-bind="hud.reticle_max_range_m" data-number type="number" step="10"></label>
+              <label><span>10x 每行 mil</span><input data-bind="hud.reticle_mil_per_row_at_10x" data-number type="number" step="0.01"></label>
+              <label><span>阵列行数</span><input data-bind="hud.reticle_rows" data-number type="number" step="1"></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-panel" data-panel="sync">
+          <div class="field-band">
+            <div class="band-head">
+              <h3>同步 DOPE</h3>
+              <span class="source-pill pending">固件写入命令待定</span>
+            </div>
+            <div class="sync-summary" id="sync-summary"></div>
+            <div class="action-row">
+              <button class="btn primary" id="btn-sync-profile" type="button">同步到瞄具</button>
+              <button class="btn" id="btn-solve-device" type="button">设备解算</button>
+              <button class="btn" id="btn-solve-local" type="button">本地 C 校验</button>
+            </div>
+          </div>
+          <div class="field-band">
+            <div class="band-head">
+              <h3>日志</h3>
+              <button class="btn compact" id="btn-clear-log" type="button">清空</button>
+            </div>
+            <div class="log-box" id="log-box"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="preview-rail" aria-label="瞄具预览">
+        <div class="solve-strip" id="solve-strip">
+          <span id="shot-state">WAIT</span>
+          <strong id="shot-energy">-- J</strong>
+          <em id="shot-margin">--</em>
+        </div>
+
+        <div class="scope-preview">
+          <div class="scope-hud-top" id="preview-hud-top">
+            <div class="hud-cell primary"><span id="hud-primary-label">DIST</span><strong id="hud-primary-value">--</strong><em id="hud-primary-unit">M</em></div>
+            <div class="hud-cell"><span id="hud-secondary-label">WIND</span><strong id="hud-secondary-value">--</strong><em id="hud-secondary-unit">DOT</em></div>
+            <div class="hud-cell"><span>ANG</span><strong id="hud-angle">0</strong><em>DEG</em></div>
+          </div>
+
+          <div class="target-shape target-deer" id="preview-target">
+            <span class="target-body"></span>
+            <span class="target-neck"></span>
+            <span class="target-head"></span>
+            <span class="target-horn"></span>
+            <span class="target-leg leg-a"></span>
+            <span class="target-leg leg-b"></span>
+            <span class="target-leg leg-c"></span>
+            <span class="target-leg leg-d"></span>
+          </div>
+
+          <div class="reticle-cross horizontal"></div>
+          <div class="reticle-cross vertical"></div>
+          <div class="reticle-dots" id="reticle-dots"></div>
+          <div class="aim-dot" id="aim-dot"></div>
+          <div class="shot-x" id="shot-x">X</div>
+          <div class="hud-fault" id="hud-fault"></div>
+        </div>
+
+        <div class="preview-metrics">
+          <div><span>落点</span><strong id="metric-aim">--</strong></div>
+          <div><span>末速</span><strong id="metric-velocity">-- m/s</strong></div>
+          <div><span>风偏</span><strong id="metric-windage">-- mil</strong></div>
+          <div><span>阵列</span><strong id="metric-reticle">--</strong></div>
+        </div>
+      </aside>
+    </main>
+
+    <nav class="mobile-tabs" id="mobile-tabs" aria-label="移动端导航"></nav>
+  </div>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

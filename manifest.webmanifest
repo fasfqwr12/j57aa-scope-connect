@@ -1,0 +1,9 @@
+{
+  "name": "J57AA Scope Connect",
+  "short_name": "Scope Connect",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#07090d",
+  "theme_color": "#07090d",
+  "icons": []
+}
