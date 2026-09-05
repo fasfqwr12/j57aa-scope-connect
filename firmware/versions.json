@@ -1,5 +1,16 @@
 {
   "schema": 1,
   "note": "J57AA 固件在线库。把固件 bin 放本目录并在 files 里登记即可被网页升级页列出。",
-  "files": []
+  "files": [
+    {
+      "name": "W515_APP_v0.1.0_0810.bin",
+      "target": "w515-app",
+      "version": "0.1.0",
+      "date": "2026-08-10",
+      "size": 63776,
+      "crc32": "E4503DFD",
+      "notes": "主控 W515 APP 最新版（源: Keil J57AA_APP.bin 2026/8/10）",
+      "recommended": true
+    }
+  ]
 }
