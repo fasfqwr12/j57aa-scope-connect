@@ -75,8 +75,14 @@ export class WireDecoder {
         protocol = b[i + 1] === 0x7E ? "proxy" : "event"; length = n + 6;
       } else if ((b[i + 1] >= 0x81 && b[i + 1] <= 0x89) || (b[i + 1] >= 0xB1 && b[i + 1] <= 0xBA)) {
         const n = (b[i + 2] << 8) | b[i + 3];
-        if (n > 4096) { i++; continue; }
-        protocol = b[i + 1] < 0xB0 ? "w515" : "n32"; length = n + 7;
+        const c = b[i + 1];
+        // Known reply shapes reject false incomplete AA headers without searching
+        // inside a legitimate (possibly split) outer GLPE frame.
+        const sizes = c === 0x81 ? [1, 4] : c === 0x82 ? [48] :
+          c >= 0x83 && c <= 0x88 ? [1] : c === 0x89 ? [5, 9, 49] :
+          c === 0xB1 ? [1, 17, 33] : c === 0xB2 ? [1, 17] : null;
+        if (n > 96 || (sizes && !sizes.includes(n))) { i++; continue; }
+        protocol = c < 0xB0 ? "w515" : "n32"; length = n + 7;
       } else { i++; continue; }
       if (i + length > b.length) { partial = i; break; }
       const raw = b.slice(i, i + length);

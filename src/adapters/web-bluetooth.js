@@ -98,7 +98,8 @@ export class WebBluetoothAdapter {
   }
   async write(value) {
     this.assertNormal(); this.log("TX", bytesToHex(value));
-    return this.writeRaw(value, { chunkSize: 20, withResponse: false });
+    if (value.length > 244) throw new Error("普通协议帧过长，不能假定 APP 支持分片重组");
+    return this.writeRaw(value, { chunkSize: Math.max(20, value.length), withResponse: false });
   }
   onNotify(event) {
     const v = event.target.value;
