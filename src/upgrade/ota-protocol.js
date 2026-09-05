@@ -78,7 +78,7 @@ export class WireDecoder {
         if (n > 4096) { i++; continue; }
         protocol = b[i + 1] < 0xB0 ? "w515" : "n32"; length = n + 7;
       } else { i++; continue; }
-      if (i + length > b.length) { if (partial < 0) partial = i; i++; continue; }
+      if (i + length > b.length) { partial = i; break; }
       const raw = b.slice(i, i + length);
       let valid = false;
       if (protocol === "f7") {
@@ -92,7 +92,11 @@ export class WireDecoder {
       } else {
         valid = raw[length - 1] === 0x55 && crc16Modbus(raw.slice(1, -3)) === ((raw[length - 3] << 8) | raw[length - 2]);
       }
-      if (!valid) { i++; continue; }
+      if (!valid) {
+        // An event mirror is never a direct reply, even when its outer CRC is bad.
+        i += protocol === "event" ? length : 1;
+        continue;
+      }
       frames.push({ protocol, cmd: raw[1], payload: raw.slice(4, protocol === "f7" ? 52 : length - ((protocol === "proxy" || protocol === "event") ? 2 : 3)), raw, consumed: i + length, crc_ok: protocol !== "f7" });
       i += length;
       partial = -1;

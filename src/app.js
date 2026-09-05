@@ -1,8 +1,8 @@
 import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closure1";
-import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=20260703_v3";
+import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=status-first-1";
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
-import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=20260703_v3";
+import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=status-first-1";
 
 const steps = [
   { id: "device", label: "设备", title: "设备连接", kicker: "DEVICE" },
@@ -14,7 +14,7 @@ const steps = [
   { id: "upgrade", label: "升级", title: "固件升级", kicker: "OTA" }
 ];
 
-const ASSET_V = "20260703_v3";
+const ASSET_V = "status-first-1";
 const targetAssets = { deer: "deer", sheep: "sheep", boar: "boar", steel: "steel" };
 
 const zoneLabels = {
@@ -33,6 +33,8 @@ const zoneLabels = {
 const state = loadState();
 let adapter = null;
 let saveTimer = null;
+let otaBusy = false;
+let connecting = false;
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => Array.from(document.querySelectorAll(selector));
@@ -52,7 +54,11 @@ function init() {
   initOtaUpgrade({
     getAdapter: () => adapter,
     connect,
-    isConnected: () => !!(adapter && adapter.connected)
+    isConnected: () => !!(adapter && adapter.connected),
+    setBusy: value => {
+      otaBusy = value;
+      $$("#btn-connect, #btn-connect-panel, #btn-hint-connect, #btn-disconnect, #btn-read-env, #btn-read-env-panel, #btn-listen-range, #btn-solve-device, #btn-sync-profile, [data-bind^='connection.']").forEach(el => { el.disabled = value; });
+    }
   });
   log("SYS", "Scope Connect 已就绪");
 }
@@ -214,6 +220,7 @@ function writeBindings(activeElement) {
 function syncZoneInputs() {
   $$("#hud-zone-toggles input").forEach(input => {
     input.checked = !!state.hud.zones[input.dataset.zoneKey];
+    input.closest(".toggle-pill").classList.toggle("on", input.checked);
   });
 }
 
@@ -339,18 +346,22 @@ function renderProfileInfo() {
 }
 
 async function connect() {
+  if (connecting || adapter?.exclusive) { log("WARN", "连接/检测/升级进行中，不更换设备"); return; }
+  connecting = true;
   try {
     setConnectionState("working", "连接中");
+    if (adapter) await adapter.disconnect();
     adapter = makeAdapter();
     const r = await adapter.connect();
     setConnectionState(r.connected ? "on" : "bridge", r.name || "已就绪");
   } catch (err) {
     setConnectionState("off", "连接失败");
     log("ERR", err.message || err);
-  }
+  } finally { connecting = false; }
 }
 
 async function disconnect() {
+  if (otaBusy) { log("WARN", "请先中止检测/升级，等待清理完成"); return; }
   try {
     if (adapter) await adapter.disconnect();
   } catch (err) {

@@ -8,7 +8,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
-  <link rel="stylesheet" href="./src/app.css?v=20260703_v3">
+  <link rel="stylesheet" href="./src/app.css?v=status-first-1">
 </head>
 <body>
   <div class="app-shell">
@@ -300,10 +300,20 @@
         </div>
         <!-- ============ 升级 ============ -->
         <div class="section-panel" data-panel="upgrade">
+          <div class="field-band ota-preflight">
+            <div class="band-head"><h3>1 · 检测主控与副板</h3><span class="source-pill pending">状态优先</span></div>
+            <p class="ota-notice">不发送进 Boot 或擦写命令。检测会暂占测距通道；若 N32 已在 Boot 启动窗口，查询可能让它停留在 Boot。请先停止测距。</p>
+            <div class="ota-board-grid" aria-live="polite">
+              <section class="ota-board"><h4>W515 主控</h4><strong id="ota-main-mode">未检测</strong><p id="ota-main-info">等待主控身份与地址信息</p></section>
+              <section class="ota-board"><h4>N32 副板</h4><strong id="ota-slave-mode">未检测</strong><p id="ota-slave-info">等待副板自身应答</p></section>
+            </div>
+            <p class="ota-notice">代理：<strong id="ota-proxy-state">未检测</strong><br><span id="ota-state-time">尚无有效状态</span></p>
+            <button class="btn primary" id="ota-query-status" type="button">检测双板状态</button>
+          </div>
           <div class="field-band">
             <div class="band-head">
-              <h3>固件升级（BLE OTA）</h3>
-              <span class="source-pill live">W515 主控</span>
+              <h3>2 · 选择固件并确认升级</h3>
+              <span class="source-pill pending">待真机验证</span>
             </div>
             <div class="ota-target-row">
               <label class="ota-target selected" id="ota-target-w515">
@@ -314,34 +324,34 @@
               <label class="ota-target" id="ota-target-n32">
                 <input type="radio" name="ota-target" value="n32" disabled>
                 <strong>N32 测距板</strong>
-                <span>经代理升级 · 下一步</span>
+                <span>可检测状态 · 刷写未开放</span>
               </label>
             </div>
             <div class="ota-file-row">
               <label class="ota-file-btn">
-                选择固件 .bin
-                <input id="ota-firmware-file" type="file" accept=".bin,.hex,.enc">
+                选择 .bin / .hex
+                <input id="ota-firmware-file" type="file" accept=".bin,.hex">
               </label>
               <div class="ota-file-meta" id="ota-file-meta">未选择固件</div>
             </div>
             <div class="ota-online-row" id="ota-online-row">
-              <div class="ota-online-head" id="ota-online-head">在线固件库</div>
+              <div class="ota-online-head" id="ota-online-head">在线固件库 <button class="btn compact" id="ota-online-refresh" type="button">刷新清单</button></div>
               <div class="ota-online-list" id="ota-online-list"><span class="ota-online-empty">加载中…</span></div>
             </div>
             <div class="form-grid small-grid">
               <label>
                 <span>传输档位</span>
                 <select id="ota-preset">
-                  <option value="fast">快速 240B×224×6窗</option>
-                  <option value="compat">兼容 240B×208×6窗</option>
-                  <option value="stable">稳定 120B×112×3窗</option>
-                  <option value="safe">安全 20B×40×ACK</option>
+                  <option value="safe">保守 ACK · GATT20B / 数据40B</option>
                 </select>
               </label>
-              <label><span>写入校验</span><input type="text" value="CRC32 + 窗口同步 + 断点续写" disabled></label>
+              <label><span>写入校验</span><input type="text" value="逐包 ACK + CRC + APP 回应确认" disabled></label>
             </div>
+            <label class="ota-check" id="ota-main-only-row" hidden><input type="checkbox" id="ota-main-only">副板状态未确认；我已查看原因，仅恢复 W515 主控 APP</label>
+            <p class="ota-notice">仅支持匹配的 W515 APP。此浏览器实现尚未真机验证；请保持稳定供电、亮屏、页面前台。失败不自动重发擦写，不支持锁屏续传。</p>
+            <p class="ota-notice" id="ota-gate-reason" role="status">第一步：检测主控与副板状态</p>
             <div class="action-row">
-              <button class="btn primary" id="ota-start" type="button">开始升级</button>
+              <button class="btn primary" id="ota-start" type="button" disabled>确认并升级主控</button>
               <button class="btn" id="ota-abort" type="button" disabled>中止</button>
             </div>
           </div>
@@ -379,7 +389,7 @@
         </div>
 
         <div class="connect-hint" id="connect-hint">
-          <img src="./assets/empty-connect.svg?v=20260703_v3" alt="">
+          <img src="./assets/empty-connect.svg?v=status-first-1" alt="">
           <div>
             <strong>瞄具未连接</strong>
             <span>连接 BLE 后，此处实时显示测距与落点解算</span>
@@ -395,7 +405,7 @@
           </div>
 
           <div class="target-shape target-deer" id="preview-target">
-            <img id="target-img" src="./assets/targets/deer.svg?v=20260703_v3" alt="">
+            <img id="target-img" src="./assets/targets/deer.svg?v=status-first-1" alt="">
           </div>
 
           <div class="reticle-cross horizontal"></div>
@@ -492,6 +502,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/app.js?v=20260703_v3"></script>
+  <script type="module" src="./src/app.js?v=status-first-1"></script>
 </body>
 </html>

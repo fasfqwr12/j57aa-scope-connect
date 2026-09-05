@@ -41,7 +41,8 @@ export class WireChannel {
     // await it before letting a caller release the exclusive session.
     reply.catch(() => {});
     try { await this.write(bytes, { chunkSize, withResponse: true, signal }); }
-    catch (error) { p.finish(error); }
+    catch (error) { p.finish(error); throw error; }
+    checkAbort(signal);
     return reply;
   }
 }

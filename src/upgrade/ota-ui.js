@@ -1,219 +1,177 @@
-// 升级 Tab UI 逻辑（W515 BLE OTA）
-import { W515OtaSession, OTA_PRESETS } from "./w515-ota.js?v=20260703_v3";
-import { crc16Modbus, crc32, buildOtaFrame, toHex } from "./ota-protocol.js?v=20260703_v3";
+import { W515OtaSession } from "./w515-ota.js?v=status-first-1";
+import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=status-first-1";
+import { inspectFirmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
+import { firmwareDirectory, firmwareUrl, verifyDownload } from "./firmware-library.js?v=status-first-1";
 
-const STAGES = [
-  { id: "parse", label: "解析固件" },
-  { id: "handshake", label: "握手" },
-  { id: "enterboot", label: "进入 Boot" },
-  { id: "info", label: "Boot 信息" },
-  { id: "erase", label: "擦除" },
-  { id: "write", label: "写入" },
-  { id: "verify", label: "校验" },
-  { id: "reset", label: "复位" },
-  { id: "done", label: "完成" }
-];
-
-let firmware = null;        // Uint8Array
-let session = null;         // W515OtaSession
-let ctx = null;             // { getAdapter, connect, isConnected }
+const STAGES = ["probe", "enterboot", "info", "erase", "write", "verify", "reset", "done"];
+const LABELS = ["检测双板", "进入 Boot", "核对窗口", "擦除", "ACK写入", "CRC校验", "确认 APP", "完成"];
+const MODE = { APP: "APP 运行", BOOT: "Boot 运行", UNKNOWN: "未确认", UNREACHABLE: "通路不可达" };
+const ROUTE = { UNKNOWN: "未确认", INACTIVE: "未占用", BUSY: "已有会话占用", OWNED_NORMAL: "检测会话占用", RELEASED: "已确认释放", CLEANUP_UNCONFIRMED: "释放未确认", NOT_AVAILABLE_IN_BOOT: "当前 Boot 无代理" };
+const $ = s => document.querySelector(s);
+const hex = v => v == null ? "—" : "0x" + (v >>> 0).toString(16).toUpperCase().padStart(8, "0");
+const version = v => v == null ? "—" : `${v >>> 8}.${v & 255}`;
+let ctx, firmware = null, snapshot = null, busy = false, session = null, probeAbort = null, wakeLock = null;
 
 export function initOtaUpgrade(context) {
   ctx = context;
-  const $ = s => document.querySelector(s);
-
-  $("#ota-firmware-file").addEventListener("change", async ev => {
-    const file = ev.target.files?.[0];
-    if (!file) return;
-    const buf = new Uint8Array(await file.arrayBuffer());
-    firmware = buf;
-    const meta = readMetaBrief(buf);
-    $("#ota-file-meta").innerHTML = meta
-      ? `<strong>${escapeHtml(file.name)}</strong> · ${buf.length}B · ${escapeHtml(meta)}`
-      : `<strong>${escapeHtml(file.name)}</strong> · ${buf.length}B · 无元数据(整包CRC)`;
-    otaLog("SYS", `固件已载入: ${file.name} (${buf.length}B) CRC32=0x${crc32(buf).toString(16).toUpperCase()}`);
-    ev.target.value = "";
-  });
-
+  $("#ota-query-status").addEventListener("click", detect);
   $("#ota-start").addEventListener("click", startUpgrade);
-  $("#ota-abort").addEventListener("click", () => {
-    if (session) { session.abort(); otaLog("WARN", "中止请求已发出"); }
+  $("#ota-abort").addEventListener("click", () => { session?.abort(); probeAbort?.abort(); otaLog("WARN", "已请求停止，等待当前写入结束和本会话清理"); });
+  $("#ota-clear-log").addEventListener("click", () => { $("#ota-log-box").replaceChildren(); });
+  $("#ota-firmware-file").addEventListener("change", async event => {
+    const file = event.target.files?.[0]; event.target.value = "";
+    if (!file || busy) return;
+    setBusy(true);
+    try {
+      if (file.size > 6 * 1024 * 1024) throw new Error("文件过大，不是支持的 APP 镜像");
+      firmware = inspectFirmware(new Uint8Array(await file.arrayBuffer()), file.name);
+      renderFirmware();
+    } catch (error) { firmware = null; renderFirmware(); otaLog("ERR", error.message); }
+    finally { setBusy(false); }
   });
-  $("#ota-clear-log").addEventListener("click", () => { $("#ota-log-box").innerHTML = ""; });
-
-  // 目标选择（N32 暂未开放）
-  document.querySelectorAll('input[name="ota-target"]').forEach(radio => {
-    radio.addEventListener("change", () => {
-      document.querySelectorAll(".ota-target").forEach(el => el.classList.toggle("selected", el.querySelector("input").checked));
-    });
+  $("#ota-main-only").addEventListener("change", renderGate);
+  $("#ota-online-refresh").addEventListener("click", () => { if (!busy) loadOnlineFirmware(); });
+  window.addEventListener("beforeunload", event => { if (busy) { event.preventDefault(); event.returnValue = ""; } });
+  document.addEventListener("visibilitychange", () => {
+    if (busy && document.hidden) { session?.abort(); probeAbort?.abort(); otaLog("WARN", "页面进入后台，已请求停止；返回后重新检测，不自动续写"); }
   });
-
-  loadOnlineFirmware();
-}
-
-// ===== 在线固件库（firmware/versions.json）=====
-async function loadOnlineFirmware() {
-  const list = document.querySelector("#ota-online-list");
-  try {
-    const base = new URL("../firmware/versions.json", location.href).href;
-    const cacheBust = base + (base.includes("?") ? "&" : "?") + "t=" + Date.now();
-    const res = await fetch(cacheBust);
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    const files = Array.isArray(data.files) ? data.files : [];
-    if (!files.length) {
-      list.innerHTML = '<span class="ota-online-empty">在线库为空 · 固件请交给管理员放入 firmware/ 目录</span>';
-      return;
+  setInterval(() => {
+    if (snapshot && (!ctx.getAdapter() || !snapshotIsFresh(snapshot, ctx.getAdapter()))) {
+      snapshot = null; $("#ota-main-only").checked = false; renderSnapshot();
     }
-    list.innerHTML = "";
-    files.forEach(fw => {
-      const item = document.createElement("div");
-      item.className = "ota-online-item";
-      const targetCls = String(fw.target || "").startsWith("n32") ? "n32" : "w515";
-      const tag = targetCls === "n32" ? "N32" : "W515";
-      const rec = fw.recommended ? '<span class="fw-tag rec">推荐</span>' : "";
-      item.innerHTML = `
-        <span class="fw-tag ${targetCls}">${tag}</span>
-        <span class="fw-name">${escapeHtml(fw.version || fw.name)}</span>
-        ${rec}
-        <span class="fw-notes">${escapeHtml(fw.notes || "")}</span>
-        <span class="fw-tag">v${escapeHtml(String(fw.version || "?"))}</span>`;
-      item.addEventListener("click", async () => {
-        await pickOnlineFirmware(fw, item);
-      });
-      list.appendChild(item);
-    });
-  } catch (e) {
-    list.innerHTML = '<span class="ota-online-empty">在线库不可用（本地调试正常，Pages 上无固件清单）</span>';
-  }
+    renderGate();
+  }, 1000);
+  renderSnapshot(); renderGate(); loadOnlineFirmware();
 }
-
-async function pickOnlineFirmware(fw, item) {
-  const $ = s => document.querySelector(s);
-  item.style.opacity = ".5";
-  try {
-    const url = new URL("../firmware/" + encodeURIComponent(fw.name), location.href).href;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("下载失败 HTTP " + res.status);
-    const buf = new Uint8Array(await res.arrayBuffer());
-    firmware = buf;
-    const meta = readMetaBrief(buf);
-    $("#ota-file-meta").innerHTML = `<strong>${escapeHtml(fw.name)}</strong> · ${buf.length}B · ${escapeHtml(meta || "无元数据(整包CRC)")}`;
-    otaLog("SYS", `在线固件已载入: ${fw.name} (${buf.length}B)${fw.notes ? " · " + fw.notes : ""}`);
-  } catch (e) {
-    otaLog("ERR", `在线固件获取失败: ${e.message}`);
-  } finally {
-    item.style.opacity = "";
-  }
+function otaLog(type, text) {
+  const row = document.createElement("div"); row.className = "log-row";
+  row.textContent = `${new Date().toLocaleTimeString()} [${type}] ${text}`;
+  const host = $("#ota-log-box"); host.append(row);
+  while (host.children.length > 400) host.firstChild.remove();
+  host.scrollTop = host.scrollHeight;
 }
-
-async function startUpgrade() {
-  const $ = s => document.querySelector(s);
-  if (!firmware) { otaLog("ERR", "请先选择固件 .bin 文件"); return; }
-  if (!ctx.isConnected()) {
-    otaLog("SYS", "未连接，先连接 BLE…");
-    await ctx.connect();
-    if (!ctx.isConnected()) { otaLog("ERR", "BLE 未连接，升级中止"); return; }
-  }
+function setBusy(value) {
+  busy = value; ctx.setBusy?.(value);
+  $("#ota-query-status").disabled = value;
+  $("#ota-firmware-file").disabled = value;
+  $("#ota-preset").disabled = value;
+  $("#ota-online-refresh").disabled = value;
+  $("#ota-main-only").disabled = value;
+  $("#ota-abort").disabled = !value;
+  document.querySelectorAll(".ota-online-item").forEach(el => { el.disabled = value; });
+  renderGate();
+}
+async function adapterForProbe() {
+  if (!ctx.isConnected()) await ctx.connect();
   const adapter = ctx.getAdapter();
-  if (!adapter || typeof adapter.writeRaw !== "function") {
-    otaLog("ERR", "当前连接方式不支持 OTA（需要浏览器 BLE 直连）");
-    return;
-  }
-
-  const presetKey = $("#ota-preset").value;
+  if (!adapter?.requestWire || !adapter.isGattConnected()) throw new Error("请先在设备页选择浏览器 BLE 并连接；Bridge 不提供此升级通道");
+  return adapter;
+}
+async function keepAwake() {
+  try { if (navigator.wakeLock && !document.hidden) wakeLock = await navigator.wakeLock.request("screen"); }
+  catch { otaLog("WARN", "无法保持亮屏，请手动保持页面前台"); }
+}
+async function releaseAwake() { try { await wakeLock?.release(); } finally { wakeLock = null; } }
+async function detect() {
+  if (busy) return;
+  if (!window.confirm("检测会暂时占用测距 UART，不发送进 Boot 或擦写命令。若副板已在 Boot 启动窗口，查询会使其停留在 Boot。请停止测距并保持页面前台。继续检测？")) return;
+  snapshot = null; $("#ota-main-only").checked = false; renderSnapshot();
+  setBusy(true); probeAbort = new AbortController();
+  try {
+    const adapter = await adapterForProbe(); await keepAwake();
+    snapshot = await new DeviceProbe(adapter, { signal: probeAbort.signal, onLog: otaLog }).run();
+    renderSnapshot();
+  } catch (error) { otaLog("ERR", error.message); }
+  finally { probeAbort = null; await releaseAwake(); setBusy(false); }
+}
+function renderSnapshot() {
+  const main = snapshot?.main, slave = snapshot?.slave, info = main?.info;
+  $("#ota-main-mode").textContent = MODE[main?.mode] || "未检测";
+  $("#ota-slave-mode").textContent = MODE[slave?.mode] || "未检测";
+  $("#ota-main-info").textContent = info ? `${info.model} · 硬件 ${version(info.hw_ver)} · APP ${version(info.sw_ver)} · 上报Boot ${version(info.boot_ver)}\nAPP ${hex(info.app_start)} · ${info.app_size}B · CRC ${hex(info.app_crc)}` : "等待主控身份与地址信息";
+  const details = slave?.mode === "APP" ? `APP v${version(slave.appVersion)} · 入口 ${hex(slave.appStart)} · 运行阶段 ${slave.runtimeStage} · 心跳计数 ${slave.heartbeat}` : slave?.mode === "BOOT" ? `Boot v${slave.bootVersion} · 入口 ${hex(slave.appStart)} · APP 向量检查${slave.appValid ? "通过（非整包CRC）" : "未通过（不能区分空白/损坏）"}` : slave?.reason;
+  $("#ota-slave-info").textContent = details || "必须收到副板自身应答；代理正常不等于副板在线";
+  $("#ota-proxy-state").textContent = ROUTE[snapshot?.proxy.state] || "未检测";
+  $("#ota-state-time").textContent = snapshot ? `检测于 ${new Date(snapshot.checkedAt).toLocaleTimeString()} · 60秒内有效` : "尚无有效状态；断连或过期后需重查";
+  $("#ota-main-only-row").hidden = !snapshot || ["APP", "BOOT"].includes(slave?.mode);
+  renderGate();
+}
+function renderFirmware() {
+  $("#ota-file-meta").textContent = firmware ? `${firmware.name} · ${firmware.bytes.length}B · ${firmware.meta.model} · CRC已核对` : "未选择有效固件";
+  $("#ota-main-only").checked = false; renderGate();
+}
+function gateReason() {
+  const adapter = ctx?.getAdapter();
+  if (!snapshot || !adapter || !snapshotIsFresh(snapshot, adapter)) return "第一步：检测主控与副板状态";
+  const gate = w515Gate(snapshot); if (gate) return gate;
+  if (!firmware) return "第二步：选择匹配的 W515 APP 固件";
+  try { validateFirmwareForDevice(firmware, snapshot.main.info); } catch (e) { return e.message; }
+  if (!["APP", "BOOT"].includes(snapshot.slave.mode) && !$("#ota-main-only").checked) return "副板状态未确认；仅恢复主控须明确勾选";
+  return null;
+}
+function renderGate() {
+  const reason = gateReason();
+  $("#ota-start").disabled = busy || !!reason;
+  $("#ota-gate-reason").textContent = busy ? "正在操作，蓝牙通道独占中" : reason || "可确认升级；执行前会再次检测双板，仍需真机验证";
+}
+function onStage(stage, label) {
   $("#ota-progress-band").style.display = "";
-  $("#ota-start").disabled = true;
-  $("#ota-abort").disabled = false;
-  renderStageList(null);
-
-  session = new W515OtaSession(adapter, {
-    onLog: (type, msg) => otaLog(type, msg),
-    onStage: (stage, label) => {
-      $("#ota-stage-label").textContent = label;
-      renderStageList(stage);
-    },
-    onProgress: info => {
-      const pct = info.total ? Math.floor(info.written / info.total * 100) : 0;
-      $("#ota-progress-fill").style.width = pct + "%";
-      $("#ota-stat-progress").textContent = pct + "%";
-      $("#ota-stat-speed").textContent = fmtSpeed(info.speed);
-      $("#ota-stat-packets").textContent = `${info.packetIndex}/${info.packets}`;
-      $("#ota-stat-mode").textContent = `${info.chunk}B×w${session?.preset?.window ?? "--"}`;
-    }
-  });
-
+  $("#ota-stage-label").textContent = label;
+  $("#ota-stage-list").replaceChildren(...STAGES.map((s, i) => {
+    const el = document.createElement("span");
+    el.className = "ota-stage" + (s === stage ? " active" : i < STAGES.indexOf(stage) ? " done" : "");
+    el.textContent = LABELS[i]; return el;
+  }));
+}
+function onProgress(p) {
+  $("#ota-progress-fill").style.width = `${p.percent}%`;
+  $("#ota-stat-progress").textContent = `${p.percent.toFixed(1)}%`;
+  $("#ota-stat-speed").textContent = `${Math.round(p.speed)} B/s`;
+  $("#ota-stat-packets").textContent = `${p.packets}/${p.totalPackets}`;
+  $("#ota-stat-mode").textContent = p.mode;
+}
+async function startUpgrade() {
+  if (busy) return;
+  const reason = gateReason(); if (reason) { otaLog("WARN", reason); return; }
+  const image = firmware, adapter = ctx.getAdapter(), deviceId = snapshot.deviceId;
+  const mainOnly = $("#ota-main-only").checked;
+  if (!window.confirm(`仅升级 W515 APP：${image.name}\n将擦除并写入 ${hex(snapshot.main.info.app_start)} 的 APP 区。N32 不会被刷写。\n此浏览器实现尚未真机验证，请保持稳定供电、亮屏和前台；失败可能需要 Boot 恢复。确认执行？`)) return;
+  setBusy(true);
   try {
-    const result = await session.run(firmware, presetKey);
-    if (result.success) {
-      otaLog("SYS", `升级成功: size=${result.verify.size} crc=0x${result.verify.crc.toString(16).toUpperCase()} (${result.verify.source})${result.app_unconfirmed ? " · App 回应未确认" : ""}`);
-      $("#ota-stage-label").textContent = "完成";
-      $("#ota-progress-fill").style.width = "100%";
-      $("#ota-stat-progress").textContent = "100%";
-    } else {
-      otaLog("ERR", "升级失败");
-    }
-  } catch (err) {
-    otaLog("ERR", err.message || String(err));
-    $("#ota-stage-label").textContent = "失败";
-  } finally {
-    $("#ota-start").disabled = false;
-    $("#ota-abort").disabled = true;
-    session = null;
-  }
+    await keepAwake();
+    session = new W515OtaSession(adapter, { onLog: otaLog, onStage, onProgress, onSnapshot: value => { snapshot = value; renderSnapshot(); } });
+    const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId, acknowledgeSlaveUnknown: mainOnly });
+    otaLog("SYS", result.success ? "主控 APP 回应与固件信息已确认；副板状态须重新检测" : "未完成");
+  } catch (error) { onStage("error", "已停止 / 未完成"); otaLog("ERR", error.message); }
+  finally { session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }
 }
-
-function renderStageList(activeStage) {
-  const host = document.querySelector("#ota-stage-list");
-  if (!host) return;
-  const idx = STAGES.findIndex(s => s.id === activeStage);
-  host.innerHTML = STAGES.map((s, i) => {
-    const state = idx < 0 ? "" : (i < idx ? "done" : (i === idx ? "active" : ""));
-    return `<span class="ota-stage ${state}">${state === "done" ? "✓" : ""}${s.label}</span>`;
-  }).join("");
-}
-
-function otaLog(type, msg) {
-  const box = document.querySelector("#ota-log-box");
-  if (!box) return;
-  const line = document.createElement("div");
-  line.className = `log-line ${String(type).toLowerCase()}`;
-  const t = new Date();
-  const hh = String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0") + ":" + String(t.getSeconds()).padStart(2, "0");
-  line.textContent = `[${hh}] [${type}] ${msg}`;
-  box.appendChild(line);
-  while (box.children.length > 400) box.removeChild(box.firstChild);
-  box.scrollTop = box.scrollHeight;
-}
-
-function readMetaBrief(fw) {
+async function loadOnlineFirmware() {
+  const list = $("#ota-online-list"); list.textContent = "读取在线清单…";
   try {
-    const off = 0x200;
-    if (fw.length < off + 64) return null;
-    const dv = new DataView(fw.buffer, fw.byteOffset, fw.byteLength);
-    if (dv.getUint32(off, true) !== 0x4649524D) return null;
-    const appSize = dv.getUint32(off + 0x20, true);
-    const version = dv.getUint32(off + 4, true);
-    const model = new TextDecoder().decode(fw.slice(off + 0x10, off + 0x20)).split("\0")[0] || "?";
-    return `${model} v${(version >>> 24) & 0xFF}.${(version >>> 16) & 0xFF}.${(version >>> 8) & 0xFF} app=${appSize}B`;
-  } catch { return null; }
+    const response = await fetch(new URL("versions.json", firmwareDirectory()), { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const files = (Array.isArray(data.files) ? data.files : []).filter(f => f.target === "w515-app");
+    files.sort((a, b) => Number(!!b.recommended) - Number(!!a.recommended) || String(b.date).localeCompare(String(a.date)));
+    list.replaceChildren();
+    if (!files.length) { list.textContent = "未发布 W515 APP 固件"; return; }
+    for (const entry of files) {
+      const item = document.createElement("button"); item.type = "button"; item.className = "ota-online-item"; item.disabled = busy;
+      item.textContent = `${entry.name} · ${entry.size}B · ${entry.notes || "待验证版本"}`;
+      item.addEventListener("click", async () => {
+        if (busy) return;
+        setBusy(true);
+        try {
+          const response = await fetch(firmwareUrl(entry), { cache: "no-store" });
+          if (!response.ok) throw new Error(`下载失败 HTTP ${response.status}`);
+          const bytes = new Uint8Array(await response.arrayBuffer()); await verifyDownload(bytes, entry);
+          const image = inspectFirmware(bytes, entry.name, entry.target);
+          if (entry.metaCrc32 && image.meta.appCrc !== parseInt(entry.metaCrc32, 16)) throw new Error("元数据 CRC 与清单不符");
+          firmware = image; renderFirmware(); otaLog("SYS", "在线固件长度、SHA-256 和元数据 CRC 已核对（不代表真机验收）");
+        } catch (error) { firmware = null; renderFirmware(); otaLog("ERR", error.message); }
+        finally { setBusy(false); }
+      });
+      list.append(item);
+    }
+  } catch (error) { list.textContent = `在线库不可用：${error.message}；可刷新清单或选择本地文件`; }
 }
-
-function fmtSpeed(bps) {
-  if (!bps || bps <= 0) return "-- B/s";
-  if (bps > 1024) return (bps / 1024).toFixed(1) + " KB/s";
-  return Math.round(bps) + " B/s";
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-// ===== 自检（控制台）：帧构造/CRC 与母本用例比对 =====
-// 母本用例: ble_upgrade_w515_app.py boot_frame(0x01, [12 34 56 78]) = AA 01 00 04 12 34 56 78 34 81 55
-self.addEventListener("load", () => {
-  const hs = buildOtaFrame(0x01, [0x12, 0x34, 0x56, 0x78]);
-  const got = toHex(hs);
-  const ref = "AA01000412345678348155";
-  console.info(`[OTA 自检] 握手帧: ${got} ${got === ref ? "✓ 与母本(可运行代码)一致" : "✗ 不一致 ref=" + ref}`);
-});

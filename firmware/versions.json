@@ -1,6 +1,6 @@
 {
-  "schema": 1,
-  "note": "J57AA 固件在线库。把固件 bin 放本目录并在 files 里登记即可被网页升级页列出。",
+  "schema": 2,
+  "note": "候选固件库；文件时间不等于验收版本。SHA-256与fileCrc32为整文件校验，metaCrc32为W515元数据兼容校验。",
   "files": [
     {
       "name": "W515_APP_v0.1.0_0810.bin",
@@ -8,9 +8,11 @@
       "version": "0.1.0",
       "date": "2026-08-10",
       "size": 63776,
-      "crc32": "E4503DFD",
-      "notes": "主控 W515 APP 最新版（源: Keil J57AA_APP.bin 2026/8/10）",
-      "recommended": true
+      "sha256": "a0d446c18a04b52ab4b954af6e12cc25534b121d64fd3e30a81cf2f939f14b36",
+      "fileCrc32": "8D78A553",
+      "metaCrc32": "E4503DFD",
+      "notes": "现有 Keil 产物 · 校验可核对 · 浏览器OTA尚未真机验收",
+      "recommended": false
     }
   ]
 }

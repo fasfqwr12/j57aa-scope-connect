@@ -716,6 +716,18 @@ body.ble-live .connect-hint { display: none; }
 .ota-online-item .fw-notes { flex: 1; min-width: 0; font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ============ 升级（OTA） ============ */
+.ota-board-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ota-board { min-width: 0; padding: 12px; border: 1px solid var(--accent-line); border-radius: 11px; background: var(--accent-soft); }
+.ota-board h4 { font: 600 12px var(--mono); color: var(--muted); margin: 0 0 8px; }
+.ota-board > strong { font-size: 19px; color: var(--accent-deep); }
+.ota-board p { white-space: pre-line; overflow-wrap: anywhere; font-size: 12px; line-height: 1.7; margin: 8px 0 0; }
+.ota-notice { color: var(--muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.ota-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.7; margin: 10px 0; }
+.ota-check[hidden] { display: none; }
+.ota-check input { width: 18px; height: 18px; flex: none; }
+.ota-online-item { width: 100%; text-align: left; color: var(--text); white-space: normal; overflow-wrap: anywhere; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+@media (max-width: 520px) { .ota-board-grid { gap: 6px; } .ota-board { padding: 8px; } .ota-board > strong { font-size: 16px; } }
 .ota-target-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 .ota-target {
   border: 1px solid var(--line);
@@ -859,7 +871,7 @@ body.ble-live .connect-hint { display: none; }
     left: 0; right: 0; bottom: 0;
     z-index: 60;
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 4px;
   }
 }
