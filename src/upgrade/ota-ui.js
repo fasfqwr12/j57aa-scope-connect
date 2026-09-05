@@ -95,7 +95,8 @@ function renderSnapshot() {
   $("#ota-main-info").textContent = info ? `${info.model} · 硬件 ${version(info.hw_ver)} · APP ${version(info.sw_ver)} · 上报Boot ${version(info.boot_ver)}\nAPP ${hex(info.app_start)} · ${info.app_size}B · CRC ${hex(info.app_crc)}` : "等待主控身份与地址信息";
   const details = slave?.mode === "APP" ? `APP v${version(slave.appVersion)} · 入口 ${hex(slave.appStart)} · 运行阶段 ${slave.runtimeStage} · 心跳计数 ${slave.heartbeat}` : slave?.mode === "BOOT" ? `Boot v${slave.bootVersion} · 入口 ${hex(slave.appStart)} · APP 向量检查${slave.appValid ? "通过（非整包CRC）" : "未通过（不能区分空白/损坏）"}` : slave?.reason;
   $("#ota-slave-info").textContent = details || "必须收到副板自身应答；代理正常不等于副板在线";
-  $("#ota-proxy-state").textContent = ROUTE[snapshot?.proxy.state] || "未检测";
+  if (main?.reason) $("#ota-main-info").textContent += `\n检测异常：${main.reason}`;
+  $("#ota-proxy-state").textContent = (ROUTE[snapshot?.proxy.state] || "未检测") + (snapshot?.proxy.reason ? `：${snapshot.proxy.reason}` : "");
   $("#ota-state-time").textContent = snapshot ? `检测于 ${new Date(snapshot.checkedAt).toLocaleTimeString()} · 60秒内有效` : "尚无有效状态；断连或过期后需重查";
   $("#ota-main-only-row").hidden = !snapshot || ["APP", "BOOT"].includes(slave?.mode);
   renderGate();
