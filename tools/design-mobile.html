@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="red">
+<html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -53,7 +53,48 @@
     --text: #17202e; --muted: #5c6b80; --dim: #93a0b3;
     --accent: #1f5eff; --accent-hot: #3d7bff; --accent-deep: #123eb8;
     --accent-soft: rgba(31,94,255,.08); --accent-line: rgba(31,94,255,.4);
+    --hud: #3d7bff;
     --ok: #14953f; --warn: #b87500;
+  }
+  [data-theme="graphite"] {
+    --bg: #f4f5f7; --tint: rgba(20,24,32,.04);
+    --panel: #ffffff; --card: #ffffff; --card2: #f4f5f8;
+    --line: rgba(20,24,32,.10); --line2: rgba(20,24,32,.20);
+    --text: #171a20; --muted: #565e6c; --dim: #9aa1ad;
+    --accent: #20242c; --accent-hot: #3a4150; --accent-deep: #14171e;
+    --accent-soft: rgba(32,36,44,.07); --accent-line: rgba(32,36,44,.45);
+    --hud: #e8ebf2;
+    --ok: #14953f; --warn: #b87500;
+  }
+  [data-theme="teal"] {
+    --bg: #ecf2f1; --tint: rgba(13,148,136,.05);
+    --panel: #ffffff; --card: #ffffff; --card2: #f2f7f6;
+    --line: rgba(10,40,36,.10); --line2: rgba(10,40,36,.18);
+    --text: #12211e; --muted: #52706a; --dim: #90a5a0;
+    --accent: #0d9488; --accent-hot: #14b8a6; --accent-deep: #0b6b62;
+    --accent-soft: rgba(13,148,136,.09); --accent-line: rgba(13,148,136,.42);
+    --hud: #2dd4bf;
+    --ok: #14953f; --warn: #b87500;
+  }
+  [data-theme="warm"] {
+    --bg: #faf6f0; --tint: rgba(232,102,44,.05);
+    --panel: #fffefd; --card: #fffefd; --card2: #f7f0e6;
+    --line: rgba(60,40,20,.10); --line2: rgba(60,40,20,.18);
+    --text: #241c12; --muted: #6f6455; --dim: #a89c8a;
+    --accent: #e8662c; --accent-hot: #f07a3e; --accent-deep: #b34a17;
+    --accent-soft: rgba(232,102,44,.09); --accent-line: rgba(232,102,44,.42);
+    --hud: #ff8a4d;
+    --ok: #14953f; --warn: #a86200;
+  }
+  [data-theme="olive"] {
+    --bg: #f0efe6; --tint: rgba(107,125,79,.06);
+    --panel: #fbfbf6; --card: #fbfbf6; --card2: #f2f1e8;
+    --line: rgba(50,52,30,.10); --line2: rgba(50,52,30,.18);
+    --text: #23261a; --muted: #5f6650; --dim: #9aa08a;
+    --accent: #6b7d4f; --accent-hot: #7d9160; --accent-deep: #4c5a36;
+    --accent-soft: rgba(107,125,79,.10); --accent-line: rgba(107,125,79,.45);
+    --hud: #a9c07e;
+    --ok: #2f7d3f; --warn: #9a6b00;
   }
 
   * { box-sizing: border-box; margin: 0; }
@@ -68,13 +109,14 @@
   /* ============ 主题切换器 ============ */
   .theme-bar {
     position: fixed; top: 14px; right: 18px; z-index: 99;
-    display: flex; align-items: center; gap: 4px;
+    display: flex; flex-direction: column; gap: 3px;
     background: color-mix(in srgb, var(--panel) 88%, transparent);
-    border: 1px solid var(--line2); border-radius: 999px;
-    padding: 5px 6px; backdrop-filter: blur(14px);
-    box-shadow: 0 10px 34px rgba(0,0,0,.35);
+    border: 1px solid var(--line2); border-radius: 18px;
+    padding: 7px 8px; backdrop-filter: blur(14px);
+    box-shadow: 0 10px 34px rgba(0,0,0,.25);
   }
-  .theme-bar .tl { font: 700 10px var(--mono); color: var(--dim); letter-spacing: 1px; padding: 0 8px; }
+  .t-row { display: flex; align-items: center; gap: 3px; }
+  .theme-bar .tl { font: 700 10px var(--mono); color: var(--dim); letter-spacing: 1px; padding: 0 7px; }
   .theme-btn {
     display: flex; align-items: center; gap: 6px;
     border: 1px solid transparent; background: transparent; border-radius: 999px;
@@ -88,7 +130,11 @@
   [data-theme="nv"]     .theme-btn[data-t="nv"]     i { background: #00e589; }
   [data-theme="cyan"]   .theme-btn[data-t="cyan"]   i { background: #38c8ff; }
   [data-theme="amber"]  .theme-btn[data-t="amber"]  i { background: #ffab2e; }
-  [data-theme="light"]  .theme-btn[data-t="light"]  i { background: linear-gradient(180deg,#fff,#c9d4e4); border: 1px solid rgba(0,0,0,.2); }
+  [data-theme="light"]  .theme-btn[data-t="light"]  i { background: #1f5eff; }
+  [data-theme="graphite"] .theme-btn[data-t="graphite"] i { background: #20242c; }
+  [data-theme="teal"]   .theme-btn[data-t="teal"]   i { background: #0d9488; }
+  [data-theme="warm"]   .theme-btn[data-t="warm"]   i { background: #e8662c; }
+  [data-theme="olive"]  .theme-btn[data-t="olive"]  i { background: #6b7d4f; }
 
   /* ============ 页头 ============ */
   .doc-head { display: flex; align-items: flex-end; gap: 18px; margin-bottom: 10px; }
@@ -234,18 +280,18 @@
   .scope-lens::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 44px rgba(0,0,0,.4), inset 0 0 5px rgba(0,0,0,.85); pointer-events: none; z-index: 30; }
   .hud-top {
     position: absolute; left: 0; right: 0; top: 0; height: 24%;
-    background: #020202; z-index: 20; color: var(--accent-hot);
+    background: #020202; z-index: 20; color: var(--hud, var(--accent-hot));
     font-family: var(--mono);
     display: grid; grid-template-columns: 1.35fr 1fr .9fr; gap: 4px;
     align-items: center; padding: 7% 13% 2%;
-    text-shadow: 0 0 7px var(--accent), 0 0 16px color-mix(in srgb, var(--accent) 55%, transparent);
+    text-shadow: 0 0 7px var(--hud), 0 0 16px color-mix(in srgb, var(--hud) 55%, transparent);
   }
   .hud-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 16px; background: linear-gradient(180deg, #020202, transparent); }
   .hc { display: flex; align-items: baseline; justify-content: center; gap: 3px; min-width: 0; }
-  .hc span { font-size: 8px; color: color-mix(in srgb, var(--accent-hot) 70%, #fff); font-weight: 800; }
+  .hc span { font-size: 8px; color: color-mix(in srgb, var(--hud) 70%, #fff); font-weight: 800; }
   .hc strong { font-size: 24px; line-height: 1; }
   .hc.primary strong { font-size: 38px; }
-  .hc em { font-size: 9px; font-style: normal; color: color-mix(in srgb, var(--accent-hot) 70%, #fff); }
+  .hc em { font-size: 9px; font-style: normal; color: color-mix(in srgb, var(--hud) 70%, #fff); }
   .r-cross { position: absolute; background: rgba(0,0,0,.72); z-index: 8; }
   .r-cross.h { left: 8%; right: 8%; top: 50%; height: 1px; }
   .r-cross.v { top: 34%; bottom: 8%; left: 50%; width: 1px; }
@@ -253,7 +299,7 @@
   .r-dots span { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: rgba(0,0,0,.4); transform: translate(-50%,-50%); }
   .aim-dot {
     position: absolute; width: 12px; height: 12px; border-radius: 50%; z-index: 16;
-    background: var(--accent-hot); box-shadow: 0 0 9px var(--accent-hot), 0 0 24px var(--accent);
+    background: var(--hud); box-shadow: 0 0 9px var(--hud), 0 0 24px var(--hud);
     transform: translate(-50%,-50%);
   }
   .tgt { position: absolute; left: 50%; top: 58%; width: 150px; height: 139px; transform: translate(-50%,-50%); z-index: 5; opacity: .9; }
@@ -330,21 +376,31 @@
   .icon-strip .ic2 { width: 26px; height: 26px; color: var(--text); }
   .icon-strip .big { width: 46px; height: 46px; }
 
-  /* 亮色主题下镜筒边框等微调 */
-  [data-theme="light"] .phone { border-color: #2a3138; }
-  [data-theme="light"] .scope-lens { border-color: #2a3138; }
+  /* 浅色主题下镜筒边框等微调 */
+  [data-theme="light"], [data-theme="graphite"], [data-theme="teal"], [data-theme="warm"], [data-theme="olive"] { }
+  [data-theme="light"] .phone, [data-theme="graphite"] .phone, [data-theme="teal"] .phone, [data-theme="warm"] .phone, [data-theme="olive"] .phone { border-color: #2a3138; }
+  [data-theme="light"] .scope-lens, [data-theme="graphite"] .scope-lens, [data-theme="teal"] .scope-lens, [data-theme="warm"] .scope-lens, [data-theme="olive"] .scope-lens { border-color: #2a3138; }
 </style>
 </head>
 <body>
 
 <!-- 主题切换器 -->
 <div class="theme-bar">
-  <span class="tl">THEME</span>
-  <button class="theme-btn active" data-t="red" type="button"><i></i>战术红</button>
-  <button class="theme-btn" data-t="nv" type="button"><i></i>夜视绿</button>
-  <button class="theme-btn" data-t="cyan" type="button"><i></i>科技青</button>
-  <button class="theme-btn" data-t="amber" type="button"><i></i>猎场琥珀</button>
-  <button class="theme-btn" data-t="light" type="button"><i></i>极简亮色</button>
+  <div class="t-row">
+    <span class="tl">深色</span>
+    <button class="theme-btn" data-t="red" type="button"><i></i>战术红</button>
+    <button class="theme-btn" data-t="nv" type="button"><i></i>夜视绿</button>
+    <button class="theme-btn" data-t="cyan" type="button"><i></i>科技青</button>
+    <button class="theme-btn" data-t="amber" type="button"><i></i>猎场琥珀</button>
+  </div>
+  <div class="t-row">
+    <span class="tl">浅色</span>
+    <button class="theme-btn" data-t="light" type="button"><i></i>亮白·深蓝</button>
+    <button class="theme-btn" data-t="graphite" type="button"><i></i>亮白·石墨</button>
+    <button class="theme-btn" data-t="teal" type="button"><i></i>浅灰·青绿</button>
+    <button class="theme-btn" data-t="warm" type="button"><i></i>米白·猎橙</button>
+    <button class="theme-btn" data-t="olive" type="button"><i></i>卡其·军绿</button>
+  </div>
 </div>
 
 <!-- ============ SVG 符号库（currentColor / var 驱动，随主题变色） ============ -->
@@ -398,7 +454,7 @@
     <h1>Scope Connect <span>·</span> 移动端设计稿（可切换主题）</h1>
   </div>
 </div>
-<div class="doc-sub">右上角切换色系：<b>战术红 / 夜视绿 / 科技青 / 猎场琥珀 / 极简亮色</b> · 选择会记住 · 图标与素材全部随主题变色 · 全矢量无限缩放</div>
+<div class="doc-sub">右上角切换色系：<b>深色 ×4：战术红 / 夜视绿 / 科技青 / 猎场琥珀</b> · <b>浅色 ×5：亮白深蓝 / 亮白石墨 / 浅灰青绿 / 米白猎橙 / 卡其军绿</b> · 选择会记住 · 图标与素材全部随主题变色</div>
 
 <div class="section-label">SCREENS · 5 屏主流程</div>
 <div class="phones">
@@ -729,19 +785,22 @@
 
 <script>
   // ===== 主题切换（记忆）=====
-  const themes = ["red", "nv", "cyan", "amber", "light"];
-  const themeNames = { red: "战术红", nv: "夜视绿", cyan: "科技青", amber: "猎场琥珀", light: "极简亮色" };
+  const themes = ["red", "nv", "cyan", "amber", "light", "graphite", "teal", "warm", "olive"];
+  const themeNames = {
+    red: "战术红", nv: "夜视绿", cyan: "科技青", amber: "猎场琥珀",
+    light: "亮白·深蓝", graphite: "亮白·石墨", teal: "浅灰·青绿", warm: "米白·猎橙", olive: "卡其·军绿"
+  };
   const btns = document.querySelectorAll(".theme-btn");
   function setTheme(t) {
     document.documentElement.dataset.theme = t;
     btns.forEach(b => b.classList.toggle("active", b.dataset.t === t));
-    try { localStorage.setItem("design-theme", t); } catch {}
+    try { localStorage.setItem("design-theme2", t); } catch {}
     updateSwatches(t);
   }
   btns.forEach(b => b.addEventListener("click", () => setTheme(b.dataset.t)));
-  let saved = "red";
-  try { saved = localStorage.getItem("design-theme") || "red"; } catch {}
-  if (!themes.includes(saved)) saved = "red";
+  let saved = "light";
+  try { saved = localStorage.getItem("design-theme2") || "light"; } catch {}
+  if (!themes.includes(saved)) saved = "light";
   setTheme(saved);
 
   function updateSwatches(t) {
