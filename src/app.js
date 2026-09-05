@@ -12,7 +12,7 @@ const steps = [
   { id: "sync", label: "同步", title: "同步 DOPE", kicker: "SYNC" }
 ];
 
-const ASSET_V = "20260701_visual1";
+const ASSET_V = "20260703_v3";
 const targetAssets = { deer: "deer", sheep: "sheep", boar: "boar", steel: "steel" };
 
 const zoneLabels = {
@@ -99,12 +99,12 @@ function renderSteps() {
   const mobile = $("#mobile-tabs");
   stepList.innerHTML = steps.map(s => `
     <button class="step-item" data-step="${s.id}" type="button">
-      <img class="step-icon" src="./assets/icons/step-${s.id}.svg?v=${ASSET_V}" alt="">
+      <svg class="step-icon"><use href="#i-${s.id}"/></svg>
       <strong>${s.label}</strong>
       <em>${s.title}</em>
     </button>
   `).join("");
-  mobile.innerHTML = steps.map(s => `<button data-step="${s.id}" type="button"><img src="./assets/icons/step-${s.id}.svg?v=${ASSET_V}" alt="">${s.label}</button>`).join("");
+  mobile.innerHTML = steps.map(s => `<button data-step="${s.id}" type="button"><svg><use href="#i-${s.id}"/></svg>${s.label}</button>`).join("");
   $$("[data-step]").forEach(btn => btn.addEventListener("click", () => setStep(btn.dataset.step)));
 }
 
