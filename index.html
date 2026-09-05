@@ -1,24 +1,22 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="olive">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#07090d">
+  <meta name="theme-color" content="#f0efe6">
   <title>J57AA Scope Connect</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
-  <link rel="stylesheet" href="./src/app.css?v=20260701_visual1">
+  <link rel="stylesheet" href="./src/app.css?v=20260703_v3">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
+      <svg class="brand-logo"><use href="#sym-logo"/></svg>
       <div class="brand-block">
-        <img class="brand-logo" src="./assets/logo-mark.svg?v=20260701_visual1" alt="J57AA Scope Connect">
-        <div>
-          <h1>Scope Connect</h1>
-          <span class="brand-sub">BLE Profile / DOPE / HUD</span>
-        </div>
+        <h1>Scope Connect</h1>
+        <span class="brand-sub">BLE PROFILE / DOPE / HUD</span>
       </div>
 
       <div class="top-status" aria-live="polite">
@@ -28,7 +26,7 @@
 
       <div class="top-actions">
         <button class="btn primary" id="btn-connect" type="button">连接 BLE</button>
-        <button class="btn" id="btn-open-hud" type="button">打开 HUD</button>
+        <button class="btn compact" id="btn-open-hud" type="button">打开 HUD</button>
       </div>
     </header>
 
@@ -51,7 +49,16 @@
           </div>
         </div>
 
+        <!-- ============ 设备 ============ -->
         <div class="section-panel active" data-panel="device">
+          <div class="hero">
+            <svg class="hero-emblem"><use href="#sym-logo"/></svg>
+            <div>
+              <div class="hero-name">J57AA-2000A</div>
+              <div class="hero-sub">LASER RANGEFINDING SCOPE · E104-BT5005A</div>
+            </div>
+          </div>
+
           <div class="field-band">
             <div class="band-head">
               <h3>蓝牙链路</h3>
@@ -116,11 +123,12 @@
           </div>
         </div>
 
+        <!-- ============ 弹药 ============ -->
         <div class="section-panel" data-panel="profile">
           <div class="field-band">
             <div class="band-head">
               <h3>弹药 Profile</h3>
-              <span class="source-pill manual">BurrisConnect 对应层</span>
+              <span class="source-pill manual">本地管理</span>
             </div>
             <div class="preset-row">
               <select id="ammo-preset" aria-label="常用弹种预设">
@@ -148,13 +156,14 @@
           </div>
         </div>
 
+        <!-- ============ 环境 ============ -->
         <div class="section-panel" data-panel="environment">
           <div class="field-band">
             <div class="band-head">
               <h3>环境 / 传感器</h3>
               <span class="source-pill live">BMP388 / SHT40</span>
             </div>
-            <div class="form-grid">
+            <div class="form-grid env-grid">
               <label><span>海拔 m</span><input data-bind="environment.altitude_m" data-number type="number" step="1"></label>
               <label><span>温度 C</span><input data-bind="environment.temp_c" data-number type="number" step="0.5"></label>
               <label><span>湿度 %</span><input data-bind="environment.humidity_pct" data-number type="number" step="1" min="0" max="100"></label>
@@ -167,6 +176,7 @@
           </div>
         </div>
 
+        <!-- ============ 目标 ============ -->
         <div class="section-panel" data-panel="target">
           <div class="field-band">
             <div class="band-head">
@@ -207,6 +217,7 @@
           </div>
         </div>
 
+        <!-- ============ HUD ============ -->
         <div class="section-panel" data-panel="hud">
           <div class="field-band">
             <div class="band-head">
@@ -221,10 +232,24 @@
               <label><span>最大阵列距离 m</span><input data-bind="hud.reticle_max_range_m" data-number type="number" step="10"></label>
               <label><span>10x 每行 mil</span><input data-bind="hud.reticle_mil_per_row_at_10x" data-number type="number" step="0.01"></label>
               <label><span>阵列行数</span><input data-bind="hud.reticle_rows" data-number type="number" step="1"></label>
+              <label><span>界面主题</span>
+                <select id="theme-select">
+                  <option value="olive">卡其·军绿</option>
+                  <option value="light">亮白·深蓝</option>
+                  <option value="graphite">亮白·石墨</option>
+                  <option value="teal">浅灰·青绿</option>
+                  <option value="warm">米白·猎橙</option>
+                  <option value="red">战术红（深色）</option>
+                  <option value="nv">夜视绿（深色）</option>
+                  <option value="cyan">科技青（深色）</option>
+                  <option value="amber">猎场琥珀（深色）</option>
+                </select>
+              </label>
             </div>
           </div>
         </div>
 
+        <!-- ============ 同步 ============ -->
         <div class="section-panel" data-panel="sync">
           <div class="field-band">
             <div class="band-head">
@@ -283,7 +308,7 @@
         </div>
 
         <div class="connect-hint" id="connect-hint">
-          <img src="./assets/empty-connect.svg?v=20260701_visual1" alt="">
+          <img src="./assets/empty-connect.svg?v=20260703_v3" alt="">
           <div>
             <strong>瞄具未连接</strong>
             <span>连接 BLE 后，此处实时显示测距与落点解算</span>
@@ -299,7 +324,7 @@
           </div>
 
           <div class="target-shape target-deer" id="preview-target">
-            <img id="target-img" src="./assets/targets/deer.svg?v=20260701_visual1" alt="">
+            <img id="target-img" src="./assets/targets/deer.svg?v=20260703_v3" alt="">
           </div>
 
           <div class="reticle-cross horizontal"></div>
@@ -322,6 +347,75 @@
     <nav class="mobile-tabs" id="mobile-tabs" aria-label="移动端导航"></nav>
   </div>
 
-  <script type="module" src="./src/app.js?v=20260701_visual1"></script>
+  <!-- ============ SVG 符号库（currentColor / 主题变量驱动） ============ -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <filter id="dglow" x="-80%" y="-80%" width="260%" height="260%">
+        <feGaussianBlur stdDeviation="1.4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <symbol id="sym-logo" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".92"/>
+        <path d="M24 4 A20 20 0 0 1 41.3 14" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" filter="url(#dglow)"/>
+        <circle cx="24" cy="24" r="14.5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".32"/>
+        <path d="M24 2.8v3.4M24 41.8v3.4M2.8 24h3.4M41.8 24h3.4" stroke="currentColor" stroke-width="1.2" opacity=".55"/>
+        <path d="M9.9 9.9l1.8 1.8M36.3 36.3l1.8 1.8M38.1 9.9l-1.8 1.8M11.7 36.3l-1.8 1.8" stroke="currentColor" stroke-width=".9" opacity=".3"/>
+        <path d="M24 10.5v6.5M24 31v6.5M10.5 24h6.5M31 24h6.5" stroke="currentColor" stroke-width="1.3" opacity=".85"/>
+        <circle cx="24" cy="24" r="2.6" fill="var(--accent-hot)" filter="url(#dglow)"/>
+      </symbol>
+      <symbol id="i-device" viewBox="0 0 24 24">
+        <path d="m7 7 10 10-5 5V2l5 5L7 17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="i-profile" viewBox="0 0 24 24">
+        <rect x="7" y="11" width="10" height="9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M7 11c0-3 2-5.6 5-8 3 2.4 5 5 5 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M7 14.5h10" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      </symbol>
+      <symbol id="i-environment" viewBox="0 0 24 24">
+        <path d="M10 5a2 2 0 0 1 4 0v8.5a4.5 4.5 0 1 1-4 0Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M12 9.5v5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M17 7.5h2.5M17 11.5h2.5" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".55" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="i-target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="1.3" fill="currentColor"/>
+      </symbol>
+      <symbol id="i-hud" viewBox="0 0 24 24">
+        <path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+      </symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <script>
+    // ===== 主题切换（独立于 App 逻辑，记忆 + 移动端浏览器栏变色）=====
+    (function () {
+      var map = {
+        olive: "#f0efe6", light: "#eef1f5", graphite: "#f4f5f7", teal: "#ecf2f1", warm: "#faf6f0",
+        red: "#07090d", nv: "#040906", cyan: "#05080f", amber: "#0b0805"
+      };
+      var root = document.documentElement;
+      var meta = document.querySelector('meta[name="theme-color"]');
+      function apply(t) {
+        if (!map[t]) t = "olive";
+        root.dataset.theme = t;
+        if (meta) meta.content = map[t];
+        var sel = document.getElementById("theme-select");
+        if (sel) sel.value = t;
+        try { localStorage.setItem("app-theme", t); } catch (e) {}
+      }
+      var saved = "olive";
+      try { saved = localStorage.getItem("app-theme") || "olive"; } catch (e) {}
+      apply(saved);
+      document.addEventListener("change", function (ev) {
+        if (ev.target && ev.target.id === "theme-select") apply(ev.target.value);
+      });
+    })();
+  </script>
+  <script type="module" src="./src/app.js?v=20260703_v3"></script>
 </body>
 </html>
