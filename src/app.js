@@ -12,6 +12,9 @@ const steps = [
   { id: "sync", label: "同步", title: "同步 DOPE", kicker: "SYNC" }
 ];
 
+const ASSET_V = "20260701_visual1";
+const targetAssets = { deer: "deer", sheep: "sheep", boar: "boar", steel: "steel" };
+
 const zoneLabels = {
   distance: "DIST 距离",
   wind: "WIND 风偏",
@@ -76,6 +79,7 @@ function bindActions() {
   $("#btn-solve-local").addEventListener("click", solveLocal);
   $("#btn-clear-log").addEventListener("click", () => { $("#log-box").innerHTML = ""; });
   $("#btn-open-hud").addEventListener("click", openLegacyHud);
+  $("#btn-hint-connect").addEventListener("click", connect);
 }
 
 function bindForms() {
@@ -93,14 +97,14 @@ function bindForms() {
 function renderSteps() {
   const stepList = $("#step-list");
   const mobile = $("#mobile-tabs");
-  stepList.innerHTML = steps.map((s, i) => `
+  stepList.innerHTML = steps.map(s => `
     <button class="step-item" data-step="${s.id}" type="button">
-      <span>${String(i + 1).padStart(2, "0")}</span>
+      <img class="step-icon" src="./assets/icons/step-${s.id}.svg?v=${ASSET_V}" alt="">
       <strong>${s.label}</strong>
       <em>${s.title}</em>
     </button>
   `).join("");
-  mobile.innerHTML = steps.map(s => `<button data-step="${s.id}" type="button">${s.label}</button>`).join("");
+  mobile.innerHTML = steps.map(s => `<button data-step="${s.id}" type="button"><img src="./assets/icons/step-${s.id}.svg?v=${ASSET_V}" alt="">${s.label}</button>`).join("");
   $$("[data-step]").forEach(btn => btn.addEventListener("click", () => setStep(btn.dataset.step)));
 }
 
@@ -225,6 +229,11 @@ function renderPreview(input, solution) {
 
   const previewTarget = $("#preview-target");
   previewTarget.className = `target-shape target-${state.target.type || "deer"}`;
+  const targetImg = $("#target-img");
+  if (targetImg && targetImg.dataset.type !== (state.target.type || "deer")) {
+    targetImg.dataset.type = state.target.type || "deer";
+    targetImg.src = `./assets/targets/${targetAssets[state.target.type] || "deer"}.svg?v=${ASSET_V}`;
+  }
   const scale = targetScale(input);
   previewTarget.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(3)})`;
 
@@ -409,6 +418,7 @@ function makeAdapter() {
 function setConnectionState(kind, label) {
   $("#status-dot").className = `status-dot ${kind}`;
   $("#connection-label").textContent = label;
+  document.body.classList.toggle("ble-live", kind === "on" || kind === "bridge");
 }
 
 function newProfile() {

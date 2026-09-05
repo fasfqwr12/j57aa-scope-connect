@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J57AA Scope Connect · App UI 设计稿 v1</title>
+<style>
+  :root {
+    --bg: #07090d;
+    --panel: #0d1118;
+    --card: #10151d;
+    --card2: #141b25;
+    --line: rgba(255,255,255,.09);
+    --line2: rgba(255,255,255,.16);
+    --text: #e7ebf2;
+    --muted: #8792a3;
+    --dim: #596575;
+    --red: #e8453c;
+    --hot: #ff5040;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --blue: #5aa2ff;
+    --mono: Consolas, "Cascadia Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(232,69,60,.06), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", system-ui, sans-serif;
+    padding: 40px 44px 60px;
+  }
+
+  /* ===== 页头 ===== */
+  .doc-head { display: flex; align-items: flex-end; gap: 18px; margin-bottom: 10px; }
+  .doc-head img { width: 56px; height: 56px; }
+  .doc-head .kicker { font: 700 11px var(--mono); color: var(--red); letter-spacing: 3px; margin-bottom: 6px; }
+  .doc-head h1 { font-size: 26px; letter-spacing: -.3px; }
+  .doc-head h1 span { color: var(--hot); }
+  .doc-sub { color: var(--dim); font-size: 13px; margin-bottom: 34px; }
+  .doc-sub b { color: var(--muted); font-weight: 500; }
+
+  .section-label {
+    font: 800 11px var(--mono); color: var(--dim); letter-spacing: 2.5px;
+    margin: 38px 0 16px; display: flex; align-items: center; gap: 12px;
+  }
+  .section-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  /* ===== 手机壳 ===== */
+  .phones { display: flex; gap: 30px; overflow-x: auto; padding-bottom: 16px; }
+  .phone-wrap { flex-shrink: 0; }
+  .phone-cap { text-align: center; margin-bottom: 12px; }
+  .phone-cap b { display: block; font-size: 14px; }
+  .phone-cap span { font: 400 10px var(--mono); color: var(--dim); letter-spacing: 1.5px; }
+  .phone {
+    width: 390px; height: 812px;
+    border-radius: 52px;
+    border: 11px solid #161b23;
+    outline: 1px solid rgba(255,255,255,.12);
+    background: #05070a;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.8);
+  }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+
+  /* 状态栏 */
+  .sbar {
+    height: 54px; flex-shrink: 0;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 0 26px 8px; font: 700 13px var(--mono);
+  }
+  .sbar .island {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 30px; border-radius: 16px; background: #000;
+  }
+  .sbar .sic { display: flex; gap: 6px; align-items: center; color: var(--text); }
+  .sbar svg { display: block; }
+
+  /* App 栏 */
+  .appbar {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px 14px;
+  }
+  .appbar img.logo { width: 30px; height: 30px; }
+  .appbar .ttl { flex: 1; min-width: 0; }
+  .appbar .ttl b { display: block; font-size: 17px; letter-spacing: .2px; }
+  .appbar .ttl span { font: 400 9px var(--mono); color: var(--dim); letter-spacing: 1.5px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line2); border-radius: 999px;
+    padding: 5px 10px; font-size: 11px; color: var(--muted);
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #4b5563; }
+  .pill.on .dot { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,.8); }
+  .pill.on { color: #90f4b1; border-color: rgba(34,197,94,.4); }
+
+  .body { flex: 1; min-height: 0; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* 底部 Tab */
+  .tabbar {
+    flex-shrink: 0;
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    padding: 10px 10px 26px; gap: 2px;
+    border-top: 1px solid var(--line);
+    background: rgba(8,11,16,.9);
+  }
+  .tab { display: grid; justify-items: center; gap: 4px; font-size: 10px; color: var(--dim); padding: 6px 0; }
+  .tab img { width: 21px; height: 21px; color: var(--dim); }
+  .tab.active { color: var(--hot); }
+  .tab.active img { color: var(--hot); filter: drop-shadow(0 0 7px rgba(255,80,64,.6)); }
+
+  /* 通用组件 */
+  .card {
+    background: linear-gradient(180deg, var(--card2), var(--card));
+    border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+  }
+  .kicker { font: 700 10px var(--mono); color: var(--dim); letter-spacing: 2px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .kicker em { font-style: normal; color: var(--red); }
+  .btn-primary {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    height: 48px; border-radius: 12px;
+    background: linear-gradient(180deg, #ff594f, #c5261d);
+    color: #fff; font-weight: 700; font-size: 15px;
+    box-shadow: 0 8px 24px rgba(232,69,60,.35);
+  }
+  .btn-primary img { width: 18px; height: 18px; }
+  .btn-ghost {
+    display: flex; align-items: center; justify-content: center;
+    height: 38px; border-radius: 10px;
+    border: 1px solid var(--line2); background: var(--card);
+    color: var(--text); font-size: 13px;
+  }
+
+  /* ===== S1 连接 ===== */
+  .hero {
+    position: relative; border-radius: 18px; overflow: hidden;
+    border: 1px solid var(--line);
+    background: radial-gradient(140% 100% at 50% 0%, #16202e 0%, #0a0e15 70%);
+    padding: 26px 16px 18px; text-align: center;
+  }
+  .hero::before, .hero::after {
+    content: ""; position: absolute; width: 18px; height: 18px;
+    border: 1.5px solid rgba(231,235,242,.18);
+  }
+  .hero::before { left: 10px; top: 10px; border-right: none; border-bottom: none; border-radius: 6px 0 0 0; }
+  .hero::after { right: 10px; bottom: 10px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
+  .hero img.emblem { width: 108px; height: 108px; filter: drop-shadow(0 0 26px rgba(232,69,60,.3)); }
+  .hero .dev-name { font: 700 20px var(--mono); margin-top: 14px; }
+  .hero .dev-sub { font: 400 10px var(--mono); color: var(--dim); letter-spacing: 2px; margin-top: 4px; }
+
+  .dev-list { display: grid; gap: 8px; }
+  .dev-item {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--card); padding: 12px 14px;
+  }
+  .dev-item.selected { border-color: rgba(232,69,60,.5); background: rgba(232,69,60,.07); }
+  .dev-item .sig { display: grid; gap: 2px; }
+  .dev-item .sig b { font-size: 13px; }
+  .dev-item .sig span { font: 400 10px var(--mono); color: var(--dim); }
+  .dev-item .rssi { margin-left: auto; text-align: right; }
+  .dev-item .rssi b { font: 700 12px var(--mono); color: var(--muted); }
+  .bars { display: flex; align-items: flex-end; gap: 2px; height: 12px; margin-left: auto; }
+  .bars i { width: 3px; background: var(--dim); border-radius: 1px; }
+  .bars i.on { background: var(--green); }
+  .bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:9px}.bars i:nth-child(4){height:12px}
+  .paired-chip {
+    font: 700 9px var(--mono); letter-spacing: 1px; color: #90f4b1;
+    border: 1px solid rgba(34,197,94,.4); border-radius: 999px; padding: 3px 8px;
+  }
+
+  /* ===== S2 弹药 ===== */
+  .ammo-card { position: relative; }
+  .ammo-card.selected { border-color: rgba(232,69,60,.55); box-shadow: 0 0 0 1px rgba(232,69,60,.3), 0 10px 30px rgba(232,69,60,.12); }
+  .ammo-head { display: flex; align-items: baseline; gap: 8px; }
+  .ammo-head b { font-size: 16px; }
+  .ammo-head span { font: 400 10px var(--mono); color: var(--dim); letter-spacing: 1px; }
+  .cur-chip {
+    margin-left: auto; font: 700 9px var(--mono); letter-spacing: 1px; color: var(--hot);
+    border: 1px solid rgba(232,69,60,.5); border-radius: 999px; padding: 3px 8px;
+  }
+  .ammo-specs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; }
+  .ammo-specs div { border: 1px solid var(--line); border-radius: 8px; padding: 7px 4px 6px; text-align: center; background: rgba(255,255,255,.02); }
+  .ammo-specs span { display: block; font: 400 9px var(--mono); color: var(--dim); letter-spacing: 1px; }
+  .ammo-specs b { font: 700 13px var(--mono); }
+  .preset-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    border: 1px solid var(--line2); border-radius: 999px; padding: 7px 12px;
+    font-size: 12px; color: var(--muted); background: var(--card);
+  }
+  .chip.red { color: #ffb3ad; border-color: rgba(232,69,60,.45); background: rgba(232,69,60,.09); }
+
+  /* ===== S3 解算 ===== */
+  .scope-stage { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; }
+  .scope-lens {
+    position: relative; width: 340px; height: 340px; border-radius: 50%;
+    border: 9px solid #161b23; outline: 1px solid rgba(255,255,255,.1);
+    overflow: hidden;
+    box-shadow: inset 0 0 60px rgba(0,0,0,.35), 0 24px 60px rgba(0,0,0,.5);
+    background: url("../assets/scope-view.svg") center / cover;
+  }
+  .scope-lens::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    box-shadow: inset 0 0 44px rgba(0,0,0,.4), inset 0 0 5px rgba(0,0,0,.85);
+    pointer-events: none; z-index: 30;
+  }
+  .hud-top {
+    position: absolute; left: 0; right: 0; top: 0; height: 24%;
+    background: #020202; z-index: 20; color: var(--hot);
+    font-family: var(--mono);
+    display: grid; grid-template-columns: 1.35fr 1fr .9fr; gap: 4px;
+    align-items: center; padding: 7% 13% 2%;
+    text-shadow: 0 0 7px rgba(255,80,64,.9), 0 0 16px rgba(232,69,60,.5);
+  }
+  .hud-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 16px; background: linear-gradient(180deg, #020202, transparent); }
+  .hc { display: flex; align-items: baseline; justify-content: center; gap: 3px; min-width: 0; }
+  .hc span { font-size: 8px; color: #ff8279; font-weight: 800; }
+  .hc strong { font-size: 24px; line-height: 1; }
+  .hc.primary strong { font-size: 38px; }
+  .hc em { font-size: 9px; font-style: normal; color: #ff8279; }
+  .r-cross { position: absolute; background: rgba(0,0,0,.72); z-index: 8; }
+  .r-cross.h { left: 8%; right: 8%; top: 50%; height: 1px; }
+  .r-cross.v { top: 34%; bottom: 8%; left: 50%; width: 1px; }
+  .r-dots { position: absolute; inset: 0; z-index: 10; }
+  .r-dots span { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: rgba(0,0,0,.4); transform: translate(-50%,-50%); }
+  .aim-dot {
+    position: absolute; width: 12px; height: 12px; border-radius: 50%; z-index: 16;
+    background: var(--hot); box-shadow: 0 0 9px var(--hot), 0 0 24px rgba(232,69,60,.9);
+    transform: translate(-50%,-50%);
+  }
+  .tgt { position: absolute; left: 50%; top: 58%; width: 150px; height: 139px; transform: translate(-50%,-50%); z-index: 5; opacity: .9; }
+  .tgt img { width: 100%; height: 100%; }
+
+  .callout {
+    flex-shrink: 0;
+    display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
+    border: 1px solid rgba(245,158,11,.42); background: rgba(245,158,11,.09);
+    border-radius: 12px; padding: 12px 14px;
+  }
+  .callout span { font: 900 15px var(--mono); color: #facc15; }
+  .callout strong { font: 700 15px var(--mono); }
+  .callout em { font-style: normal; font: 400 12px var(--mono); color: var(--muted); }
+
+  .sliders { display: grid; gap: 10px; }
+  .sl-row { display: grid; gap: 5px; }
+  .sl-row .lab { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .sl-row .lab b { font: 700 12px var(--mono); color: var(--text); }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 5px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--red) 42%, rgba(255,255,255,.12) 42%);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; border: 4px solid var(--red); margin-top: -6.5px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.5);
+  }
+  .mini-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .mini-metrics div { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 9px 6px; text-align: center; }
+  .mini-metrics span { display: block; font: 400 9px var(--mono); color: var(--dim); letter-spacing: 1px; }
+  .mini-metrics b { font: 700 14px var(--mono); }
+
+  /* ===== S4 环境 ===== */
+  .env-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .env-cell { text-align: left; }
+  .env-cell .ic { width: 30px; height: 30px; color: var(--muted); margin-bottom: 10px; }
+  .env-cell .val { font: 700 24px var(--mono); }
+  .env-cell .val i { font-style: normal; font-size: 12px; color: var(--muted); margin-left: 3px; }
+  .env-cell .src { margin-top: 8px; font: 400 9px var(--mono); color: var(--dim); letter-spacing: 1px; }
+  .da-banner {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid rgba(245,158,11,.28); border-radius: 12px;
+    background: rgba(245,158,11,.07); padding: 12px 14px;
+  }
+  .da-banner .k { font: 700 10px var(--mono); color: #f9d77d; letter-spacing: 1.5px; }
+  .da-banner b { font: 700 18px var(--mono); color: #f9d77d; }
+  .da-banner span { font-size: 11px; color: var(--muted); }
+  .wind-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stepper { display: flex; align-items: center; gap: 10px; }
+  .stepper button {
+    width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line2);
+    background: var(--card); color: var(--text); font-size: 16px;
+  }
+  .stepper b { font: 700 16px var(--mono); flex: 1; text-align: center; }
+
+  /* ===== S5 HUD ===== */
+  .zones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .zone {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--card); padding: 10px 12px; font-size: 12px; color: var(--muted);
+  }
+  .zone.on { border-color: rgba(232,69,60,.45); background: rgba(232,69,60,.08); color: var(--text); }
+  .zone .led { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--dim); flex-shrink: 0; }
+  .zone.on .led { border-color: var(--red); background: var(--red); box-shadow: 0 0 8px rgba(232,69,60,.7); }
+  .zone em { font: 400 9px var(--mono); font-style: normal; color: var(--dim); margin-left: auto; letter-spacing: 1px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; }
+  .seg button { height: 36px; border: none; background: transparent; color: var(--muted); font-size: 13px; }
+  .seg button.on { background: rgba(232,69,60,.14); color: var(--hot); font-weight: 700; }
+  .row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .row-between span { font-size: 13px; }
+  .switch { width: 44px; height: 26px; border-radius: 999px; background: rgba(255,255,255,.12); position: relative; flex-shrink: 0; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #8792a3; transition: .2s; }
+  .switch.on { background: rgba(232,69,60,.5); }
+  .switch.on::after { left: 21px; background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.4); }
+
+  /* ===== 设计规范区 ===== */
+  .tokens { display: flex; gap: 14px; flex-wrap: wrap; }
+  .tok-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 220px; flex: 1; }
+  .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .sw { text-align: center; }
+  .sw i { display: block; height: 44px; border-radius: 9px; border: 1px solid var(--line); margin-bottom: 6px; }
+  .sw span { font: 400 9px var(--mono); color: var(--dim); }
+  .type-demo { display: grid; gap: 8px; }
+  .type-demo div { display: flex; align-items: baseline; gap: 14px; }
+  .type-demo code { font: 400 10px var(--mono); color: var(--dim); width: 150px; }
+  .icon-strip { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .icon-strip .ic2 { width: 26px; height: 26px; color: var(--text); }
+  .icon-strip img.big { width: 46px; height: 46px; }
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <img src="../assets/logo-mark.svg" alt="">
+  <div>
+    <div class="kicker">J57AA /// APP UI DESIGN</div>
+    <h1>Scope Connect <span>·</span> 移动端设计稿 v1</h1>
+  </div>
+</div>
+<div class="doc-sub">视觉语言：<b>暗色战术 HUD</b> · 近黑底 <b>#07090d</b> · 单一红色强调 <b>#E8453C</b> · 发丝线 + 光晕 + 等宽数字 · 全矢量素材可无限缩放</div>
+
+<div class="section-label">SCREENS · 5 屏主流程</div>
+<div class="phones">
+
+  <!-- ============ S1 连接 ============ -->
+  <div class="phone-wrap">
+    <div class="phone-cap"><b>① 连接</b><span>CONNECT</span></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>09:41</span><div class="island"></div>
+        <span class="sic">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="15" height="11" viewBox="0 0 15 11" fill="#e7ebf2"><path d="M7.5 10.5 5 7.8a3.6 3.6 0 0 1 5 0Zm0-4.7a5.8 5.8 0 0 0-4.2 1.8L1.7 6a8.3 8.3 0 0 1 11.6 0l-1.6 1.6a5.8 5.8 0 0 0-4.2-1.8Zm0-4A9.9 9.9 0 0 0 .5 4.3L2.1 6a7.7 7.7 0 0 1 10.8 0l1.6-1.7A9.9 9.9 0 0 0 7.5 1.8Z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+        </span>
+      </div>
+      <div class="appbar">
+        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <div class="ttl"><b>Scope Connect</b><span>BLE PROFILE / DOPE / HUD</span></div>
+        <div class="pill"><span class="dot"></span>未连接</div>
+      </div>
+      <div class="body">
+        <div class="hero">
+          <img class="emblem" src="../assets/logo-mark.svg" alt="">
+          <div class="dev-name">J57AA-2000A</div>
+          <div class="dev-sub">LASER RANGEFINDING SCOPE</div>
+        </div>
+        <div class="card">
+          <div class="kicker"><span>附近的瞄具</span><em>SCAN</em></div>
+          <div class="dev-list">
+            <div class="dev-item selected">
+              <svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff5040" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+              <div class="sig"><b>J57AA-2000A</b><span>E104-BT5005A · FFF0</span></div>
+              <div class="rssi"><span class="paired-chip">已配对</span></div>
+            </div>
+            <div class="dev-item">
+              <svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8792a3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+              <div class="sig"><b>E104-BT5005A</b><span>UNKNOWN</span></div>
+              <div class="bars"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="btn-primary"><img src="../assets/icons/status-bt.svg" style="color:#fff" alt="">连接 BLE</div>
+      </div>
+      <div class="tabbar">
+        <div class="tab active"><img src="../assets/icons/step-device.svg">设备</div>
+        <div class="tab"><img src="../assets/icons/step-profile.svg">弹药</div>
+        <div class="tab"><img src="../assets/icons/step-target.svg">目标</div>
+        <div class="tab"><img src="../assets/icons/step-environment.svg">环境</div>
+        <div class="tab"><img src="../assets/icons/step-hud.svg">HUD</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ S2 弹药 ============ -->
+  <div class="phone-wrap">
+    <div class="phone-cap"><b>② 弹药 Profile</b><span>AMMO</span></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>09:41</span><div class="island"></div>
+        <span class="sic">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+        </span>
+      </div>
+      <div class="appbar">
+        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <div class="ttl"><b>弹药 Profile</b><span>3 PROFILES · LOCAL</span></div>
+        <div class="pill on"><span class="dot"></span>已连接</div>
+      </div>
+      <div class="body">
+        <div class="card ammo-card selected">
+          <div class="ammo-head"><b>.300 Win Mag</b><span>ELR</span><span class="cur-chip">当前</span></div>
+          <div class="ammo-specs">
+            <div><span>BC</span><b>0.495</b></div>
+            <div><span>初速</span><b>862</b></div>
+            <div><span>弹头</span><b>11.7g</b></div>
+            <div><span>归零</span><b>100m</b></div>
+          </div>
+        </div>
+        <div class="card ammo-card">
+          <div class="ammo-head"><b>6.5 Creedmoor</b><span>LR</span></div>
+          <div class="ammo-specs">
+            <div><span>BC</span><b>0.620</b></div>
+            <div><span>初速</span><b>823</b></div>
+            <div><span>弹头</span><b>8.0g</b></div>
+            <div><span>归零</span><b>100m</b></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="kicker"><span>常用弹种</span><em>PRESET</em></div>
+          <div class="preset-chips">
+            <span class="chip red">.308 168gr</span>
+            <span class="chip">.375 CT</span>
+            <span class="chip">.408 CT</span>
+            <span class="chip">.50 BMG</span>
+          </div>
+        </div>
+        <div class="btn-primary" style="background:none;border:1.5px solid rgba(232,69,60,.55);color:#ff8279;box-shadow:none;">＋ 新建 Profile</div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><img src="../assets/icons/step-device.svg">设备</div>
+        <div class="tab active"><img src="../assets/icons/step-profile.svg">弹药</div>
+        <div class="tab"><img src="../assets/icons/step-target.svg">目标</div>
+        <div class="tab"><img src="../assets/icons/step-environment.svg">环境</div>
+        <div class="tab"><img src="../assets/icons/step-hud.svg">HUD</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ S3 目标/解算 ============ -->
+  <div class="phone-wrap">
+    <div class="phone-cap"><b>③ 目标 · 解算</b><span>SHOT CALL</span></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>09:41</span><div class="island"></div>
+        <span class="sic">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+        </span>
+      </div>
+      <div class="appbar">
+        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <div class="ttl"><b>目标 · Shotcall</b><span>847 M · DEER BROADSIDE</span></div>
+        <div class="pill on"><span class="dot"></span>已连接</div>
+      </div>
+      <div class="body">
+        <div class="scope-stage">
+          <div class="scope-lens">
+            <div class="hud-top">
+              <div class="hc primary"><span>DIST</span><strong>847</strong><em>M</em></div>
+              <div class="hc"><span>WIND</span><strong>1.5</strong><em>DOT</em></div>
+              <div class="hc"><span>ANG</span><strong>+3</strong><em>DEG</em></div>
+            </div>
+            <div class="tgt"><img src="../assets/targets/deer.svg" alt=""></div>
+            <div class="r-cross h"></div>
+            <div class="r-cross v"></div>
+            <div class="r-dots" id="rdots"></div>
+            <div class="aim-dot" style="left:56.5%;top:63.5%;"></div>
+          </div>
+        </div>
+        <div class="callout"><span>MARGINAL</span><strong>1131 J</strong><em>+13%</em></div>
+        <div class="card sliders">
+          <div class="sl-row"><div class="lab"><span>测距</span><b>847 m</b></div><input type="range" value="42"></div>
+          <div class="sl-row"><div class="lab"><span>横风</span><b>3.5 m/s</b></div><input type="range" value="60" style="--p:60%"></div>
+          <div class="sl-row"><div class="lab"><span>倍率</span><b>10 x</b></div><input type="range" value="38"></div>
+        </div>
+        <div class="mini-metrics">
+          <div><span>落点</span><b>R2 C1</b></div>
+          <div><span>末速</span><b>612</b></div>
+          <div><span>风偏</span><b>1.42</b></div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><img src="../assets/icons/step-device.svg">设备</div>
+        <div class="tab"><img src="../assets/icons/step-profile.svg">弹药</div>
+        <div class="tab active"><img src="../assets/icons/step-target.svg">目标</div>
+        <div class="tab"><img src="../assets/icons/step-environment.svg">环境</div>
+        <div class="tab"><img src="../assets/icons/step-hud.svg">HUD</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ S4 环境 ============ -->
+  <div class="phone-wrap">
+    <div class="phone-cap"><b>④ 环境</b><span>ENVIRONMENT</span></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>09:41</span><div class="island"></div>
+        <span class="sic">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+        </span>
+      </div>
+      <div class="appbar">
+        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <div class="ttl"><b>环境</b><span>BMP388 / SHT40</span></div>
+        <div class="pill" style="color:#90f4b1;border-color:rgba(34,197,94,.4)">从瞄具读取</div>
+      </div>
+      <div class="body">
+        <div class="env-grid">
+          <div class="card env-cell">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M10 5a2 2 0 0 1 4 0v8.5a4.5 4.5 0 1 1-4 0Z"/><path d="M12 9.5v5"/></svg>
+            <div class="val">21.5<i>°C</i></div>
+            <div class="src">TEMP · 实时</div>
+          </div>
+          <div class="card env-cell">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/></svg>
+            <div class="val">43<i>%RH</i></div>
+            <div class="src">HUMIDITY · 实时</div>
+          </div>
+          <div class="card env-cell">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l4-3"/></svg>
+            <div class="val">986.2<i>hPa</i></div>
+            <div class="src">PRESSURE · 实时</div>
+          </div>
+          <div class="card env-cell">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 20l4-9 3 5 2-3 3 7"/></svg>
+            <div class="val">512<i>m</i></div>
+            <div class="src">ALTITUDE · 实时</div>
+          </div>
+        </div>
+        <div class="da-banner">
+          <div><div class="k">DA 密度高度</div><b>512 m</b></div>
+          <span>温度/湿度/气压自动解算，影响弹道降</span>
+        </div>
+        <div class="card">
+          <div class="kicker"><span>风 · 手动输入</span><em>WIND</em></div>
+          <div class="wind-row">
+            <div class="stepper"><button>−</button><b>3.5 m/s</b><button>＋</button></div>
+            <div class="stepper"><button>−</button><b>0.0 m/s</b><button>＋</button></div>
+          </div>
+          <div class="kicker" style="margin-top:12px"><span></span><em>横风 / 纵风</em></div>
+        </div>
+        <div class="btn-ghost">恢复标准大气</div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><img src="../assets/icons/step-device.svg">设备</div>
+        <div class="tab"><img src="../assets/icons/step-profile.svg">弹药</div>
+        <div class="tab"><img src="../assets/icons/step-target.svg">目标</div>
+        <div class="tab active"><img src="../assets/icons/step-environment.svg">环境</div>
+        <div class="tab"><img src="../assets/icons/step-hud.svg">HUD</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ S5 HUD ============ -->
+  <div class="phone-wrap">
+    <div class="phone-cap"><b>⑤ HUD 设置</b><span>HUD ZONES</span></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>09:41</span><div class="island"></div>
+        <span class="sic">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+        </span>
+      </div>
+      <div class="appbar">
+        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <div class="ttl"><b>HUD 显示</b><span>10 ZONES · 7 ON</span></div>
+        <div class="pill on"><span class="dot"></span>已连接</div>
+      </div>
+      <div class="body">
+        <div class="card">
+          <div class="kicker"><span>显示分区</span><em>10 区</em></div>
+          <div class="zones">
+            <div class="zone on"><span class="led"></span>距离<em>DIST</em></div>
+            <div class="zone on"><span class="led"></span>风偏<em>WIND</em></div>
+            <div class="zone on"><span class="led"></span>角度<em>ANG</em></div>
+            <div class="zone on"><span class="led"></span>电量<em>BATT</em></div>
+            <div class="zone on"><span class="led"></span>密度高度<em>DA</em></div>
+            <div class="zone"><span class="led"></span>温度<em>TEMP</em></div>
+            <div class="zone on"><span class="led"></span>蓝牙<em>BT</em></div>
+            <div class="zone on"><span class="led"></span>能量<em>ENERGY</em></div>
+            <div class="zone"><span class="led"></span>末速<em>VEL</em></div>
+            <div class="zone on"><span class="led"></span>SCI X<em>X</em></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="kicker"><span>单位</span><em>UNITS</em></div>
+          <div class="seg"><button class="on">公制 m / m/s</button><button>英制 YD / fps</button></div>
+          <div class="row-between" style="margin-top:14px">
+            <span>DIST / WIND 位置互换</span>
+            <div class="switch on"></div>
+          </div>
+          <div class="row-between" style="margin-top:12px">
+            <span>阵列最小距离 300 m</span>
+            <b style="font:700 13px var(--mono)">300</b>
+          </div>
+          <div class="row-between" style="margin-top:12px">
+            <span>10x 每行 mil</span>
+            <b style="font:700 13px var(--mono)">3.50</b>
+          </div>
+        </div>
+        <div class="card" style="display:flex;align-items:center;gap:12px;">
+          <img src="../assets/icons/step-sync.svg" style="width:22px;height:22px;color:#5aa2ff">
+          <div style="flex:1">
+            <b style="font-size:13px">同步 DOPE 到瞄具</b>
+            <div style="font:400 10px var(--mono);color:var(--dim);margin-top:2px">PROFILE WRITE · PENDING</div>
+          </div>
+          <div class="switch"></div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><img src="../assets/icons/step-device.svg">设备</div>
+        <div class="tab"><img src="../assets/icons/step-profile.svg">弹药</div>
+        <div class="tab"><img src="../assets/icons/step-target.svg">目标</div>
+        <div class="tab"><img src="../assets/icons/step-environment.svg">环境</div>
+        <div class="tab active"><img src="../assets/icons/step-hud.svg">HUD</div>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+
+<div class="section-label">DESIGN TOKENS · 设计规范</div>
+<div class="tokens">
+  <div class="tok-card">
+    <div class="kicker" style="margin-bottom:14px"><span>色板</span><em>COLOR</em></div>
+    <div class="swatches">
+      <div class="sw"><i style="background:#07090d"></i><span>#07090d<br>底</span></div>
+      <div class="sw"><i style="background:#10151d"></i><span>#10151d<br>卡面</span></div>
+      <div class="sw"><i style="background:#e8453c"></i><span>#E8453C<br>主红</span></div>
+      <div class="sw"><i style="background:#22c55e"></i><span>#22C55E<br>正常</span></div>
+      <div class="sw"><i style="background:#f59e0b"></i><span>#F59E0B<br>警示</span></div>
+    </div>
+  </div>
+  <div class="tok-card">
+    <div class="kicker" style="margin-bottom:14px"><span>字体</span><em>TYPE</em></div>
+    <div class="type-demo">
+      <div><code>标题 17/600</code><b style="font-size:17px">Scope Connect</b></div>
+      <div><code>数字 24/700 mono</code><b style="font:700 24px var(--mono)">847 M</b></div>
+      <div><code>kicker 10 mono ls2</code><span style="font:700 10px var(--mono);letter-spacing:2px;color:var(--dim)">BLE PROFILE / DOPE / HUD</span></div>
+      <div><code>正文 13/400</code><span style="font-size:13px;color:var(--muted)">从瞄具读取环境参数</span></div>
+    </div>
+  </div>
+  <div class="tok-card" style="min-width:280px">
+    <div class="kicker" style="margin-bottom:14px"><span>图标与素材</span><em>ASSETS</em></div>
+    <div class="icon-strip">
+      <img class="big" src="../assets/logo-mark.svg" title="logo">
+      <img class="ic2" src="../assets/icons/step-device.svg">
+      <img class="ic2" src="../assets/icons/step-profile.svg">
+      <img class="ic2" src="../assets/icons/step-environment.svg">
+      <img class="ic2" src="../assets/icons/step-target.svg">
+      <img class="ic2" src="../assets/icons/step-hud.svg">
+      <img class="ic2" src="../assets/icons/step-sync.svg">
+      <img class="ic2" src="../assets/icons/status-noshot.svg">
+      <img src="../assets/targets/deer.svg" style="height:44px">
+      <img src="../assets/targets/boar.svg" style="height:44px">
+    </div>
+    <div style="font:400 10px var(--mono);color:var(--dim);margin-top:12px;letter-spacing:1px">ALL SVG · 1.6px STROKE · currentColor · 无限缩放</div>
+  </div>
+</div>
+
+<script>
+  // 镜筒分划点阵（与 App 同算法）
+  const host = document.getElementById("rdots");
+  if (host) {
+    const rowCounts = [1,2,3,4,5,6,6,6,6,6,6,6,6,6,6,6,6];
+    rowCounts.forEach((count, row) => {
+      const y = 30 + row * 3.1;
+      for (let col = 0; col < count; col += 1) {
+        const dx = 4.8 + col * 3.5;
+        host.appendChild(dot(50 - dx, y));
+        host.appendChild(dot(50 + dx, y));
+      }
+    });
+    host.appendChild(dot(50, 29));
+    host.appendChild(dot(50, 48));
+    host.appendChild(dot(50, 82));
+  }
+  function dot(x, y) {
+    const el = document.createElement("span");
+    el.style.left = x + "%";
+    el.style.top = y + "%";
+    return el;
+  }
+</script>
+</body>
+</html>

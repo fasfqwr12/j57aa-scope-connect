@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Render Icon</title>
+<style>
+  html, body { margin:0; padding:0; background:transparent; }
+  img { display:block; }
+</style>
+</head>
+<body>
+<img id="icon" src="../assets/icon.svg">
+<script>
+  const size = Number(new URLSearchParams(location.search).get("size")) || 512;
+  const img = document.getElementById("icon");
+  img.width = size; img.height = size;
+</script>
+</body>
+</html>

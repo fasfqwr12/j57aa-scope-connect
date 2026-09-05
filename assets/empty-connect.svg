@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200" width="360" height="200">
+  <defs>
+    <filter id="glow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="2.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- phone -->
+  <g>
+    <rect x="36" y="26" width="88" height="150" rx="13" fill="#0d1118" stroke="#e7ebf2" stroke-width="1.4" opacity=".95"/>
+    <rect x="43" y="36" width="74" height="128" rx="6" fill="#111826"/>
+    <path d="M70 31h20" stroke="#e7ebf2" stroke-width="2" opacity=".3" stroke-linecap="round"/>
+    <!-- emblem on screen -->
+    <circle cx="80" cy="86" r="17" fill="none" stroke="#e7ebf2" stroke-width="1.2" opacity=".55"/>
+    <path d="M80 86v-9M80 86h9" stroke="#e7ebf2" stroke-width="1" opacity=".45"/>
+    <circle cx="80" cy="86" r="2.4" fill="#ff5040" filter="url(#glow)"/>
+    <!-- text hairlines -->
+    <path d="M56 118h48M56 128h36M56 138h42" stroke="#e7ebf2" stroke-width="2" opacity=".14" stroke-linecap="round"/>
+  </g>
+
+  <!-- signal arcs phone -> scope (convex right, WiFi-style) -->
+  <g stroke="#e8453c" fill="none" stroke-linecap="round">
+    <path d="M146 74 A34 34 0 0 1 146 126" stroke-width="2" opacity=".3"/>
+    <path d="M159 58.5 A54 54 0 0 1 159 141.5" stroke-width="2.2" opacity=".55"/>
+    <path d="M172 43.3 A74 74 0 0 1 172 156.7" stroke-width="2.4" opacity=".85" filter="url(#glow)"/>
+  </g>
+  <circle cx="172" cy="43.3" r="3" fill="#ff5040" filter="url(#glow)"/>
+
+  <!-- scope -->
+  <g>
+    <circle cx="284" cy="100" r="46" fill="#0d1118" stroke="#e7ebf2" stroke-width="1.5" opacity=".95"/>
+    <circle cx="284" cy="100" r="33" fill="none" stroke="#e7ebf2" stroke-width=".8" opacity=".3"/>
+    <path d="M284 58v10M284 132v10M242 100h10M316 100h10" stroke="#e7ebf2" stroke-width="1.4" opacity=".55"/>
+    <path d="M284 78v14M284 108v14M262 100h14M292 100h14" stroke="#e7ebf2" stroke-width="1.2" opacity=".8"/>
+    <circle cx="284" cy="100" r="3" fill="#ff5040" filter="url(#glow)"/>
+    <path d="M284 54 A46 46 0 0 1 325 79" fill="none" stroke="#e8453c" stroke-width="2.4" opacity=".8" stroke-linecap="round"/>
+  </g>
+
+  <!-- base hairline -->
+  <path d="M20 188 H340" stroke="#e7ebf2" stroke-width="1" opacity=".14"/>
+</svg>

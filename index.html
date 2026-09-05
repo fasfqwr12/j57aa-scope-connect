@@ -6,13 +6,15 @@
   <meta name="theme-color" content="#07090d">
   <title>J57AA Scope Connect</title>
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./src/app.css?v=20260616_closure1">
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="stylesheet" href="./src/app.css?v=20260701_visual1">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-block">
-        <span class="brand-mark">J57AA</span>
+        <img class="brand-logo" src="./assets/logo-mark.svg?v=20260701_visual1" alt="J57AA Scope Connect">
         <div>
           <h1>Scope Connect</h1>
           <span class="brand-sub">BLE Profile / DOPE / HUD</span>
@@ -280,6 +282,15 @@
           <em id="shot-margin">--</em>
         </div>
 
+        <div class="connect-hint" id="connect-hint">
+          <img src="./assets/empty-connect.svg?v=20260701_visual1" alt="">
+          <div>
+            <strong>瞄具未连接</strong>
+            <span>连接 BLE 后，此处实时显示测距与落点解算</span>
+          </div>
+          <button class="btn compact" id="btn-hint-connect" type="button">连接</button>
+        </div>
+
         <div class="scope-preview">
           <div class="scope-hud-top" id="preview-hud-top">
             <div class="hud-cell primary"><span id="hud-primary-label">DIST</span><strong id="hud-primary-value">--</strong><em id="hud-primary-unit">M</em></div>
@@ -288,14 +299,7 @@
           </div>
 
           <div class="target-shape target-deer" id="preview-target">
-            <span class="target-body"></span>
-            <span class="target-neck"></span>
-            <span class="target-head"></span>
-            <span class="target-horn"></span>
-            <span class="target-leg leg-a"></span>
-            <span class="target-leg leg-b"></span>
-            <span class="target-leg leg-c"></span>
-            <span class="target-leg leg-d"></span>
+            <img id="target-img" src="./assets/targets/deer.svg?v=20260701_visual1" alt="">
           </div>
 
           <div class="reticle-cross horizontal"></div>
@@ -318,6 +322,6 @@
     <nav class="mobile-tabs" id="mobile-tabs" aria-label="移动端导航"></nav>
   </div>
 
-  <script type="module" src="./src/app.js?v=20260616_closure1"></script>
+  <script type="module" src="./src/app.js?v=20260701_visual1"></script>
 </body>
 </html>

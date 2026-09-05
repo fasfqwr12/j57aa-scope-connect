@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 240" width="260" height="240">
+  <defs>
+    <filter id="glow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- ground shadow -->
+  <ellipse cx="130" cy="213" rx="80" ry="6" fill="#000000" opacity=".22"/>
+
+  <!-- antlers -->
+  <g fill="none" stroke="#20262e" stroke-width="3.6" stroke-linecap="round">
+    <path d="M74 63 C70 50 64 41 55 34"/>
+    <path d="M68 52 C62 48 56 46 49 46"/>
+    <path d="M63 44 C59 38 55 33 48 30"/>
+    <path d="M82 62 C79 49 74 39 66 31"/>
+    <path d="M77 50 C72 44 67 41 60 40"/>
+  </g>
+
+  <!-- body + neck + head -->
+  <path fill="#20262e" d="M38 86
+    C46 77 56 71 64 69
+    L70 51 L77 67 L85 55 L90 71
+    C99 78 105 88 108 98
+    C120 93 136 92 152 94
+    C166 96 178 102 184 112
+    C188 118 189 126 187 134
+    C185 144 180 152 173 158
+    C170 161 166 163 161 164
+    L112 164
+    C104 162 96 156 91 148
+    C87 141 85 132 87 124
+    C89 116 93 109 99 104
+    C90 102 80 99 72 95
+    C64 94 54 94 46 92 Z"/>
+  <!-- tail -->
+  <path fill="#20262e" d="M185 112 L192 121 L186 129 Z"/>
+
+  <!-- legs -->
+  <g fill="#20262e">
+    <path d="M84 146 L97 148 L95 210 L87 210 Z"/>
+    <path d="M102 150 L114 150 L116 210 L108 210 Z"/>
+    <path d="M145 150 L157 152 L155 210 L147 210 Z"/>
+    <path d="M156 152 L171 156 L175 210 L166 210 Z"/>
+  </g>
+
+  <!-- vitals zone -->
+  <g stroke="#e8453c" fill="none" filter="url(#glow)">
+    <circle cx="112" cy="122" r="24" stroke-width="1.6" stroke-dasharray="5 6" opacity=".75"/>
+    <path d="M112 116v12M106 122h12" stroke-width="1.4" opacity=".9"/>
+  </g>
+</svg>

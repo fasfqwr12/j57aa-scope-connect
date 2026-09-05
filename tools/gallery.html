@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Asset Gallery</title>
+<style>
+  body { margin:0; background:#07090d; color:#e7ebf2; font-family:"Segoe UI",system-ui,sans-serif; padding:24px; }
+  h2 { font-size:14px; color:#8792a3; margin:26px 0 10px; letter-spacing:1px; text-transform:uppercase; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
+  .card { background:#0d1118; border:1px solid rgba(255,255,255,.09); border-radius:8px; padding:12px; text-align:center; }
+  .card small { display:block; color:#596575; font-size:11px; margin-top:6px; font-family:Consolas,monospace; }
+  .icon { width:32px; height:32px; color:#e7ebf2; }
+  .icon.red { color:#ff5040; }
+  .lens { width:300px; height:300px; border-radius:50%; border:8px solid #1f252e; overflow:hidden; }
+  .lens svg { width:100%; height:100%; display:block; }
+  .onlight { background:#e5e3dc; border-radius:8px; padding:10px; }
+</style>
+</head>
+<body>
+  <h2>Brand</h2>
+  <div class="row">
+    <div class="card"><img src="../assets/logo-mark.svg" width="48" height="48"><small>logo-mark 48</small></div>
+    <div class="card"><img src="../assets/logo-mark.svg" width="72" height="72"><small>logo-mark 72</small></div>
+    <div class="card"><img src="../assets/icon.svg" width="128" height="128"><small>icon 128</small></div>
+    <div class="card"><img src="../assets/icon.svg" width="64" height="64" style="border-radius:12px"><small>icon rounded</small></div>
+  </div>
+
+  <h2>Step icons (currentColor)</h2>
+  <div class="row">
+    <div class="card"><img class="icon" src="../assets/icons/step-device.svg"><small>device</small></div>
+    <div class="card"><img class="icon" src="../assets/icons/step-profile.svg"><small>profile</small></div>
+    <div class="card"><img class="icon" src="../assets/icons/step-env.svg"><small>env</small></div>
+    <div class="card"><img class="icon" src="../assets/icons/step-target.svg"><small>target</small></div>
+    <div class="card"><img class="icon" src="../assets/icons/step-hud.svg"><small>hud</small></div>
+    <div class="card"><img class="icon" src="../assets/icons/step-sync.svg"><small>sync</small></div>
+    <div class="card"><img class="icon red" src="../assets/icons/step-device.svg"><small>device red</small></div>
+  </div>
+
+  <h2>Status icons</h2>
+  <div class="row">
+    <div class="card"><img class="icon" src="../assets/icons/status-bt.svg"><small>bt</small></div>
+    <div class="card"><img class="icon" src="../assets/icons/status-battery.svg"><small>battery</small></div>
+    <div class="card"><img class="icon" style="color:#f59e0b" src="../assets/icons/status-warn.svg"><small>warn</small></div>
+    <div class="card"><img class="icon" src="../assets/icons/status-noshot.svg"><small>noshot</small></div>
+  </div>
+
+  <h2>Targets (on bright glass)</h2>
+  <div class="row">
+    <div class="card onlight"><img src="../assets/targets/deer.svg" width="170"><small>deer</small></div>
+    <div class="card onlight"><img src="../assets/targets/sheep.svg" width="170"><small>sheep</small></div>
+    <div class="card onlight"><img src="../assets/targets/boar.svg" width="170"><small>boar</small></div>
+    <div class="card onlight"><img src="../assets/targets/steel.svg" width="170"><small>steel</small></div>
+  </div>
+
+  <h2>Scope view + reticle overlay simulation</h2>
+  <div class="row">
+    <div class="lens"><img src="../assets/scope-view.svg" width="100%" height="100%"></div>
+    <div class="lens" style="position:relative">
+      <img src="../assets/scope-view.svg" width="100%" height="100%" style="position:absolute;inset:0">
+      <img src="../assets/targets/deer.svg" width="110" style="position:absolute;left:50%;top:56%;transform:translate(-50%,-50%)">
+    </div>
+  </div>
+
+  <h2>Empty connect</h2>
+  <div class="row">
+    <div class="card"><img src="../assets/empty-connect.svg" width="360"><small>empty-connect</small></div>
+  </div>
+</body>
+</html>

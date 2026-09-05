@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 240" width="260" height="240">
+  <defs>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b4759"/>
+      <stop offset="50%" stop-color="#242e3d"/>
+      <stop offset="100%" stop-color="#161d28"/>
+    </linearGradient>
+    <filter id="glow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- hanger -->
+  <g stroke="#39445a" stroke-width="4" fill="none" stroke-linecap="round">
+    <path d="M96 14 H164"/>
+    <path d="M104 14 L116 54"/>
+    <path d="M156 14 L144 54"/>
+  </g>
+
+  <!-- stand legs -->
+  <g stroke="#2c3648" stroke-width="7" fill="none" stroke-linecap="round">
+    <path d="M98 152 L76 208"/>
+    <path d="M162 152 L184 208"/>
+  </g>
+  <path d="M88 192 H172" stroke="#2c3648" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- gong -->
+  <circle cx="130" cy="106" r="60" fill="url(#steel)" stroke="#4a5870" stroke-width="2"/>
+  <circle cx="130" cy="106" r="46" fill="none" stroke="#4a5870" stroke-width="1" opacity=".5"/>
+  <!-- sheen highlight -->
+  <path d="M92 74 A54 54 0 0 1 148 53" fill="none" stroke="#8fa0b8" stroke-width="3" opacity=".35" stroke-linecap="round"/>
+  <!-- hanger holes -->
+  <circle cx="116" cy="56" r="3" fill="#0d1118"/>
+  <circle cx="144" cy="56" r="3" fill="#0d1118"/>
+
+  <!-- center ring -->
+  <g stroke="#e8453c" fill="none" filter="url(#glow)">
+    <circle cx="130" cy="106" r="14" stroke-width="1.8" stroke-dasharray="4 5" opacity=".85"/>
+    <path d="M130 100v12M124 106h12" stroke-width="1.4" opacity=".9"/>
+  </g>
+</svg>

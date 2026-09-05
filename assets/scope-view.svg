@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7f6f1"/>
+      <stop offset="55%" stop-color="#eceee7"/>
+      <stop offset="100%" stop-color="#dfe3da"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.62" cy="0.34" r="0.4">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity=".85"/>
+      <stop offset="45%" stop-color="#fdfdf8" stop-opacity=".28"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.5" r="0.72">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="72%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#14181d" stop-opacity=".42"/>
+    </radialGradient>
+    <linearGradient id="haze1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4f4ef" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#f4f4ef" stop-opacity=".9"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1000" height="1000" fill="url(#sky)"/>
+  <rect width="1000" height="1000" fill="url(#sun)"/>
+
+  <!-- far ridge -->
+  <path d="M0 520 C120 468 250 505 380 470 C520 432 640 486 760 458 C880 432 950 472 1000 456 L1000 1000 L0 1000 Z" fill="#c6ccca" opacity=".9"/>
+  <rect y="440" width="1000" height="120" fill="url(#haze1)" opacity=".55"/>
+
+  <!-- mid ridge -->
+  <path d="M0 600 C150 558 300 602 420 574 C560 542 700 588 820 562 C900 545 960 568 1000 554 L1000 1000 L0 1000 Z" fill="#adb6b3"/>
+  <rect y="530" width="1000" height="120" fill="url(#haze1)" opacity=".4"/>
+
+  <!-- near ground -->
+  <path d="M0 690 C160 658 320 692 480 668 C640 644 800 686 1000 660 L1000 1000 L0 1000 Z" fill="#939d98"/>
+
+  <!-- foreground band -->
+  <path d="M0 800 C200 768 400 802 600 778 C800 754 900 788 1000 772 L1000 1000 L0 1000 Z" fill="#767f7a"/>
+
+  <!-- treeline hints on near ground -->
+  <g fill="#7e8781" opacity=".55">
+    <path d="M60 690 l14-34 14 34z"/><path d="M150 682 l12-30 12 30z"/>
+    <path d="M320 668 l16-38 16 38z"/><path d="M540 660 l12-28 12 28z"/>
+    <path d="M700 672 l14-32 14 32z"/><path d="M880 664 l12-30 12 30z"/>
+  </g>
+
+  <!-- lens ghosts -->
+  <circle cx="680" cy="262" r="92" fill="#ffffff" opacity=".06"/>
+  <circle cx="640" cy="300" r="34" fill="#ffffff" opacity=".05"/>
+  <ellipse cx="290" cy="720" rx="150" ry="42" fill="#ffffff" opacity=".05"/>
+
+  <!-- vignette -->
+  <rect width="1000" height="1000" fill="url(#vig)"/>
+</svg>
