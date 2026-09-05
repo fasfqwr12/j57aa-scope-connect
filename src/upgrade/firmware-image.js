@@ -36,6 +36,7 @@ export function inspectFirmware(value, name, target = "w515-app") {
   else throw new Error("仅支持 .bin / Intel HEX；不接受未实现解密的 .enc");
   const data = parsed.bytes, meta = readFirmwareMeta(data);
   if (!meta || meta.model !== "J57AA-W515" || meta.appSize !== data.length || meta.appSize < 0x240 || meta.appSize % 4) throw new Error("缺少有效 W515 元数据，或型号/长度/4字节对齐错误");
+  if (meta.appCrc === 0 || meta.appCrc === 0xFFFFFFFF) throw new Error("Boot 拒绝保留值 CRC，禁止写入此镜像");
   if (crc32MetaCompatible(data) !== meta.appCrc) throw new Error("固件元数据 CRC32 与计算值不符");
   const dv = new DataView(data.buffer, data.byteOffset, data.byteLength), sp = dv.getUint32(0, true), reset = dv.getUint32(4, true);
   if (sp <= W515_LAYOUT.ramBase || sp > W515_LAYOUT.ramEnd || sp % 8 || !(reset & 1)) throw new Error("固件向量表非法");

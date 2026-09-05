@@ -63,6 +63,19 @@ export class WireDecoder {
     let partial = -1;
     while (i < this.buffer.length) {
       const b = this.buffer;
+      // Normal scope envelopes may contain AA bytes. Consume the whole envelope
+      // while OTA owns RX; never interpret a measurement payload as an OTA ACK.
+      if (b[i] === 0xFE) {
+        const header = [0xFE, 0xFF, 0xFF, 0xFE];
+        const available = Math.min(4, b.length - i);
+        if (header.slice(0, available).every((v, k) => b[i + k] === v)) {
+          if (i + 5 > b.length) { partial = i; break; }
+          const length = b[i + 4] + 10;
+          if (i + length > b.length) { partial = i; break; }
+          // Even a damaged business envelope must not expose embedded replies.
+          i += length; continue;
+        }
+      }
       if (b[i] !== 0xAA) { i++; continue; }
       if (i + 4 > b.length) { partial = partial < 0 ? i : partial; break; }
       let protocol, length;

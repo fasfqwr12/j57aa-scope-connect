@@ -3,7 +3,7 @@ import { checkAbort } from "./ota-channel.js?v=status-first-1";
 
 export function snapshotIsFresh(snapshot, adapter, now = Date.now()) {
   return !!snapshot && snapshot.deviceId === adapter.device?.id && snapshot.generation === adapter.generation &&
-    adapter.isGattConnected() && now - snapshot.checkedAt < 60000;
+    adapter.isGattConnected() && now >= snapshot.checkedAt && now - snapshot.checkedAt < 60000;
 }
 export function w515Gate(snapshot) {
   if (!snapshot || !["APP", "BOOT"].includes(snapshot.main.mode)) return "主控运行模式未确认";

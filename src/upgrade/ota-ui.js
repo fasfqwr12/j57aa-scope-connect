@@ -71,7 +71,11 @@ async function keepAwake() {
   try { if (navigator.wakeLock && !document.hidden) wakeLock = await navigator.wakeLock.request("screen"); }
   catch { otaLog("WARN", "无法保持亮屏，请手动保持页面前台"); }
 }
-async function releaseAwake() { try { await wakeLock?.release(); } finally { wakeLock = null; } }
+async function releaseAwake() {
+  try { await wakeLock?.release(); }
+  catch { otaLog("WARN", "亮屏锁已失效，请保持页面前台"); }
+  finally { wakeLock = null; }
+}
 async function detect() {
   if (busy) return;
   if (!window.confirm("检测会暂时占用测距 UART，不发送进 Boot 或擦写命令。若副板已在 Boot 启动窗口，查询会使其停留在 Boot。请停止测距并保持页面前台。继续检测？")) return;
