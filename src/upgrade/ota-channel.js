@@ -1,0 +1,47 @@
+import { WireDecoder } from "./ota-protocol.js?v=status-first-1";
+export function abortError() { return new DOMException("操作已取消", "AbortError"); }
+export function checkAbort(signal) { if (signal?.aborted) throw abortError(); }
+export function delay(ms, signal) {
+  checkAbort(signal);
+  return new Promise((resolve, reject) => {
+    const finish = error => { clearTimeout(timer); signal?.removeEventListener("abort", cancel); error ? reject(error) : resolve(); };
+    const cancel = () => finish(abortError());
+    const timer = setTimeout(() => finish(), ms);
+    signal?.addEventListener("abort", cancel, { once: true });
+  });
+}
+// Replies have no transaction id. Never pipeline requests or replay mutating commands.
+export class WireChannel {
+  constructor(write, log = () => {}) { this.write = write; this.log = log; this.decoder = new WireDecoder(); this.pending = null; }
+  receive(bytes) {
+    for (const frame of this.decoder.push(bytes)) {
+      const p = this.pending;
+      if (p && frame.protocol === p.protocol && (p.cmd == null || frame.cmd === p.cmd)) p.finish(null, frame);
+      // Unrelated F7/GLPX/GLPE/MCU packets are not reinterpreted as the awaited reply.
+    }
+  }
+  disconnect() { this.pending?.finish(new Error("BLE 已断开，状态快照已失效")); this.decoder.reset(); }
+  async request(bytes, { protocol, cmd, timeoutMs = 1800, signal, chunkSize = 20 } = {}) {
+    checkAbort(signal);
+    if (this.pending) throw new Error("协议通道忙，禁止并发请求");
+    this.decoder.reset();
+    let p;
+    const reply = new Promise((resolve, reject) => {
+      const finish = (error, result) => {
+        if (this.pending !== p) return;
+        clearTimeout(p.timer); signal?.removeEventListener("abort", p.cancel); this.pending = null;
+        error ? reject(error) : resolve(result);
+      };
+      p = { protocol, cmd, finish, cancel: () => finish(abortError()) };
+      this.pending = p;
+      p.timer = setTimeout(() => finish(new Error(`等待 ${protocol} 回复超时`)), timeoutMs);
+      signal?.addEventListener("abort", p.cancel, { once: true });
+    });
+    // A native GATT write can finish after the timeout/abort. Consume its error;
+    // await it before letting a caller release the exclusive session.
+    reply.catch(() => {});
+    try { await this.write(bytes, { chunkSize, withResponse: true, signal }); }
+    catch (error) { p.finish(error); }
+    return reply;
+  }
+}
