@@ -152,11 +152,10 @@ function escapeHtml(s) {
 }
 
 // ===== 自检（控制台）：帧构造/CRC 与母本用例比对 =====
-// 母本用例: AA 01 00 04 12 34 56 78 31 C3 55（握手帧，ble_upgrade_w515_app.py boot_frame）
+// 母本用例: ble_upgrade_w515_app.py boot_frame(0x01, [12 34 56 78]) = AA 01 00 04 12 34 56 78 34 81 55
 self.addEventListener("load", () => {
   const hs = buildOtaFrame(0x01, [0x12, 0x34, 0x56, 0x78]);
-  const expected = "AA010004123456783 1C355".replace(" ", "");
   const got = toHex(hs);
-  const ref = toHex(new Uint8Array([0xAA, 0x01, 0x00, 0x04, 0x12, 0x34, 0x56, 0x78, 0x31, 0xC3, 0x55]));
-  console.info(`[OTA 自检] 握手帧: ${got} ${got === ref ? "✓ 与母本一致" : "✗ 不一致 ref=" + ref}`);
+  const ref = "AA01000412345678348155";
+  console.info(`[OTA 自检] 握手帧: ${got} ${got === ref ? "✓ 与母本(可运行代码)一致" : "✗ 不一致 ref=" + ref}`);
 });
