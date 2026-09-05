@@ -1,7 +1,8 @@
 import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closure1";
-import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=20260616_closure1";
+import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=20260703_v3";
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
+import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=20260703_v3";
 
 const steps = [
   { id: "device", label: "设备", title: "设备连接", kicker: "DEVICE" },
@@ -9,7 +10,8 @@ const steps = [
   { id: "environment", label: "环境", title: "环境参数", kicker: "ENV" },
   { id: "target", label: "目标", title: "目标 / SCI", kicker: "TARGET" },
   { id: "hud", label: "HUD", title: "HUD 显示", kicker: "HUD" },
-  { id: "sync", label: "同步", title: "同步 DOPE", kicker: "SYNC" }
+  { id: "sync", label: "同步", title: "同步 DOPE", kicker: "SYNC" },
+  { id: "upgrade", label: "升级", title: "固件升级", kicker: "OTA" }
 ];
 
 const ASSET_V = "20260703_v3";
@@ -47,6 +49,11 @@ function init() {
   buildReticle();
   setStep(state.activeStep || "device");
   refreshAll();
+  initOtaUpgrade({
+    getAdapter: () => adapter,
+    connect,
+    isConnected: () => !!(adapter && adapter.connected)
+  });
   log("SYS", "Scope Connect 已就绪");
 }
 

@@ -685,6 +685,78 @@ body.ble-live .connect-hint { display: none; }
 .mobile-tabs button.active { color: var(--accent-deep); border-color: var(--accent-line); background: var(--accent-soft); }
 .mobile-tabs button.active svg { color: var(--accent); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent)); }
 
+/* ============ 升级（OTA） ============ */
+.ota-target-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.ota-target {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--card);
+  padding: 11px 12px;
+  display: grid; gap: 4px;
+  cursor: pointer;
+  transition: .15s;
+}
+.ota-target input { display: none; }
+.ota-target strong { font-size: 14px; color: var(--muted); }
+.ota-target span { font-size: 11px; color: var(--dim); }
+.ota-target.selected { border-color: var(--accent-line); background: var(--accent-soft); }
+.ota-target.selected strong { color: var(--text); }
+
+.ota-file-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.ota-file-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 38px; padding: 0 16px;
+  border: 1.5px dashed var(--accent-line);
+  border-radius: 10px;
+  color: var(--accent-deep);
+  font-weight: 600; font-size: 13px;
+  cursor: pointer;
+  background: var(--accent-soft);
+}
+.ota-file-btn input { display: none; }
+.ota-file-meta { flex: 1; min-width: 200px; font-size: 12px; color: var(--muted); }
+.ota-file-meta strong { color: var(--text); }
+
+.ota-stage-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ota-stage {
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: var(--dim);
+}
+.ota-stage.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.ota-stage.active { color: var(--accent-deep); border-color: var(--accent-line); background: var(--accent-soft); font-weight: 700; }
+
+.ota-progress-bar {
+  height: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line2);
+  background: var(--card2);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.ota-progress-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hot));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+  transition: width .2s;
+}
+.ota-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ota-stats div { border: 1px solid var(--line); border-radius: 9px; background: var(--card); padding: 8px 10px; }
+.ota-stats span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 2px; }
+.ota-stats strong { font: 700 14px var(--mono); }
+.ota-log { height: 150px; }
+
+@media (max-width: 900px) {
+  .ota-target-row, .ota-stats { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .ota-stats { grid-template-columns: 1fr 1fr; }
+  .ota-file-meta { flex-basis: 100%; }
+}
+
 /* ============ 响应式 ============ */
 @media (max-width: 1180px) {
   .app-layout { grid-template-columns: 148px minmax(320px, 1fr) minmax(300px, 360px); }

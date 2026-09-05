@@ -7,6 +7,7 @@ import {
   parseMeasurement,
   parseSensorReply
 } from "../protocol/scope-protocol.js?v=20260616_closure1";
+import { scanOtaFrames } from "../upgrade/ota-protocol.js?v=20260703_v3";
 
 export class WebBluetoothAdapter {
   constructor(config, log = () => {}) {
@@ -17,6 +18,8 @@ export class WebBluetoothAdapter {
     this.rx = null;
     this.tx = null;
     this.buffer = [];
+    this.otaBuffer = [];
+    this.otaFrameWaiter = null;
     this.connected = false;
   }
 
@@ -129,6 +132,66 @@ export class WebBluetoothAdapter {
     const data = new Uint8Array(event.target.value.buffer);
     this.log("RX", bytesToHex(data));
     this.buffer.push(...data);
+    this.otaBuffer.push(...data);
+    if (this.otaFrameWaiter) this.otaFrameWaiter(data);
+  }
+
+  // ===== OTA 升级支持（J57AA W515 BLE OTA）=====
+
+  resetOtaBuffer() {
+    this.otaBuffer = [];
+  }
+
+  // 原始写入：指定分片大小 + 写响应模式（OTA 用，不走 20B 默认分片）
+  async writeRaw(bytes, { chunkSize = 240, withResponse = true } = {}) {
+    if (!this.tx) throw new Error("BLE 未连接");
+    const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    const max = Math.max(20, Math.min(chunkSize, 244));  // L6799 clamp 20..244
+    for (let i = 0; i < data.length; i += max) {
+      const chunk = data.slice(i, i + max);
+      if (withResponse && this.tx.writeValue) {
+        await this.tx.writeValue(chunk);
+      } else if (this.tx.writeValueWithoutResponse) {
+        await this.tx.writeValueWithoutResponse(chunk);
+      } else {
+        await this.tx.writeValue(chunk);
+      }
+    }
+  }
+
+  // GATT 断线快速重连（device 对象保留，可直接 reconnect）
+  async reconnect() {
+    if (!this.device) throw new Error("BLE 设备句柄不存在");
+    if (!this.device.gatt.connected) {
+      this.server = await this.device.gatt.connect();
+    }
+    if (!this.connected) this.connected = true;
+    return true;
+  }
+
+  isGattConnected() {
+    return !!(this.device?.gatt?.connected);
+  }
+
+  // 等待一帧 OTA 响应：AA (cmd|0x80) ... CRC 55；扫描 otaBuffer 并清理已消费字节
+  waitForOtaFrame(expectedCmd, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const start = performance.now();
+      const tryFrame = () => {
+        // 直接调用文件作用域里的 scanOtaFrames（见文件底部 import）
+        const { frames, consumed } = scanOtaFrames(this.otaBuffer);
+        if (consumed > 0) this.otaBuffer = this.otaBuffer.slice(consumed);
+        const want = (expectedCmd | 0x80) & 0xFF;
+        const hit = frames.find(f => f.crc_ok && f.cmd === want);
+        if (hit) { resolve(hit); return; }
+        if (performance.now() - start >= timeoutMs) {
+          reject(new Error(`等待响应超时(cmd 0x${want.toString(16)})`));
+          return;
+        }
+        setTimeout(tryFrame, 20);
+      };
+      tryFrame();
+    });
   }
 
   waitForFrame(timeoutMs, predicate = () => true) {
