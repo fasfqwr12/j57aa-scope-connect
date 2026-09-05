@@ -43,7 +43,7 @@ export class WebBluetoothAdapter {
       this.tx = await service.getCharacteristic(normalizeUuid(this.config.txUuid));
       this.rx.addEventListener("characteristicvaluechanged", this.notifyHandler);
       await this.rx.startNotifications();
-      this.buffer = []; this.channel.decoder.reset(); this.connected = true; this.generation++;
+      this.buffer = []; this.channel.resetConnection(); this.connected = true; this.generation++;
     } catch (error) {
       this.tx = null; this.rx?.removeEventListener("characteristicvaluechanged", this.notifyHandler);
       this.device?.gatt?.disconnect(); throw error;

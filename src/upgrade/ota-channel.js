@@ -12,7 +12,8 @@ export function delay(ms, signal) {
 }
 // Replies have no transaction id. Never pipeline requests or replay mutating commands.
 export class WireChannel {
-  constructor(write, log = () => {}) { this.write = write; this.log = log; this.decoder = new WireDecoder(); this.pending = null; }
+  constructor(write, log = () => {}) { this.write = write; this.log = log; this.decoder = new WireDecoder(); this.pending = null; this.proxyUncertain = false; }
+  resetConnection() { this.decoder.reset(); this.proxyUncertain = false; }
   receive(bytes) {
     for (const frame of this.decoder.push(bytes)) {
       const p = this.pending;
@@ -24,12 +25,14 @@ export class WireChannel {
   async request(bytes, { protocol, cmd, timeoutMs = 1800, signal, chunkSize = 20 } = {}) {
     checkAbort(signal);
     if (this.pending) throw new Error("协议通道忙，禁止并发请求");
+    if (protocol === "proxy" && this.proxyUncertain) throw new Error("GLPX 前次交互未确认，需重连后重新检测；不接受可能迟到的无序号回包");
     this.decoder.reset();
     let p;
     const reply = new Promise((resolve, reject) => {
       const finish = (error, result) => {
         if (this.pending !== p) return;
         clearTimeout(p.timer); signal?.removeEventListener("abort", p.cancel); this.pending = null;
+        if (error && protocol === "proxy") this.proxyUncertain = true;
         error ? reject(error) : resolve(result);
       };
       p = { protocol, cmd, finish, cancel: () => finish(abortError()) };
