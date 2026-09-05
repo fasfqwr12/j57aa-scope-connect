@@ -1,43 +1,97 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="red">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>J57AA Scope Connect · App UI 设计稿 v1</title>
+<title>J57AA Scope Connect · App UI 设计稿 v2（可切换主题）</title>
 <style>
+  /* ============ 主题调色板 ============ */
   :root {
-    --bg: #07090d;
-    --panel: #0d1118;
-    --card: #10151d;
-    --card2: #141b25;
-    --line: rgba(255,255,255,.09);
-    --line2: rgba(255,255,255,.16);
-    --text: #e7ebf2;
-    --muted: #8792a3;
-    --dim: #596575;
-    --red: #e8453c;
-    --hot: #ff5040;
-    --green: #22c55e;
-    --amber: #f59e0b;
-    --blue: #5aa2ff;
     --mono: Consolas, "Cascadia Mono", monospace;
+    --ok: #22c55e; --warn: #f59e0b;
   }
+  [data-theme="red"] {
+    --bg: #07090d; --tint: rgba(232,69,60,.06);
+    --panel: #0d1118; --card: #10151d; --card2: #141b25;
+    --line: rgba(255,255,255,.09); --line2: rgba(255,255,255,.16);
+    --text: #e7ebf2; --muted: #8792a3; --dim: #596575;
+    --accent: #e8453c; --accent-hot: #ff5040; --accent-deep: #c5261d;
+    --accent-soft: rgba(232,69,60,.11); --accent-line: rgba(232,69,60,.45);
+  }
+  [data-theme="nv"] {
+    --bg: #040906; --tint: rgba(0,255,150,.05);
+    --panel: #08120c; --card: #0a1610; --card2: #0e1c14;
+    --line: rgba(140,255,200,.10); --line2: rgba(140,255,200,.18);
+    --text: #e9f6ee; --muted: #86a897; --dim: #4e6a5b;
+    --accent: #00e589; --accent-hot: #4dffb0; --accent-deep: #008f56;
+    --accent-soft: rgba(0,229,137,.10); --accent-line: rgba(0,229,137,.45);
+  }
+  [data-theme="cyan"] {
+    --bg: #05080f; --tint: rgba(56,200,255,.06);
+    --panel: #0a0f1a; --card: #0d1420; --card2: #111a2a;
+    --line: rgba(160,220,255,.10); --line2: rgba(160,220,255,.18);
+    --text: #e9eef6; --muted: #8497ad; --dim: #4d5e73;
+    --accent: #38c8ff; --accent-hot: #6fdcff; --accent-deep: #0d7fc4;
+    --accent-soft: rgba(56,200,255,.10); --accent-line: rgba(56,200,255,.45);
+  }
+  [data-theme="amber"] {
+    --bg: #0b0805; --tint: rgba(255,171,46,.06);
+    --panel: #140e07; --card: #181109; --card2: #1e160c;
+    --line: rgba(255,214,150,.10); --line2: rgba(255,214,150,.18);
+    --text: #f4ede3; --muted: #a89a82; --dim: #6a5f4d;
+    --accent: #ffab2e; --accent-hot: #ffc45e; --accent-deep: #b06a00;
+    --accent-soft: rgba(255,171,46,.10); --accent-line: rgba(255,171,46,.45);
+  }
+  [data-theme="light"] {
+    --bg: #eef1f5; --tint: rgba(31,94,255,.05);
+    --panel: #ffffff; --card: #ffffff; --card2: #f6f8fb;
+    --line: rgba(18,30,50,.10); --line2: rgba(18,30,50,.18);
+    --text: #17202e; --muted: #5c6b80; --dim: #93a0b3;
+    --accent: #1f5eff; --accent-hot: #3d7bff; --accent-deep: #123eb8;
+    --accent-soft: rgba(31,94,255,.08); --accent-line: rgba(31,94,255,.4);
+    --ok: #14953f; --warn: #b87500;
+  }
+
   * { box-sizing: border-box; margin: 0; }
   body {
-    background:
-      radial-gradient(1200px 600px at 20% -10%, rgba(232,69,60,.06), transparent 60%),
-      var(--bg);
+    background: radial-gradient(1200px 600px at 20% -10%, var(--tint), transparent 60%), var(--bg);
     color: var(--text);
     font-family: "Segoe UI", "PingFang SC", system-ui, sans-serif;
     padding: 40px 44px 60px;
+    transition: background .3s, color .3s;
   }
 
-  /* ===== 页头 ===== */
+  /* ============ 主题切换器 ============ */
+  .theme-bar {
+    position: fixed; top: 14px; right: 18px; z-index: 99;
+    display: flex; align-items: center; gap: 4px;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    border: 1px solid var(--line2); border-radius: 999px;
+    padding: 5px 6px; backdrop-filter: blur(14px);
+    box-shadow: 0 10px 34px rgba(0,0,0,.35);
+  }
+  .theme-bar .tl { font: 700 10px var(--mono); color: var(--dim); letter-spacing: 1px; padding: 0 8px; }
+  .theme-btn {
+    display: flex; align-items: center; gap: 6px;
+    border: 1px solid transparent; background: transparent; border-radius: 999px;
+    padding: 6px 11px; font-size: 12px; color: var(--muted); cursor: pointer;
+    transition: .15s;
+  }
+  .theme-btn i { width: 11px; height: 11px; border-radius: 50%; }
+  .theme-btn:hover { color: var(--text); }
+  .theme-btn.active { color: var(--text); border-color: var(--line2); background: var(--accent-soft); }
+  [data-theme="red"]    .theme-btn[data-t="red"]    i { background: #e8453c; }
+  [data-theme="nv"]     .theme-btn[data-t="nv"]     i { background: #00e589; }
+  [data-theme="cyan"]   .theme-btn[data-t="cyan"]   i { background: #38c8ff; }
+  [data-theme="amber"]  .theme-btn[data-t="amber"]  i { background: #ffab2e; }
+  [data-theme="light"]  .theme-btn[data-t="light"]  i { background: linear-gradient(180deg,#fff,#c9d4e4); border: 1px solid rgba(0,0,0,.2); }
+
+  /* ============ 页头 ============ */
   .doc-head { display: flex; align-items: flex-end; gap: 18px; margin-bottom: 10px; }
-  .doc-head img { width: 56px; height: 56px; }
-  .doc-head .kicker { font: 700 11px var(--mono); color: var(--red); letter-spacing: 3px; margin-bottom: 6px; }
+  .doc-head .logo-big { width: 56px; height: 56px; }
+  .doc-head .kicker { font: 700 11px var(--mono); color: var(--accent); letter-spacing: 3px; margin-bottom: 6px; }
   .doc-head h1 { font-size: 26px; letter-spacing: -.3px; }
-  .doc-head h1 span { color: var(--hot); }
+  .doc-head h1 span { color: var(--accent-hot); }
   .doc-sub { color: var(--dim); font-size: 13px; margin-bottom: 34px; }
   .doc-sub b { color: var(--muted); font-weight: 500; }
 
@@ -47,7 +101,7 @@
   }
   .section-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
-  /* ===== 手机壳 ===== */
+  /* ============ 手机壳 ============ */
   .phones { display: flex; gap: 30px; overflow-x: auto; padding-bottom: 16px; }
   .phone-wrap { flex-shrink: 0; }
   .phone-cap { text-align: center; margin-bottom: 12px; }
@@ -55,78 +109,67 @@
   .phone-cap span { font: 400 10px var(--mono); color: var(--dim); letter-spacing: 1.5px; }
   .phone {
     width: 390px; height: 812px;
-    border-radius: 52px;
-    border: 11px solid #161b23;
+    border-radius: 52px; border: 11px solid #161b23;
     outline: 1px solid rgba(255,255,255,.12);
-    background: #05070a;
-    overflow: hidden;
-    position: relative;
-    box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.8);
+    background: #05070a; overflow: hidden; position: relative;
+    box-shadow: 0 30px 80px rgba(0,0,0,.45), inset 0 0 0 1px rgba(0,0,0,.8);
   }
-  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--bg); transition: background .3s; }
 
-  /* 状态栏 */
   .sbar {
-    height: 54px; flex-shrink: 0;
+    height: 54px; flex-shrink: 0; color: var(--text);
     display: flex; align-items: flex-end; justify-content: space-between;
     padding: 0 26px 8px; font: 700 13px var(--mono);
   }
-  .sbar .island {
-    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-    width: 110px; height: 30px; border-radius: 16px; background: #000;
-  }
-  .sbar .sic { display: flex; gap: 6px; align-items: center; color: var(--text); }
-  .sbar svg { display: block; }
+  .sbar .island { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: 110px; height: 30px; border-radius: 16px; background: #000; }
+  .sbar .sic { display: flex; gap: 6px; align-items: center; }
+  .sbar .sic svg { display: block; }
 
-  /* App 栏 */
-  .appbar {
-    flex-shrink: 0;
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 18px 14px;
-  }
-  .appbar img.logo { width: 30px; height: 30px; }
+  .appbar { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 18px 14px; }
+  .appbar .logo-s { width: 30px; height: 30px; }
   .appbar .ttl { flex: 1; min-width: 0; }
   .appbar .ttl b { display: block; font-size: 17px; letter-spacing: .2px; }
   .appbar .ttl span { font: 400 9px var(--mono); color: var(--dim); letter-spacing: 1.5px; }
-  .pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    border: 1px solid var(--line2); border-radius: 999px;
-    padding: 5px 10px; font-size: 11px; color: var(--muted);
-  }
+  .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line2); border-radius: 999px; padding: 5px 10px; font-size: 11px; color: var(--muted); }
   .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #4b5563; }
-  .pill.on .dot { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,.8); }
-  .pill.on { color: #90f4b1; border-color: rgba(34,197,94,.4); }
+  .pill.on .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .pill.on { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+  .pill.act { color: var(--accent-hot); border-color: var(--accent-line); }
 
   .body { flex: 1; min-height: 0; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 12px; }
 
-  /* 底部 Tab */
   .tabbar {
-    flex-shrink: 0;
-    display: grid; grid-template-columns: repeat(5, 1fr);
+    flex-shrink: 0; display: grid; grid-template-columns: repeat(5, 1fr);
     padding: 10px 10px 26px; gap: 2px;
     border-top: 1px solid var(--line);
-    background: rgba(8,11,16,.9);
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
   }
   .tab { display: grid; justify-items: center; gap: 4px; font-size: 10px; color: var(--dim); padding: 6px 0; }
-  .tab img { width: 21px; height: 21px; color: var(--dim); }
-  .tab.active { color: var(--hot); }
-  .tab.active img { color: var(--hot); filter: drop-shadow(0 0 7px rgba(255,80,64,.6)); }
+  .tab svg { width: 21px; height: 21px; }
+  .tab.active { color: var(--accent-hot); }
+  .tab.active svg { color: var(--accent-hot); filter: drop-shadow(0 0 7px var(--accent)); }
 
-  /* 通用组件 */
+  /* ============ 通用组件 ============ */
   .card {
     background: linear-gradient(180deg, var(--card2), var(--card));
     border: 1px solid var(--line); border-radius: 14px; padding: 14px;
   }
   .kicker { font: 700 10px var(--mono); color: var(--dim); letter-spacing: 2px; margin-bottom: 10px; display: flex; justify-content: space-between; }
-  .kicker em { font-style: normal; color: var(--red); }
+  .kicker em { font-style: normal; color: var(--accent); }
   .btn-primary {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     height: 48px; border-radius: 12px;
-    background: linear-gradient(180deg, #ff594f, #c5261d);
+    background: linear-gradient(180deg, var(--accent-hot), var(--accent-deep));
     color: #fff; font-weight: 700; font-size: 15px;
-    box-shadow: 0 8px 24px rgba(232,69,60,.35);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent);
   }
-  .btn-primary img { width: 18px; height: 18px; }
+  .btn-primary svg { width: 18px; height: 18px; }
+  .btn-outline2 {
+    display: flex; align-items: center; justify-content: center;
+    height: 48px; border-radius: 12px;
+    border: 1.5px solid var(--accent-line); color: var(--accent-hot);
+    font-weight: 700; font-size: 15px;
+  }
   .btn-ghost {
     display: flex; align-items: center; justify-content: center;
     height: 38px; border-radius: 10px;
@@ -134,66 +177,48 @@
     color: var(--text); font-size: 13px;
   }
 
-  /* ===== S1 连接 ===== */
+  /* ============ S1 连接 ============ */
   .hero {
     position: relative; border-radius: 18px; overflow: hidden;
     border: 1px solid var(--line);
-    background: radial-gradient(140% 100% at 50% 0%, #16202e 0%, #0a0e15 70%);
+    background: radial-gradient(140% 100% at 50% 0%, var(--card2) 0%, var(--bg) 70%);
     padding: 26px 16px 18px; text-align: center;
   }
-  .hero::before, .hero::after {
-    content: ""; position: absolute; width: 18px; height: 18px;
-    border: 1.5px solid rgba(231,235,242,.18);
-  }
+  .hero::before, .hero::after { content: ""; position: absolute; width: 18px; height: 18px; border: 1.5px solid var(--line2); }
   .hero::before { left: 10px; top: 10px; border-right: none; border-bottom: none; border-radius: 6px 0 0 0; }
   .hero::after { right: 10px; bottom: 10px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
-  .hero img.emblem { width: 108px; height: 108px; filter: drop-shadow(0 0 26px rgba(232,69,60,.3)); }
+  .hero .emblem { width: 108px; height: 108px; filter: drop-shadow(0 0 26px color-mix(in srgb, var(--accent) 35%, transparent)); }
   .hero .dev-name { font: 700 20px var(--mono); margin-top: 14px; }
   .hero .dev-sub { font: 400 10px var(--mono); color: var(--dim); letter-spacing: 2px; margin-top: 4px; }
 
   .dev-list { display: grid; gap: 8px; }
-  .dev-item {
-    display: flex; align-items: center; gap: 12px;
-    border: 1px solid var(--line); border-radius: 12px;
-    background: var(--card); padding: 12px 14px;
-  }
-  .dev-item.selected { border-color: rgba(232,69,60,.5); background: rgba(232,69,60,.07); }
+  .dev-item { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 12px 14px; }
+  .dev-item.selected { border-color: var(--accent-line); background: var(--accent-soft); }
   .dev-item .sig { display: grid; gap: 2px; }
   .dev-item .sig b { font-size: 13px; }
   .dev-item .sig span { font: 400 10px var(--mono); color: var(--dim); }
-  .dev-item .rssi { margin-left: auto; text-align: right; }
-  .dev-item .rssi b { font: 700 12px var(--mono); color: var(--muted); }
+  .dev-item .rssi { margin-left: auto; }
   .bars { display: flex; align-items: flex-end; gap: 2px; height: 12px; margin-left: auto; }
   .bars i { width: 3px; background: var(--dim); border-radius: 1px; }
-  .bars i.on { background: var(--green); }
+  .bars i.on { background: var(--ok); }
   .bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:9px}.bars i:nth-child(4){height:12px}
-  .paired-chip {
-    font: 700 9px var(--mono); letter-spacing: 1px; color: #90f4b1;
-    border: 1px solid rgba(34,197,94,.4); border-radius: 999px; padding: 3px 8px;
-  }
+  .paired-chip { font: 700 9px var(--mono); letter-spacing: 1px; color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); border-radius: 999px; padding: 3px 8px; }
 
-  /* ===== S2 弹药 ===== */
-  .ammo-card { position: relative; }
-  .ammo-card.selected { border-color: rgba(232,69,60,.55); box-shadow: 0 0 0 1px rgba(232,69,60,.3), 0 10px 30px rgba(232,69,60,.12); }
+  /* ============ S2 弹药 ============ */
+  .ammo-card.selected { border-color: var(--accent-line); box-shadow: 0 0 0 1px var(--accent-line), 0 10px 30px color-mix(in srgb, var(--accent) 12%, transparent); }
   .ammo-head { display: flex; align-items: baseline; gap: 8px; }
   .ammo-head b { font-size: 16px; }
   .ammo-head span { font: 400 10px var(--mono); color: var(--dim); letter-spacing: 1px; }
-  .cur-chip {
-    margin-left: auto; font: 700 9px var(--mono); letter-spacing: 1px; color: var(--hot);
-    border: 1px solid rgba(232,69,60,.5); border-radius: 999px; padding: 3px 8px;
-  }
+  .cur-chip { margin-left: auto; font: 700 9px var(--mono); letter-spacing: 1px; color: var(--accent-hot); border: 1px solid var(--accent-line); border-radius: 999px; padding: 3px 8px; }
   .ammo-specs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; }
-  .ammo-specs div { border: 1px solid var(--line); border-radius: 8px; padding: 7px 4px 6px; text-align: center; background: rgba(255,255,255,.02); }
+  .ammo-specs div { border: 1px solid var(--line); border-radius: 8px; padding: 7px 4px 6px; text-align: center; background: color-mix(in srgb, var(--text) 2%, transparent); }
   .ammo-specs span { display: block; font: 400 9px var(--mono); color: var(--dim); letter-spacing: 1px; }
   .ammo-specs b { font: 700 13px var(--mono); }
   .preset-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip {
-    border: 1px solid var(--line2); border-radius: 999px; padding: 7px 12px;
-    font-size: 12px; color: var(--muted); background: var(--card);
-  }
-  .chip.red { color: #ffb3ad; border-color: rgba(232,69,60,.45); background: rgba(232,69,60,.09); }
+  .chip { border: 1px solid var(--line2); border-radius: 999px; padding: 7px 12px; font-size: 12px; color: var(--muted); background: var(--card); }
+  .chip.red { color: color-mix(in srgb, var(--accent-hot) 80%, var(--text)); border-color: var(--accent-line); background: var(--accent-soft); }
 
-  /* ===== S3 解算 ===== */
+  /* ============ S3 解算 ============ */
   .scope-stage { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; }
   .scope-lens {
     position: relative; width: 340px; height: 340px; border-radius: 50%;
@@ -202,25 +227,21 @@
     box-shadow: inset 0 0 60px rgba(0,0,0,.35), 0 24px 60px rgba(0,0,0,.5);
     background: url("../assets/scope-view.svg") center / cover;
   }
-  .scope-lens::after {
-    content: ""; position: absolute; inset: 0; border-radius: 50%;
-    box-shadow: inset 0 0 44px rgba(0,0,0,.4), inset 0 0 5px rgba(0,0,0,.85);
-    pointer-events: none; z-index: 30;
-  }
+  .scope-lens::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 44px rgba(0,0,0,.4), inset 0 0 5px rgba(0,0,0,.85); pointer-events: none; z-index: 30; }
   .hud-top {
     position: absolute; left: 0; right: 0; top: 0; height: 24%;
-    background: #020202; z-index: 20; color: var(--hot);
+    background: #020202; z-index: 20; color: var(--accent-hot);
     font-family: var(--mono);
     display: grid; grid-template-columns: 1.35fr 1fr .9fr; gap: 4px;
     align-items: center; padding: 7% 13% 2%;
-    text-shadow: 0 0 7px rgba(255,80,64,.9), 0 0 16px rgba(232,69,60,.5);
+    text-shadow: 0 0 7px var(--accent), 0 0 16px color-mix(in srgb, var(--accent) 55%, transparent);
   }
   .hud-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 16px; background: linear-gradient(180deg, #020202, transparent); }
   .hc { display: flex; align-items: baseline; justify-content: center; gap: 3px; min-width: 0; }
-  .hc span { font-size: 8px; color: #ff8279; font-weight: 800; }
+  .hc span { font-size: 8px; color: color-mix(in srgb, var(--accent-hot) 70%, #fff); font-weight: 800; }
   .hc strong { font-size: 24px; line-height: 1; }
   .hc.primary strong { font-size: 38px; }
-  .hc em { font-size: 9px; font-style: normal; color: #ff8279; }
+  .hc em { font-size: 9px; font-style: normal; color: color-mix(in srgb, var(--accent-hot) 70%, #fff); }
   .r-cross { position: absolute; background: rgba(0,0,0,.72); z-index: 8; }
   .r-cross.h { left: 8%; right: 8%; top: 50%; height: 1px; }
   .r-cross.v { top: 34%; bottom: 8%; left: 50%; width: 1px; }
@@ -228,7 +249,7 @@
   .r-dots span { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: rgba(0,0,0,.4); transform: translate(-50%,-50%); }
   .aim-dot {
     position: absolute; width: 12px; height: 12px; border-radius: 50%; z-index: 16;
-    background: var(--hot); box-shadow: 0 0 9px var(--hot), 0 0 24px rgba(232,69,60,.9);
+    background: var(--accent-hot); box-shadow: 0 0 9px var(--accent-hot), 0 0 24px var(--accent);
     transform: translate(-50%,-50%);
   }
   .tgt { position: absolute; left: 50%; top: 58%; width: 150px; height: 139px; transform: translate(-50%,-50%); z-index: 5; opacity: .9; }
@@ -237,10 +258,10 @@
   .callout {
     flex-shrink: 0;
     display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
-    border: 1px solid rgba(245,158,11,.42); background: rgba(245,158,11,.09);
+    border: 1px solid color-mix(in srgb, var(--warn) 42%, transparent); background: color-mix(in srgb, var(--warn) 9%, transparent);
     border-radius: 12px; padding: 12px 14px;
   }
-  .callout span { font: 900 15px var(--mono); color: #facc15; }
+  .callout span { font: 900 15px var(--mono); color: var(--warn); }
   .callout strong { font: 700 15px var(--mono); }
   .callout em { font-style: normal; font: 400 12px var(--mono); color: var(--muted); }
 
@@ -248,68 +269,50 @@
   .sl-row { display: grid; gap: 5px; }
   .sl-row .lab { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
   .sl-row .lab b { font: 700 12px var(--mono); color: var(--text); }
-  input[type=range] {
-    -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent;
-  }
-  input[type=range]::-webkit-slider-runnable-track {
-    height: 5px; border-radius: 3px;
-    background: linear-gradient(90deg, var(--red) 42%, rgba(255,255,255,.12) 42%);
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
-    background: #fff; border: 4px solid var(--red); margin-top: -6.5px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.5);
-  }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; }
+  input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--p,42%), var(--line2) var(--p,42%)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 4px solid var(--accent); margin-top: -6.5px; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
   .mini-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .mini-metrics div { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 9px 6px; text-align: center; }
   .mini-metrics span { display: block; font: 400 9px var(--mono); color: var(--dim); letter-spacing: 1px; }
   .mini-metrics b { font: 700 14px var(--mono); }
 
-  /* ===== S4 环境 ===== */
+  /* ============ S4 环境 ============ */
   .env-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .env-cell { text-align: left; }
   .env-cell .ic { width: 30px; height: 30px; color: var(--muted); margin-bottom: 10px; }
   .env-cell .val { font: 700 24px var(--mono); }
   .env-cell .val i { font-style: normal; font-size: 12px; color: var(--muted); margin-left: 3px; }
   .env-cell .src { margin-top: 8px; font: 400 9px var(--mono); color: var(--dim); letter-spacing: 1px; }
-  .da-banner {
-    display: flex; align-items: center; gap: 12px;
-    border: 1px solid rgba(245,158,11,.28); border-radius: 12px;
-    background: rgba(245,158,11,.07); padding: 12px 14px;
-  }
-  .da-banner .k { font: 700 10px var(--mono); color: #f9d77d; letter-spacing: 1.5px; }
-  .da-banner b { font: 700 18px var(--mono); color: #f9d77d; }
+  .env-cell .live-chip { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font: 700 9px var(--mono); color: var(--ok); letter-spacing: 1px; }
+  .env-cell .live-chip::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .da-banner { display: flex; align-items: center; gap: 12px; border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--warn) 8%, transparent); padding: 12px 14px; }
+  .da-banner .k { font: 700 10px var(--mono); color: var(--warn); letter-spacing: 1.5px; }
+  .da-banner b { font: 700 18px var(--mono); color: var(--warn); }
   .da-banner span { font-size: 11px; color: var(--muted); }
   .wind-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .stepper { display: flex; align-items: center; gap: 10px; }
-  .stepper button {
-    width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line2);
-    background: var(--card); color: var(--text); font-size: 16px;
-  }
+  .stepper button { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line2); background: var(--card); color: var(--text); font-size: 16px; }
   .stepper b { font: 700 16px var(--mono); flex: 1; text-align: center; }
 
-  /* ===== S5 HUD ===== */
+  /* ============ S5 HUD ============ */
   .zones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .zone {
-    display: flex; align-items: center; gap: 8px;
-    border: 1px solid var(--line); border-radius: 10px;
-    background: var(--card); padding: 10px 12px; font-size: 12px; color: var(--muted);
-  }
-  .zone.on { border-color: rgba(232,69,60,.45); background: rgba(232,69,60,.08); color: var(--text); }
+  .zone { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 10px 12px; font-size: 12px; color: var(--muted); }
+  .zone.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text); }
   .zone .led { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--dim); flex-shrink: 0; }
-  .zone.on .led { border-color: var(--red); background: var(--red); box-shadow: 0 0 8px rgba(232,69,60,.7); }
+  .zone.on .led { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 8px var(--accent); }
   .zone em { font: 400 9px var(--mono); font-style: normal; color: var(--dim); margin-left: auto; letter-spacing: 1px; }
   .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; }
   .seg button { height: 36px; border: none; background: transparent; color: var(--muted); font-size: 13px; }
-  .seg button.on { background: rgba(232,69,60,.14); color: var(--hot); font-weight: 700; }
+  .seg button.on { background: var(--accent-soft); color: var(--accent-hot); font-weight: 700; }
   .row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .row-between span { font-size: 13px; }
-  .switch { width: 44px; height: 26px; border-radius: 999px; background: rgba(255,255,255,.12); position: relative; flex-shrink: 0; }
-  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #8792a3; transition: .2s; }
-  .switch.on { background: rgba(232,69,60,.5); }
+  .switch { width: 44px; height: 26px; border-radius: 999px; background: var(--line2); position: relative; flex-shrink: 0; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--muted); transition: .2s; }
+  .switch.on { background: color-mix(in srgb, var(--accent) 55%, transparent); }
   .switch.on::after { left: 21px; background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.4); }
 
-  /* ===== 设计规范区 ===== */
+  /* ============ 设计规范 ============ */
   .tokens { display: flex; gap: 14px; flex-wrap: wrap; }
   .tok-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 220px; flex: 1; }
   .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
@@ -321,19 +324,77 @@
   .type-demo code { font: 400 10px var(--mono); color: var(--dim); width: 150px; }
   .icon-strip { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
   .icon-strip .ic2 { width: 26px; height: 26px; color: var(--text); }
-  .icon-strip img.big { width: 46px; height: 46px; }
+  .icon-strip .big { width: 46px; height: 46px; }
+
+  /* 亮色主题下镜筒边框等微调 */
+  [data-theme="light"] .phone { border-color: #2a3138; }
+  [data-theme="light"] .scope-lens { border-color: #2a3138; }
 </style>
 </head>
 <body>
 
+<!-- 主题切换器 -->
+<div class="theme-bar">
+  <span class="tl">THEME</span>
+  <button class="theme-btn active" data-t="red" type="button"><i></i>战术红</button>
+  <button class="theme-btn" data-t="nv" type="button"><i></i>夜视绿</button>
+  <button class="theme-btn" data-t="cyan" type="button"><i></i>科技青</button>
+  <button class="theme-btn" data-t="amber" type="button"><i></i>猎场琥珀</button>
+  <button class="theme-btn" data-t="light" type="button"><i></i>极简亮色</button>
+</div>
+
+<!-- ============ SVG 符号库（currentColor / var 驱动，随主题变色） ============ -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="dglow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="1.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <symbol id="sym-logo" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".92"/>
+      <path d="M24 4 A20 20 0 0 1 41.3 14" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" filter="url(#dglow)"/>
+      <circle cx="24" cy="24" r="14.5" fill="none" stroke="currentColor" stroke-width=".8" opacity=".32"/>
+      <path d="M24 2.8v3.4M24 41.8v3.4M2.8 24h3.4M41.8 24h3.4" stroke="currentColor" stroke-width="1.2" opacity=".55"/>
+      <path d="M9.9 9.9l1.8 1.8M36.3 36.3l1.8 1.8M38.1 9.9l-1.8 1.8M11.7 36.3l-1.8 1.8" stroke="currentColor" stroke-width=".9" opacity=".3"/>
+      <path d="M24 10.5v6.5M24 31v6.5M10.5 24h6.5M31 24h6.5" stroke="currentColor" stroke-width="1.3" opacity=".85"/>
+      <circle cx="24" cy="24" r="2.6" fill="var(--accent-hot)" filter="url(#dglow)"/>
+    </symbol>
+    <symbol id="i-device" viewBox="0 0 24 24">
+      <path d="m7 7 10 10-5 5V2l5 5L7 17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-profile" viewBox="0 0 24 24">
+      <rect x="7" y="11" width="10" height="9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M7 11c0-3 2-5.6 5-8 3 2.4 5 5 5 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M7 14.5h10" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    </symbol>
+    <symbol id="i-env" viewBox="0 0 24 24">
+      <path d="M10 5a2 2 0 0 1 4 0v8.5a4.5 4.5 0 1 1-4 0Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M12 9.5v5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M17 7.5h2.5M17 11.5h2.5" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".55" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-target" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="12" cy="12" r="1.3" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-hud" viewBox="0 0 24 24">
+      <path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-sync" viewBox="0 0 24 24">
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
 <div class="doc-head">
-  <img src="../assets/logo-mark.svg" alt="">
+  <svg class="logo-big"><use href="#sym-logo"/></svg>
   <div>
-    <div class="kicker">J57AA /// APP UI DESIGN</div>
-    <h1>Scope Connect <span>·</span> 移动端设计稿 v1</h1>
+    <div class="kicker">J57AA /// APP UI DESIGN v2</div>
+    <h1>Scope Connect <span>·</span> 移动端设计稿（可切换主题）</h1>
   </div>
 </div>
-<div class="doc-sub">视觉语言：<b>暗色战术 HUD</b> · 近黑底 <b>#07090d</b> · 单一红色强调 <b>#E8453C</b> · 发丝线 + 光晕 + 等宽数字 · 全矢量素材可无限缩放</div>
+<div class="doc-sub">右上角切换色系：<b>战术红 / 夜视绿 / 科技青 / 猎场琥珀 / 极简亮色</b> · 选择会记住 · 图标与素材全部随主题变色 · 全矢量无限缩放</div>
 
 <div class="section-label">SCREENS · 5 屏主流程</div>
 <div class="phones">
@@ -344,19 +405,19 @@
     <div class="phone"><div class="screen">
       <div class="sbar"><span>09:41</span><div class="island"></div>
         <span class="sic">
-          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
-          <svg width="15" height="11" viewBox="0 0 15 11" fill="#e7ebf2"><path d="M7.5 10.5 5 7.8a3.6 3.6 0 0 1 5 0Zm0-4.7a5.8 5.8 0 0 0-4.2 1.8L1.7 6a8.3 8.3 0 0 1 11.6 0l-1.6 1.6a5.8 5.8 0 0 0-4.2-1.8Zm0-4A9.9 9.9 0 0 0 .5 4.3L2.1 6a7.7 7.7 0 0 1 10.8 0l1.6-1.7A9.9 9.9 0 0 0 7.5 1.8Z"/></svg>
-          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 10.5 5 7.8a3.6 3.6 0 0 1 5 0Zm0-4.7a5.8 5.8 0 0 0-4.2 1.8L1.7 6a8.3 8.3 0 0 1 11.6 0l-1.6 1.6a5.8 5.8 0 0 0-4.2-1.8Zm0-4A9.9 9.9 0 0 0 .5 4.3L2.1 6a7.7 7.7 0 0 1 10.8 0l1.6-1.7A9.9 9.9 0 0 0 7.5 1.8Z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="var(--ok)"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity=".5"/></svg>
         </span>
       </div>
       <div class="appbar">
-        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <svg class="logo-s"><use href="#sym-logo"/></svg>
         <div class="ttl"><b>Scope Connect</b><span>BLE PROFILE / DOPE / HUD</span></div>
         <div class="pill"><span class="dot"></span>未连接</div>
       </div>
       <div class="body">
         <div class="hero">
-          <img class="emblem" src="../assets/logo-mark.svg" alt="">
+          <svg class="emblem"><use href="#sym-logo"/></svg>
           <div class="dev-name">J57AA-2000A</div>
           <div class="dev-sub">LASER RANGEFINDING SCOPE</div>
         </div>
@@ -364,25 +425,25 @@
           <div class="kicker"><span>附近的瞄具</span><em>SCAN</em></div>
           <div class="dev-list">
             <div class="dev-item selected">
-              <svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff5040" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+              <svg width="22" height="22" style="color:var(--accent-hot)"><use href="#i-device"/></svg>
               <div class="sig"><b>J57AA-2000A</b><span>E104-BT5005A · FFF0</span></div>
               <div class="rssi"><span class="paired-chip">已配对</span></div>
             </div>
             <div class="dev-item">
-              <svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8792a3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+              <svg width="22" height="22" style="color:var(--muted)"><use href="#i-device"/></svg>
               <div class="sig"><b>E104-BT5005A</b><span>UNKNOWN</span></div>
               <div class="bars"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
             </div>
           </div>
         </div>
-        <div class="btn-primary"><img src="../assets/icons/status-bt.svg" style="color:#fff" alt="">连接 BLE</div>
+        <div class="btn-primary"><svg><use href="#i-device"/></svg>连接 BLE</div>
       </div>
       <div class="tabbar">
-        <div class="tab active"><img src="../assets/icons/step-device.svg">设备</div>
-        <div class="tab"><img src="../assets/icons/step-profile.svg">弹药</div>
-        <div class="tab"><img src="../assets/icons/step-target.svg">目标</div>
-        <div class="tab"><img src="../assets/icons/step-environment.svg">环境</div>
-        <div class="tab"><img src="../assets/icons/step-hud.svg">HUD</div>
+        <div class="tab active"><svg><use href="#i-device"/></svg>设备</div>
+        <div class="tab"><svg><use href="#i-profile"/></svg>弹药</div>
+        <div class="tab"><svg><use href="#i-target"/></svg>目标</div>
+        <div class="tab"><svg><use href="#i-env"/></svg>环境</div>
+        <div class="tab"><svg><use href="#i-hud"/></svg>HUD</div>
       </div>
     </div></div>
   </div>
@@ -393,12 +454,12 @@
     <div class="phone"><div class="screen">
       <div class="sbar"><span>09:41</span><div class="island"></div>
         <span class="sic">
-          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
-          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="var(--ok)"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity=".5"/></svg>
         </span>
       </div>
       <div class="appbar">
-        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <svg class="logo-s"><use href="#sym-logo"/></svg>
         <div class="ttl"><b>弹药 Profile</b><span>3 PROFILES · LOCAL</span></div>
         <div class="pill on"><span class="dot"></span>已连接</div>
       </div>
@@ -430,14 +491,14 @@
             <span class="chip">.50 BMG</span>
           </div>
         </div>
-        <div class="btn-primary" style="background:none;border:1.5px solid rgba(232,69,60,.55);color:#ff8279;box-shadow:none;">＋ 新建 Profile</div>
+        <div class="btn-outline2">＋ 新建 Profile</div>
       </div>
       <div class="tabbar">
-        <div class="tab"><img src="../assets/icons/step-device.svg">设备</div>
-        <div class="tab active"><img src="../assets/icons/step-profile.svg">弹药</div>
-        <div class="tab"><img src="../assets/icons/step-target.svg">目标</div>
-        <div class="tab"><img src="../assets/icons/step-environment.svg">环境</div>
-        <div class="tab"><img src="../assets/icons/step-hud.svg">HUD</div>
+        <div class="tab"><svg><use href="#i-device"/></svg>设备</div>
+        <div class="tab active"><svg><use href="#i-profile"/></svg>弹药</div>
+        <div class="tab"><svg><use href="#i-target"/></svg>目标</div>
+        <div class="tab"><svg><use href="#i-env"/></svg>环境</div>
+        <div class="tab"><svg><use href="#i-hud"/></svg>HUD</div>
       </div>
     </div></div>
   </div>
@@ -448,12 +509,12 @@
     <div class="phone"><div class="screen">
       <div class="sbar"><span>09:41</span><div class="island"></div>
         <span class="sic">
-          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
-          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="var(--ok)"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity=".5"/></svg>
         </span>
       </div>
       <div class="appbar">
-        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <svg class="logo-s"><use href="#sym-logo"/></svg>
         <div class="ttl"><b>目标 · Shotcall</b><span>847 M · DEER BROADSIDE</span></div>
         <div class="pill on"><span class="dot"></span>已连接</div>
       </div>
@@ -474,9 +535,9 @@
         </div>
         <div class="callout"><span>MARGINAL</span><strong>1131 J</strong><em>+13%</em></div>
         <div class="card sliders">
-          <div class="sl-row"><div class="lab"><span>测距</span><b>847 m</b></div><input type="range" value="42"></div>
+          <div class="sl-row"><div class="lab"><span>测距</span><b>847 m</b></div><input type="range" value="42" style="--p:42%"></div>
           <div class="sl-row"><div class="lab"><span>横风</span><b>3.5 m/s</b></div><input type="range" value="60" style="--p:60%"></div>
-          <div class="sl-row"><div class="lab"><span>倍率</span><b>10 x</b></div><input type="range" value="38"></div>
+          <div class="sl-row"><div class="lab"><span>倍率</span><b>10 x</b></div><input type="range" value="38" style="--p:38%"></div>
         </div>
         <div class="mini-metrics">
           <div><span>落点</span><b>R2 C1</b></div>
@@ -485,11 +546,11 @@
         </div>
       </div>
       <div class="tabbar">
-        <div class="tab"><img src="../assets/icons/step-device.svg">设备</div>
-        <div class="tab"><img src="../assets/icons/step-profile.svg">弹药</div>
-        <div class="tab active"><img src="../assets/icons/step-target.svg">目标</div>
-        <div class="tab"><img src="../assets/icons/step-environment.svg">环境</div>
-        <div class="tab"><img src="../assets/icons/step-hud.svg">HUD</div>
+        <div class="tab"><svg><use href="#i-device"/></svg>设备</div>
+        <div class="tab"><svg><use href="#i-profile"/></svg>弹药</div>
+        <div class="tab active"><svg><use href="#i-target"/></svg>目标</div>
+        <div class="tab"><svg><use href="#i-env"/></svg>环境</div>
+        <div class="tab"><svg><use href="#i-hud"/></svg>HUD</div>
       </div>
     </div></div>
   </div>
@@ -500,36 +561,36 @@
     <div class="phone"><div class="screen">
       <div class="sbar"><span>09:41</span><div class="island"></div>
         <span class="sic">
-          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
-          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="var(--ok)"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity=".5"/></svg>
         </span>
       </div>
       <div class="appbar">
-        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <svg class="logo-s"><use href="#sym-logo"/></svg>
         <div class="ttl"><b>环境</b><span>BMP388 / SHT40</span></div>
-        <div class="pill" style="color:#90f4b1;border-color:rgba(34,197,94,.4)">从瞄具读取</div>
+        <div class="pill act">从瞄具读取</div>
       </div>
       <div class="body">
         <div class="env-grid">
           <div class="card env-cell">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M10 5a2 2 0 0 1 4 0v8.5a4.5 4.5 0 1 1-4 0Z"/><path d="M12 9.5v5"/></svg>
             <div class="val">21.5<i>°C</i></div>
-            <div class="src">TEMP · 实时</div>
+            <span class="live-chip">实时</span>
           </div>
           <div class="card env-cell">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/></svg>
             <div class="val">43<i>%RH</i></div>
-            <div class="src">HUMIDITY · 实时</div>
+            <span class="live-chip">实时</span>
           </div>
           <div class="card env-cell">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 12l4-3"/></svg>
             <div class="val">986.2<i>hPa</i></div>
-            <div class="src">PRESSURE · 实时</div>
+            <span class="live-chip">实时</span>
           </div>
           <div class="card env-cell">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 20l4-9 3 5 2-3 3 7"/></svg>
             <div class="val">512<i>m</i></div>
-            <div class="src">ALTITUDE · 实时</div>
+            <span class="live-chip">实时</span>
           </div>
         </div>
         <div class="da-banner">
@@ -547,11 +608,11 @@
         <div class="btn-ghost">恢复标准大气</div>
       </div>
       <div class="tabbar">
-        <div class="tab"><img src="../assets/icons/step-device.svg">设备</div>
-        <div class="tab"><img src="../assets/icons/step-profile.svg">弹药</div>
-        <div class="tab"><img src="../assets/icons/step-target.svg">目标</div>
-        <div class="tab active"><img src="../assets/icons/step-environment.svg">环境</div>
-        <div class="tab"><img src="../assets/icons/step-hud.svg">HUD</div>
+        <div class="tab"><svg><use href="#i-device"/></svg>设备</div>
+        <div class="tab"><svg><use href="#i-profile"/></svg>弹药</div>
+        <div class="tab"><svg><use href="#i-target"/></svg>目标</div>
+        <div class="tab active"><svg><use href="#i-env"/></svg>环境</div>
+        <div class="tab"><svg><use href="#i-hud"/></svg>HUD</div>
       </div>
     </div></div>
   </div>
@@ -562,12 +623,12 @@
     <div class="phone"><div class="screen">
       <div class="sbar"><span>09:41</span><div class="island"></div>
         <span class="sic">
-          <svg width="17" height="11" viewBox="0 0 17 11" fill="#e7ebf2"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
-          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="#e7ebf2" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="#22c55e"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="#e7ebf2" opacity=".5"/></svg>
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="var(--ok)"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity=".5"/></svg>
         </span>
       </div>
       <div class="appbar">
-        <img class="logo" src="../assets/logo-mark.svg" alt="">
+        <svg class="logo-s"><use href="#sym-logo"/></svg>
         <div class="ttl"><b>HUD 显示</b><span>10 ZONES · 7 ON</span></div>
         <div class="pill on"><span class="dot"></span>已连接</div>
       </div>
@@ -604,7 +665,7 @@
           </div>
         </div>
         <div class="card" style="display:flex;align-items:center;gap:12px;">
-          <img src="../assets/icons/step-sync.svg" style="width:22px;height:22px;color:#5aa2ff">
+          <svg style="width:22px;height:22px;color:var(--accent)"><use href="#i-sync"/></svg>
           <div style="flex:1">
             <b style="font-size:13px">同步 DOPE 到瞄具</b>
             <div style="font:400 10px var(--mono);color:var(--dim);margin-top:2px">PROFILE WRITE · PENDING</div>
@@ -613,27 +674,27 @@
         </div>
       </div>
       <div class="tabbar">
-        <div class="tab"><img src="../assets/icons/step-device.svg">设备</div>
-        <div class="tab"><img src="../assets/icons/step-profile.svg">弹药</div>
-        <div class="tab"><img src="../assets/icons/step-target.svg">目标</div>
-        <div class="tab"><img src="../assets/icons/step-environment.svg">环境</div>
-        <div class="tab active"><img src="../assets/icons/step-hud.svg">HUD</div>
+        <div class="tab"><svg><use href="#i-device"/></svg>设备</div>
+        <div class="tab"><svg><use href="#i-profile"/></svg>弹药</div>
+        <div class="tab"><svg><use href="#i-target"/></svg>目标</div>
+        <div class="tab"><svg><use href="#i-env"/></svg>环境</div>
+        <div class="tab active"><svg><use href="#i-hud"/></svg>HUD</div>
       </div>
     </div></div>
   </div>
 
 </div>
 
-<div class="section-label">DESIGN TOKENS · 设计规范</div>
+<div class="section-label">DESIGN TOKENS · 设计规范（跟随当前主题）</div>
 <div class="tokens">
   <div class="tok-card">
-    <div class="kicker" style="margin-bottom:14px"><span>色板</span><em>COLOR</em></div>
+    <div class="kicker" style="margin-bottom:14px"><span>色板</span><em id="theme-name">COLOR</em></div>
     <div class="swatches">
-      <div class="sw"><i style="background:#07090d"></i><span>#07090d<br>底</span></div>
-      <div class="sw"><i style="background:#10151d"></i><span>#10151d<br>卡面</span></div>
-      <div class="sw"><i style="background:#e8453c"></i><span>#E8453C<br>主红</span></div>
-      <div class="sw"><i style="background:#22c55e"></i><span>#22C55E<br>正常</span></div>
-      <div class="sw"><i style="background:#f59e0b"></i><span>#F59E0B<br>警示</span></div>
+      <div class="sw"><i id="sw-bg"></i><span id="sw-bg-t">底</span></div>
+      <div class="sw"><i id="sw-card"></i><span id="sw-card-t">卡面</span></div>
+      <div class="sw"><i id="sw-ac"></i><span id="sw-ac-t">强调</span></div>
+      <div class="sw"><i id="sw-ok"></i><span id="sw-ok-t">正常</span></div>
+      <div class="sw"><i id="sw-warn"></i><span id="sw-warn-t">警示</span></div>
     </div>
   </div>
   <div class="tok-card">
@@ -648,23 +709,53 @@
   <div class="tok-card" style="min-width:280px">
     <div class="kicker" style="margin-bottom:14px"><span>图标与素材</span><em>ASSETS</em></div>
     <div class="icon-strip">
-      <img class="big" src="../assets/logo-mark.svg" title="logo">
-      <img class="ic2" src="../assets/icons/step-device.svg">
-      <img class="ic2" src="../assets/icons/step-profile.svg">
-      <img class="ic2" src="../assets/icons/step-environment.svg">
-      <img class="ic2" src="../assets/icons/step-target.svg">
-      <img class="ic2" src="../assets/icons/step-hud.svg">
-      <img class="ic2" src="../assets/icons/step-sync.svg">
-      <img class="ic2" src="../assets/icons/status-noshot.svg">
+      <svg class="big"><use href="#sym-logo"/></svg>
+      <svg class="ic2"><use href="#i-device"/></svg>
+      <svg class="ic2"><use href="#i-profile"/></svg>
+      <svg class="ic2"><use href="#i-env"/></svg>
+      <svg class="ic2"><use href="#i-target"/></svg>
+      <svg class="ic2"><use href="#i-hud"/></svg>
+      <svg class="ic2"><use href="#i-sync"/></svg>
       <img src="../assets/targets/deer.svg" style="height:44px">
       <img src="../assets/targets/boar.svg" style="height:44px">
     </div>
-    <div style="font:400 10px var(--mono);color:var(--dim);margin-top:12px;letter-spacing:1px">ALL SVG · 1.6px STROKE · currentColor · 无限缩放</div>
+    <div style="font:400 10px var(--mono);color:var(--dim);margin-top:12px;letter-spacing:1px">ALL SVG · 1.6px STROKE · currentColor · 主题联动 · 无限缩放</div>
   </div>
 </div>
 
 <script>
-  // 镜筒分划点阵（与 App 同算法）
+  // ===== 主题切换（记忆）=====
+  const themes = ["red", "nv", "cyan", "amber", "light"];
+  const themeNames = { red: "战术红", nv: "夜视绿", cyan: "科技青", amber: "猎场琥珀", light: "极简亮色" };
+  const btns = document.querySelectorAll(".theme-btn");
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    btns.forEach(b => b.classList.toggle("active", b.dataset.t === t));
+    try { localStorage.setItem("design-theme", t); } catch {}
+    updateSwatches(t);
+  }
+  btns.forEach(b => b.addEventListener("click", () => setTheme(b.dataset.t)));
+  let saved = "red";
+  try { saved = localStorage.getItem("design-theme") || "red"; } catch {}
+  if (!themes.includes(saved)) saved = "red";
+  setTheme(saved);
+
+  function updateSwatches(t) {
+    const cs = getComputedStyle(document.documentElement);
+    const put = (id, v, label) => {
+      const el = document.getElementById(id);
+      el.style.background = v;
+      document.getElementById(id + "-t").innerHTML = label;
+    };
+    document.getElementById("theme-name").textContent = themeNames[t];
+    put("sw-bg", cs.getPropertyValue("--bg").trim(), "底");
+    put("sw-card", cs.getPropertyValue("--card").trim(), "卡面");
+    put("sw-ac", cs.getPropertyValue("--accent").trim(), "强调");
+    put("sw-ok", cs.getPropertyValue("--ok").trim(), "正常");
+    put("sw-warn", cs.getPropertyValue("--warn").trim(), "警示");
+  }
+
+  // ===== 镜筒分划点阵（与 App 同算法）=====
   const host = document.getElementById("rdots");
   if (host) {
     const rowCounts = [1,2,3,4,5,6,6,6,6,6,6,6,6,6,6,6,6];
