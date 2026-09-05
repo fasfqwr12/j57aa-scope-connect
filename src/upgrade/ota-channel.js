@@ -26,7 +26,8 @@ export class WireChannel {
     checkAbort(signal);
     if (this.pending) throw new Error("协议通道忙，禁止并发请求");
     if (protocol === "proxy" && this.proxyUncertain) throw new Error("GLPX 前次交互未确认，需重连后重新检测；不接受可能迟到的无序号回包");
-    this.decoder.reset();
+    // Keep partial outer envelopes across requests. Resetting here could expose
+    // an embedded ACK in the remaining half of a GLPE event as a new response.
     let p;
     const reply = new Promise((resolve, reject) => {
       const finish = (error, result) => {

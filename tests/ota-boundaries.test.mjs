@@ -5,7 +5,19 @@ import { snapshotIsFresh } from '../src/upgrade/device-probe.js?v=status-first-1
 import { inspectFirmware } from '../src/upgrade/firmware-image.js?v=status-first-1';
 import { WebBluetoothAdapter } from '../src/adapters/web-bluetooth.js';
 import { buildFrame } from '../src/protocol/scope-protocol.js';
-import { frame, syntheticFirmware } from './fixtures.mjs';
+import { frame, syntheticFirmware, eventMirror, n32Info } from './fixtures.mjs';
+import { WireChannel } from '../src/upgrade/ota-channel.js?v=status-first-1';
+
+test('partial GLPE ownership persists across request boundaries', async () => {
+  const ack = frame(0xB1, n32Info('APP')), event = eventMirror(ack);
+  const channel = new WireChannel(async () => {});
+  channel.receive(event.slice(0, 17));
+  const request = channel.request([1], { protocol: 'n32', cmd: 0xB1, timeoutMs: 100 });
+  channel.receive(event.slice(17));
+  assert.ok(channel.pending, 'mirror must not resolve the new request');
+  channel.receive(ack);
+  assert.equal((await request).protocol, 'n32');
+});
 
 test('business envelopes cannot expose embedded OTA replies at any split', () => {
   const ack = frame(0x81, [170, 85, 170, 85]);
