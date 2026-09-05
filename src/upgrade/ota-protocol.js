@@ -142,6 +142,86 @@ export function buildVerifyCandidates(fw, meta) {
   return candidates;
 }
 
+// ---------- F7 设备信息查询（APP 态，不进 Boot）----------
+// 固件源: MCU_Master_W515PIQ6_APP/Template/gd32w51x_it.c L397-490（2026-08 版）
+// 请求: AA EE F7 00 00 00 00 F7 BB FF（第 8 字节 0x00 也接受）
+// 响应: AA FE F7 30 [48B info 小端] XOR BB FF（55B，XOR 覆盖 frame[2..52]）
+
+export function buildF7Query() {
+  return new Uint8Array([0xAA, 0xEE, 0xF7, 0x00, 0x00, 0x00, 0x00, 0xF7, 0xBB, 0xFF]);
+}
+
+export function scanF7Response(buf, from = 0) {
+  for (let i = from; i + 55 <= buf.length; i++) {
+    if (buf[i] !== 0xAA || buf[i + 1] !== 0xFE || buf[i + 2] !== 0xF7) continue;
+    if (buf[i + 53] !== 0xBB || buf[i + 54] !== 0xFF) continue;
+    let x = 0;
+    for (let k = i + 2; k <= i + 52; k++) x ^= buf[k];
+    if (x !== 0) continue;   // XOR 校验失败
+    const info = buf.slice(i + 4, i + 4 + 48);
+    const dv = new DataView(info.buffer, info.byteOffset, info.byteLength);
+    const le16 = o => dv.getUint16(o, true);
+    const le32 = o => dv.getUint32(o, true);
+    return {
+      consumed: i + 55,
+      did: le32(0),
+      hw_ver: le16(4),
+      sw_ver: le16(6),          // Major<<8 | Minor
+      boot_ver: le16(8),
+      model: new TextDecoder().decode(info.slice(12, 28)).split("\0")[0] || "Unknown",
+      flash_size: le32(28),
+      app_start: le32(32),
+      app_max_size: le32(36),
+      app_size: le32(40),
+      app_crc: le32(44)
+    };
+  }
+  return null;
+}
+
+// ---------- 代理控制帧（GLPX）----------
+// 固件源: upgrade_proxy.c L1504-1650（2026-07-28 版，格式与 debug_api.py 一致）
+// AA 7E LEN_H LEN_L "GLPX" MODE [params...] CRC_H CRC_L（CRC16 覆盖 AA..params，无 0x55 尾）
+
+export const PROXY_MODE = { START: 0x01, STOP: 0x02, STATUS: 0x03, KEEPALIVE: 0x04 };
+export const PROXY_FLAG_RAW_UPGRADE = 0x02;
+
+export function buildProxyFrame(mode, params = []) {
+  const payload = [0x47, 0x4C, 0x50, 0x58, mode & 0xFF, ...params];   // "GLPX" + mode + params
+  const len = payload.length;
+  const body = [0xAA, 0x7E, (len >> 8) & 0xFF, len & 0xFF, ...payload];
+  const crc = crc16Modbus(body);                                       // 覆盖含 AA（与 Boot 帧差异）
+  return new Uint8Array([...body, (crc >> 8) & 0xFF, crc & 0xFF]);
+}
+
+// 代理响应: AA 7E 00 05 "GLPX" MODE STATUS CRC_H CRC_L（11B）
+export function scanProxyResponse(buf, from = 0) {
+  for (let i = from; i + 11 <= buf.length; i++) {
+    if (buf[i] !== 0xAA || buf[i + 1] !== 0x7E) continue;
+    const len = (buf[i + 2] << 8) | buf[i + 3];
+    if (len !== 5) continue;
+    if (String.fromCharCode(buf[i + 4], buf[i + 5], buf[i + 6], buf[i + 7]) !== "GLPX") continue;
+    const body = buf.slice(i, i + 9);   // AA 7E 00 05 GLPX mode status
+    const crcOnWire = (buf[i + 9] << 8) | buf[i + 10];
+    if (crc16Modbus(body) !== crcOnWire) continue;
+    return { consumed: i + 11, mode: buf[i + 8], status: buf[i + 9] };
+  }
+  return null;
+}
+
+// ---------- N32 Boot 帧（命令 0x31-0x3A，同 Boot 帧格式）----------
+
+export const N32_CMD = {
+  HANDSHAKE: 0x31, INFO: 0x32, ERASE: 0x33, WRITE: 0x34,
+  VERIFY: 0x35, RESET: 0x36, ENTER_APP: 0x37, ENTER_BOOT: 0x38, STATUS: 0x39
+};
+export const N32_MAGIC = { BOOT: "N32B", APP: "N32A" };
+
+// N32 握手/进Boot 帧构造
+export function buildN32Frame(cmd, payload) {
+  return buildOtaFrame(cmd, payload);
+}
+
 // ---------- GET_INFO 响应解析（48B，字段小端）----------
 
 export function parseBootInfo(payload) {
