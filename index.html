@@ -9,6 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./src/app.css?v=status-first-1">
+  <link rel="stylesheet" href="./src/ui-refinement.css?v=olive-ui-1">
 </head>
 <body>
   <div class="app-shell">
@@ -32,8 +33,9 @@
 
     <main class="app-layout">
       <nav class="flow-rail" aria-label="配置流程">
-        <div class="rail-title">流程</div>
+        <div class="rail-title">工作空间 <span>J57AA</span></div>
         <div class="step-list" id="step-list"></div>
+        <div class="rail-footer"><span class="rail-footer-mark" aria-hidden="true">SC</span><div><strong>Scope Connect</strong><span>设备配置 · 浏览器直连</span></div></div>
       </nav>
 
       <section class="workspace" aria-label="配置工作区">
@@ -41,8 +43,10 @@
           <div>
             <span class="section-kicker" id="section-kicker">DEVICE</span>
             <h2 id="section-title">设备连接</h2>
+            <p class="section-description" id="section-description">连接你的设备，从这里开始。</p>
           </div>
           <div class="profile-strip">
+            <span class="profile-caption">当前配置</span>
             <select id="profile-select" aria-label="当前弹药 Profile"></select>
             <button class="btn compact" id="btn-new-profile" type="button">新建</button>
             <button class="btn compact" id="btn-save-profile" type="button">保存</button>
@@ -53,9 +57,11 @@
         <div class="section-panel active" data-panel="device">
           <div class="hero">
             <svg class="hero-emblem"><use href="#sym-logo" xlink:href="#sym-logo"/></svg>
-            <div>
-              <div class="hero-name">J57AA-2000A</div>
-              <div class="hero-sub">LASER RANGEFINDING SCOPE · E104-BT5005A</div>
+            <div class="hero-copy">
+              <span class="hero-eyebrow">DEVICE / J57AA</span>
+              <div class="hero-name">让设备与配置保持连接</div>
+              <p class="hero-description">选择连接方式，配对设备，再读取状态。未连接时仅展示本地预览。</p>
+              <div class="hero-sub">J57AA-2000A · E104-BT5005A</div>
             </div>
           </div>
 
@@ -84,6 +90,11 @@
                 <span>设备名过滤</span>
                 <input data-bind="connection.namePrefix" type="text" spellcheck="false">
               </label>
+            </div>
+            <details class="connection-advanced" id="connection-advanced">
+              <summary><span>高级连接设置</span><span class="details-hint">UUID / Bridge</span></summary>
+              <p class="field-help">默认参数适用于当前设备；仅在确认配置不同后修改。</p>
+              <div class="form-grid">
               <label>
                 <span>Service UUID</span>
                 <input data-bind="connection.serviceUuid" type="text" spellcheck="false">
@@ -100,7 +111,8 @@
                 <span>Bridge 地址</span>
                 <input data-bind="connection.bridgeBase" type="text" spellcheck="false">
               </label>
-            </div>
+              </div>
+            </details>
             <div class="action-row">
               <button class="btn primary" id="btn-connect-panel" type="button">连接</button>
               <button class="btn" id="btn-disconnect" type="button">断开</button>
@@ -300,20 +312,21 @@
         </div>
         <!-- ============ 升级 ============ -->
         <div class="section-panel" data-panel="upgrade">
+          <div class="ota-intro"><div><span class="hero-eyebrow">FIRMWARE CENTER</span><h3>每次更新，先确认状态</h3><p>主控与副板分别检测，文件核验后再明确确认写入。</p></div><span class="ota-intro-badge"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>待真机验证</span></div>
           <div class="field-band ota-preflight">
-            <div class="band-head"><h3>1 · 检测主控与副板</h3><span class="source-pill pending">状态优先</span></div>
+            <div class="band-head"><div class="numbered-heading"><span class="step-number">01</span><div><h3>检测主控与副板</h3><p>先识别设备，再选择更新</p></div></div><span class="source-pill pending">状态优先</span></div>
             <p class="ota-notice">不发送进 Boot 或擦写命令。检测会暂占测距通道；若 N32 已在 Boot 启动窗口，查询可能让它停留在 Boot。请先停止测距。</p>
             <div class="ota-board-grid" aria-live="polite">
-              <section class="ota-board"><h4>W515 主控</h4><strong id="ota-main-mode">未检测</strong><p id="ota-main-info">等待主控身份与地址信息</p></section>
-              <section class="ota-board"><h4>N32 副板</h4><strong id="ota-slave-mode">未检测</strong><p id="ota-slave-info">等待副板自身应答</p></section>
+              <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>W515 主控</h4><strong id="ota-main-mode">未检测</strong><p id="ota-main-info">等待主控身份与地址信息</p></section>
+              <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>N32 副板</h4><strong id="ota-slave-mode">未检测</strong><p id="ota-slave-info">等待副板自身应答</p></section>
             </div>
-            <p class="ota-notice">代理：<strong id="ota-proxy-state">未检测</strong><br><span id="ota-state-time">尚无有效状态</span></p>
-            <button class="btn primary" id="ota-query-status" type="button">检测双板状态</button>
+            <p class="ota-route-summary">代理通道 <strong id="ota-proxy-state">未检测</strong><span id="ota-state-time">尚无有效状态</span></p>
+            <button class="btn primary" id="ota-query-status" type="button"><svg aria-hidden="true"><use href="#i-sync"/></svg>检测双板状态</button>
           </div>
-          <div class="field-band">
+          <div class="field-band ota-selection">
             <div class="band-head">
-              <h3>2 · 选择固件并确认升级</h3>
-              <span class="source-pill pending">待真机验证</span>
+              <div class="numbered-heading"><span class="step-number">02</span><div><h3>选择固件</h3><p>校验通过后仍需确认升级</p></div></div>
+              <span class="source-pill">W515 APP</span>
             </div>
             <div class="ota-target-row">
               <label class="ota-target selected" id="ota-target-w515">
@@ -371,7 +384,7 @@
             </div>
           </div>
 
-          <div class="field-band">
+          <div class="field-band ota-log-panel">
             <div class="band-head">
               <h3>升级日志</h3>
               <button class="btn compact" id="ota-clear-log" type="button">清空</button>
@@ -381,7 +394,10 @@
         </div>
       </section>
 
-      <aside class="preview-rail" aria-label="瞄具预览">
+      <aside class="preview-rail" aria-label="瞄具预览" data-expanded="false">
+        <div class="preview-heading"><div><span class="hero-eyebrow">VISUAL PREVIEW</span><h3>界面预览</h3></div><button class="btn compact" id="btn-preview-toggle" type="button" aria-expanded="false" aria-controls="preview-content">展开预览</button><span class="preview-desktop-label">非设备状态</span></div>
+        <div id="preview-content">
+        <p class="preview-disclaimer">本地配置效果示意，不代表设备实时状态。</p>
         <div class="solve-strip" id="solve-strip">
           <span id="shot-state">WAIT</span>
           <strong id="shot-energy">-- J</strong>
@@ -421,6 +437,7 @@
           <div><span>末速</span><strong id="metric-velocity">-- m/s</strong></div>
           <div><span>风偏</span><strong id="metric-windage">-- mil</strong></div>
           <div><span>阵列</span><strong id="metric-reticle">--</strong></div>
+        </div>
         </div>
       </aside>
     </main>
