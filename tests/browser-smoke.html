@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="../assets/icon.svg"><title>Scope responsive smoke tests</title>
+<style>body{font:14px system-ui;background:#f0efe6;color:#23261a;margin:16px}iframe{display:block;border:1px solid #6b7d4f;height:800px;background:white}li{padding:3px;overflow-wrap:anywhere}.fail{color:#a11}.pass{color:#276536}#result{font-weight:bold}</style>
+<h1>响应式离线交互测试</h1><p>只点导航、选择公开固件、取消检测；启动前拦截蓝牙请求。iframe 模拟 CSS 视口，不是真机触摸测试。</p>
+<p id="result">运行中</p><ol id="checks"></ol><div id="viewport"></div>
+<script type="module">
+const host = document.querySelector('#viewport'), list = document.querySelector('#checks');
+let count = 0, failed = 0;
+function check(ok, title) { count++; const li=document.createElement('li'); li.className=ok?'pass':'fail'; li.textContent=(ok?'PASS ':'FAIL ')+title; list.append(li); if(!ok) failed++; }
+async function until(test, timeout=12000) { const end=performance.now()+timeout; while(!test()) { if(performance.now()>end) throw new Error('condition timeout'); await new Promise(requestAnimationFrame); } }
+const ids=['device','profile','environment','target','hud','sync','upgrade'];
+const requested=Number(new URLSearchParams(location.search).get('width'));
+const widths=[320,390,768,1440].includes(requested)?[requested]:[320,390,768,1440];
+const bootstrap = `window.__smoke={deviceRequests:0,errors:[]};
+Object.defineProperty(navigator,'bluetooth',{configurable:true,value:{requestDevice(){window.__smoke.deviceRequests++;throw new Error('Hardware prohibited in smoke tests');}}});
+window.confirm=()=>false;
+window.addEventListener('error',e=>window.__smoke.errors.push(e.message||e.target?.src||e.target?.href||'resource error'),true);
+window.addEventListener('unhandledrejection',e=>window.__smoke.errors.push(String(e.reason)));`;
+try {
+ const appUrl=new URL('../index.html',location.href);
+ const response=await fetch(appUrl,{cache:'no-store'}); if(!response.ok)throw new Error('App HTTP '+response.status);
+ const html=await response.text();
+ for(const width of widths) {
+  const f=document.createElement('iframe'); f.style.width=width+'px'; f.title='Scope '+width; host.replaceChildren(f);
+  const loaded=new Promise((resolve,reject)=>{f.onload=resolve;f.onerror=reject;});
+  // The bootstrap runs before any app script, so even startup regressions cannot access BLE.
+  f.srcdoc=html.replace('<head>','<head><base href="'+appUrl.href+'"><script>'+bootstrap+'<'+ '/script>'); await loaded;
+  const w=f.contentWindow,d=f.contentDocument;
+  await until(()=>d.querySelectorAll('#mobile-tabs button').length===7);
+  const nav=width<=900?'#mobile-tabs':'#step-list';
+  check(d.querySelectorAll(nav+' button').length===7,width+'px 七个导航按钮');
+  for(const id of ids) {
+   const button=d.querySelector(nav+' [data-step="'+id+'"]'); button.click();
+   await until(()=>d.querySelector('.section-panel.active')?.dataset.panel===id);
+   check(d.querySelectorAll('.section-panel.active').length===1 && button.classList.contains('active'),width+'px '+id+' 切换唯一活动页');
+   if(width<=900) {
+    await until(()=>{const r=d.querySelector('.section-panel.active').getBoundingClientRect();return r.top<w.innerHeight-80 && r.bottom>0;});
+    const r=button.getBoundingClientRect(); check(r.left>=-1 && r.right<=w.innerWidth+1 && r.bottom<=w.innerHeight+1,width+'px '+id+' 导航可见');
+   }
+   check(d.documentElement.scrollWidth<=w.innerWidth+1,width+'px '+id+' 无横向溢出 '+d.documentElement.scrollWidth+'/'+w.innerWidth);
+  }
+  check(d.querySelector('#ota-start').disabled,width+'px 未检测不可升级');
+  d.querySelector('#ota-query-status').click();
+  check(w.__smoke.deviceRequests===0 && !d.querySelector('#ota-query-status').disabled,width+'px 取消查询无蓝牙请求');
+  await until(()=>d.querySelector('.ota-online-item'));
+  d.querySelector('.ota-online-item').click();
+  await until(()=>d.querySelector('#ota-file-meta').textContent.includes('CRC已核对'));
+  check(d.querySelector('#ota-start').disabled && d.querySelector('#ota-log-box').textContent.includes('SHA-256'),width+'px 下载核验不绕过状态门禁');
+  check(w.__smoke.deviceRequests===0,width+'px 无硬件访问');
+  check(w.__smoke.errors.length===0,width+'px 无运行或资源错误'+(w.__smoke.errors.length?' '+w.__smoke.errors.join('; '):''));
+ }
+} catch(e) { check(false,e.stack||e.message); }
+document.querySelector('#result').textContent=`完成：${count-failed}/${count} 通过，${failed} 失败`;
+document.title=failed?'FAIL Scope smoke':'PASS Scope smoke';
+</script></html>

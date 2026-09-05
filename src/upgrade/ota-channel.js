@@ -10,43 +10,60 @@ export function delay(ms, signal) {
     signal?.addEventListener("abort", cancel, { once: true });
   });
 }
-// Replies have no transaction id. Never pipeline requests or replay mutating commands.
+// Replies have no transaction id. Keep ownership until BOTH write and reply settle.
 export class WireChannel {
-  constructor(write, log = () => {}) { this.write = write; this.log = log; this.decoder = new WireDecoder(); this.pending = null; this.proxyUncertain = false; }
+  constructor(write, log = () => {}) {
+    this.write = write; this.log = log; this.decoder = new WireDecoder();
+    this.pending = null; this.active = null; this.proxyUncertain = false;
+  }
   resetConnection() { this.decoder.reset(); this.proxyUncertain = false; }
   receive(bytes) {
     for (const frame of this.decoder.push(bytes)) {
       const p = this.pending;
-      if (p && frame.protocol === p.protocol && (p.cmd == null || frame.cmd === p.cmd)) p.finish(null, frame);
-      // Unrelated F7/GLPX/GLPE/MCU packets are not reinterpreted as the awaited reply.
+      if (p && frame.protocol === p.protocol && (p.cmd == null || frame.cmd === p.cmd)) p.finish(frame);
     }
   }
-  disconnect() { this.pending?.finish(new Error("BLE 已断开，状态快照已失效")); this.decoder.reset(); }
+  disconnect() {
+    this.active?.fail(new Error("BLE 已断开，状态快照已失效")); this.decoder.reset();
+  }
   async request(bytes, { protocol, cmd, timeoutMs = 1800, signal, chunkSize = 20 } = {}) {
     checkAbort(signal);
-    if (this.pending) throw new Error("协议通道忙，禁止并发请求");
+    if (this.active || this.pending) throw new Error("协议通道忙，禁止并发请求");
     if (protocol === "proxy" && this.proxyUncertain) throw new Error("GLPX 前次交互未确认，需重连后重新检测；不接受可能迟到的无序号回包");
-    // Keep partial outer envelopes across requests. Resetting here could expose
-    // an embedded ACK in the remaining half of a GLPE event as a new response.
-    let p;
-    const reply = new Promise((resolve, reject) => {
-      const finish = (error, result) => {
+    // Never reset partial outer envelopes at request/session boundaries: their
+    // remaining bytes may contain mirrored ACKs, which are NOT fresh replies.
+    const io = new AbortController();
+    let failure = null, resolveReply, rejectReply;
+    const reply = new Promise((resolve, reject) => { resolveReply = resolve; rejectReply = reject; });
+    const p = {
+      protocol, cmd,
+      finish: frame => {
         if (this.pending !== p) return;
-        clearTimeout(p.timer); signal?.removeEventListener("abort", p.cancel); this.pending = null;
-        if (error && protocol === "proxy") this.proxyUncertain = true;
-        error ? reject(error) : resolve(result);
-      };
-      p = { protocol, cmd, finish, cancel: () => finish(abortError()) };
-      this.pending = p;
-      p.timer = setTimeout(() => finish(new Error(`等待 ${protocol} 回复超时`)), timeoutMs);
-      signal?.addEventListener("abort", p.cancel, { once: true });
-    });
-    // A native GATT write can finish after the timeout/abort. Consume its error;
-    // await it before letting a caller release the exclusive session.
+        this.pending = null; resolveReply(frame);
+      },
+      fail: error => {
+        failure ||= error;
+        if (protocol === "proxy") this.proxyUncertain = true;
+        // Cannot retract a native GATT write already running, but stop all later chunks.
+        io.abort(failure);
+        if (this.pending === p) { this.pending = null; rejectReply(failure); }
+      }
+    };
+    this.active = this.pending = p;
+    const cancel = () => p.fail(abortError());
+    const timer = setTimeout(() => p.fail(new Error(`等待 ${protocol} 回复超时`)), timeoutMs);
+    signal?.addEventListener("abort", cancel, { once: true });
     reply.catch(() => {});
-    try { await this.write(bytes, { chunkSize, withResponse: true, signal }); }
-    catch (error) { p.finish(error); throw error; }
-    checkAbort(signal);
-    return reply;
+    try {
+      await this.write(bytes, { chunkSize, withResponse: true, signal: io.signal });
+      if (failure) throw failure;
+      return await reply;
+    } catch (error) {
+      p.fail(error); throw failure;
+    } finally {
+      clearTimeout(timer); signal?.removeEventListener("abort", cancel);
+      if (this.pending === p) this.pending = null;
+      if (this.active === p) this.active = null;
+    }
   }
 }

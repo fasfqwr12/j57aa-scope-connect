@@ -1,40 +1,28 @@
-# firmware/ 固件在线库
+# firmware/ 公开候选固件库
 
-网页 App「升级」页会 fetch `versions.json`，把 `files` 里登记的固件显示为在线可升级列表（点选即下载固件并升级，不用电脑传文件）。
+网页“升级”页从本目录读取 `versions.json`。点选条目只下载、校验并选中文件；**不会直接刷写**。必须先检测双板状态，再明确确认 W515 APP 升级。
 
-## 用法
+## 发布规则
 
-1. 固件 bin 放到本目录（命名规范见 `docs/UPGRADE_GUIDE.md` §1）：
-   - `W515_APP_v1.2.3_0715.bin`（主控 APP）
-   - `N32_APP_v1.0.4_0715.bin`（测距板 APP）
-   - `W515_BOOT_v2.0.0.bin` / `N32_BOOT_v1.1.0.bin`（Boot，仅存档，不能 OTA）
-2. 在 `versions.json` 的 `files` 数组登记：
+1. 只放已获准公开的镜像；仓库和 GitHub Pages 均为公开访问。
+2. 当前列表仅允许 `target: "w515-app"`；N32 刷写未实现，Boot 文件仅存档，不登记为 OTA 候选。
+3. 文件名只能是本目录的安全文件名，不允许路径、URL 或 `..`。
+4. `size` 必须是原始下载文件的准确字节数；`sha256` 必填，64位十六进制。
+5. `fileCrc32` 是整文件 CRC32；`metaCrc32` 是 W515 元数据兼容 CRC32，二者不可混用。
+6. `version`、`date`、`notes` 用于说明来源，不作为“最新”或真机验收的证明；未验收时保持 `recommended: false`。
+7. 先运行离线测试，再提交发布；GitHub Pages 的完成时间需实际核验，不承诺固定分钟数。
 
-```json
-{
-  "name": "W515_APP_v1.2.3_0715.bin",
-  "target": "w515-app",
-  "version": "1.2.3",
-  "date": "2026-07-15",
-  "size": 110592,
-  "crc32": "0AB12CD0",
-  "notes": "修复 HUD 角度抖动",
-  "recommended": true
-}
-```
+## 当前候选
 
-| 字段 | 必填 | 说明 |
-|---|---|---|
-| name | ✓ | 文件名（相对本目录） |
-| target | ✓ | `w515-app` / `n32-app`（Boot 文件不登记） |
-| version | ✓ | 版本号，显示用 |
-| notes | | 更新说明 |
-| recommended | | true = 标记推荐 |
-| size/crc32 | | 参考信息，下载后工具按固件元数据为准 |
+- 文件：`W515_APP_v0.1.0_0810.bin`；63776字节；目标 W515 APP。
+- SHA-256：`a0d446c18a04b52ab4b954af6e12cc25534b121d64fd3e30a81cf2f939f14b36`。
+- 整文件 CRC32：`8D78A553`；元数据兼容 CRC32：`E4503DFD`。
+- 本地元数据、向量及校验已核对；未证明它对应最新源码，也未通过浏览器OTA真机验收。
 
-3. commit + push 后 1~2 分钟生效（GitHub Pages）。
+## 使用入口
 
-## 注意
+- [升级操作指南](../docs/UPGRADE_GUIDE.md)。
+- [当前固件协议与证据](../docs/CURRENT_FIRMWARE_OTA.md)。
+- [候选清单](versions.json)。
 
-- 固件内部 0x200 元数据才是升级识别的最终依据，本清单只是入口。
-- 敏感/未发布固件不要放这里（仓库是公开的）。
+哈希与文件同源发布，只能检出损坏或清单不一致，不构成独立固件签名验证。网页尚无 service worker，不承诺断网冷启动或离线固件库。

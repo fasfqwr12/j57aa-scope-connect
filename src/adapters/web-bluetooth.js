@@ -63,10 +63,10 @@ export class WebBluetoothAdapter {
   }
   isGattConnected() { return !!(this.connected && this.device?.gatt?.connected); }
   beginExclusive(owner) {
-    if (this.exclusive || this.normalRequests || this.writing || this.channel.pending) throw new Error("蓝牙通道忙，请等上一操作完成");
+    if (this.exclusive || this.normalRequests || this.writing || this.channel.active) throw new Error("蓝牙通道忙，请等上一操作完成");
     if (!this.isGattConnected()) throw new Error("BLE 未连接");
-    this.exclusive = owner; this.buffer = []; this.channel.decoder.reset();
-    return () => { if (this.exclusive === owner) { this.exclusive = null; this.buffer = []; this.channel.decoder.reset(); } };
+    this.exclusive = owner; this.buffer = [];
+    return () => { if (this.exclusive === owner) { this.exclusive = null; this.buffer = []; } };
   }
   assertNormal() { if (this.exclusive) throw new Error("状态检测/升级正在独占蓝牙通道"); }
   requestWire(frame, options) {
@@ -104,12 +104,16 @@ export class WebBluetoothAdapter {
   onNotify(event) {
     const v = event.target.value;
     const data = new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
-    if (this.exclusive) { this.channel.receive(data); return; }
+    // Track complete envelopes even between exclusive sessions.
+    this.channel.receive(data);
+    if (this.exclusive) return;
     this.log("RX", bytesToHex(data)); this.buffer.push(...data);
     if (this.buffer.length > 8192) this.buffer.splice(0, this.buffer.length - 8192);
   }
   async requestFrame(value, timeoutMs) {
-    this.assertNormal(); this.normalRequests++;
+    this.assertNormal();
+    if (this.normalRequests) throw new Error("普通蓝牙请求忙，禁止并发读取");
+    this.normalRequests++;
     try { this.buffer = []; await this.write(value); return await this.waitForFrame(timeoutMs); }
     finally { this.normalRequests--; }
   }
@@ -132,7 +136,9 @@ export class WebBluetoothAdapter {
     return { altitude_m: sensor.altitude_m, temp_c: sensor.temperature_c, humidity_pct: sensor.humidity_pct, pressure_pa: sensor.pressure_pa, raw: { rx: bytesToHex(frame.raw) } };
   }
   async listenMeasurement(timeoutS = 5) {
-    this.assertNormal(); this.normalRequests++;
+    this.assertNormal();
+    if (this.normalRequests) throw new Error("普通蓝牙请求忙，禁止并发读取");
+    this.normalRequests++;
     try {
       const frame = await this.waitForFrame(timeoutS * 1000, p => p.length >= 23);
       const m = parseMeasurement(frame.params);

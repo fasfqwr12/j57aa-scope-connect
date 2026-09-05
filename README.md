@@ -53,6 +53,17 @@ python tools\generate_reference_trajectory.py --profile 308_168_match --max-rang
 
 完整流程见 `docs/ballistics-validation.md`。网页 JS 只做交互预览，正式校准以开源参考表、固件 C 和实测靶纸三方闭环为准。
 
+## 状态优先的浏览器 OTA
+
+先检测主控与副板，再选择固件并确认升级；当前仅刷写 W515 APP，副板只做独立状态检测。离线与页面模拟测试不能替代真机验收。
+
+- [操作指南及16种镜像组合](docs/UPGRADE_GUIDE.md)。
+- [当前固件协议与源码证据](docs/CURRENT_FIRMWARE_OTA.md)。
+- [公开候选固件库](firmware/README.md)。
+- 离线回归：`node --test tests/ota.test.mjs tests/ota-boundaries.test.mjs`。
+- 页面回归：通过 HTTP(S) 打开 `tests/browser-smoke.html`；不会请求真实蓝牙设备。
+- 尚无 service worker，不承诺断网冷启动；Boot自升级、N32刷写与ENC均未开放。
+
 ## 当前限制
 
 固件 Profile/DOPE 写入命令还没有在现有协议中定版，所以 App 里的“同步到瞄具”会先保存本地 Profile，并在协议层返回 `PROFILE_WRITE_NOT_DEFINED`。具体字段建议见 `docs/firmware-io-contract.md`。

@@ -1,4 +1,6 @@
-# J57AA BLE OTA 移植规格（PC→浏览器）
+# J57AA BLE OTA 移植考古资料（PC→浏览器，历史参考）
+
+> **已被当前固件核对结果取代，不可直接作为操作指南。** 本文保留旧 PC 实现的提取记录，不保证与当前固件一致。当前字段与编译入口见 [CURRENT_FIRMWARE_OTA.md](CURRENT_FIRMWARE_OTA.md)，实际操作见 [UPGRADE_GUIDE.md](UPGRADE_GUIDE.md)。其中旧地址、无条件重试、CRC候选回退、Boot代理等描述均不得套用于当前网页。
 
 > 依据：`E:\phase1\debug_toll\unified-tool\web_api\debug_api.py`（8087 行，下称 debug_api.py，行号写作 Lxxxx）、`web\pages\debug_pro.html`（下称 html，行号写作 Hxxxx）、`core\ble_gatt.py`（下称 ble_gatt.py）。仅只读分析，未修改 unified-tool 任何文件。
 > 行号标注：`L6799` = debug_api.py 第 6799 行；`H4926` = debug_pro.html 第 4926 行；`B855` = ble_gatt.py 第 855 行。
@@ -54,7 +56,8 @@ AA  7E  LEN_H  LEN_L  "GLPX"  MODE  SESSION(4B,BE)  BAUD(4B,BE)  IDLE(4B,BE)  TO
 
 ### 1.2 状态机
 
-```mermaid flowchart
+```mermaid
+flowchart TD
 A[握手0x01] --> B{magic?}
 B -- 87654321 Boot --> D[GET_INFO 0x02]
 B -- AA55AA55 App --> C[ENTER_UPGRADE 0x03]
