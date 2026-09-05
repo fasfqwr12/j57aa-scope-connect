@@ -64,6 +64,12 @@ python tools\generate_reference_trajectory.py --profile 308_168_match --max-rang
 - 页面回归：通过 HTTP(S) 打开 `tests/browser-smoke.html`；不会请求真实蓝牙设备。
 - 尚无 service worker，不承诺断网冷启动；Boot自升级、N32刷写与ENC均未开放。
 
+## 界面与响应式验收
+
+本轮 Olive UI 调整集中在视觉层级、手机操作区优先、预览折叠和固件卡片反馈；协议与升级门禁保持不变。详见 [界面优化与验收记录](docs/UI_REFINEMENT.md)。
+
+页面检查覆盖320至1440像素的八种宽度；通过项目 HTTP(S) 地址打开 `tests/browser-smoke.html` 可复现。视口模拟不是真机触摸或蓝牙验收。
+
 ## 当前限制
 
 固件 Profile/DOPE 写入命令还没有在现有协议中定版，所以 App 里的“同步到瞄具”会先保存本地 Profile，并在协议层返回 `PROFILE_WRITE_NOT_DEFINED`。具体字段建议见 `docs/firmware-io-contract.md`。

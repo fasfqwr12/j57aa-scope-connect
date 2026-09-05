@@ -2,7 +2,7 @@ import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closur
 import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=status-first-1";
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
-import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=status-first-1";
+import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=olive-ui-1";
 
 const steps = [
   { id: "device", label: "设备", title: "设备连接", kicker: "DEVICE" },
@@ -14,6 +14,15 @@ const steps = [
   { id: "upgrade", label: "升级", title: "固件升级", kicker: "OTA" }
 ];
 
+const pageDescriptions = {
+  device: "连接设备，查看链路与设备信息。",
+  profile: "管理本地配置，修改后保存到当前 Profile。",
+  environment: "集中管理环境输入与数据来源。",
+  target: "查看当前目标配置与本地参数。",
+  hud: "调整显示布局，在预览区查看效果。",
+  sync: "检查配置与支持状态，操作记录保留在日志中。",
+  upgrade: "先检测双板状态，再核验文件并确认更新。"
+};
 const ASSET_V = "status-first-1";
 const targetAssets = { deer: "deer", sheep: "sheep", boar: "boar", steel: "steel" };
 
@@ -93,6 +102,17 @@ function bindActions() {
   $("#btn-clear-log").addEventListener("click", () => { $("#log-box").innerHTML = ""; });
   $("#btn-open-hud").addEventListener("click", openLegacyHud);
   $("#btn-hint-connect").addEventListener("click", connect);
+  const preview = $(".preview-rail"), content = $("#preview-content"), toggle = $("#btn-preview-toggle");
+  const mobile = window.matchMedia("(max-width: 900px)");
+  const updatePreview = () => {
+    const visible = !mobile.matches || preview.dataset.expanded === "true";
+    content.hidden = !visible;
+    toggle.setAttribute("aria-expanded", String(visible));
+    toggle.textContent = visible ? "收起预览" : "展开预览";
+  };
+  toggle.addEventListener("click", () => { preview.dataset.expanded = String(preview.dataset.expanded !== "true"); updatePreview(); });
+  mobile.addEventListener("change", updatePreview);
+  updatePreview();
 }
 
 function bindForms() {
@@ -124,20 +144,26 @@ function renderSteps() {
 function setStep(step) {
   const target = steps.find(s => s.id === step) || steps[0];
   state.activeStep = target.id;
+  document.body.dataset.page = target.id;
+  $(".preview-rail").hidden = target.id === "upgrade";
   $$(".section-panel").forEach(p => p.classList.toggle("active", p.dataset.panel === target.id));
-  $$("[data-step]").forEach(btn => btn.classList.toggle("active", btn.dataset.step === target.id));
+  $$("[data-step]").forEach(btn => {
+    const active = btn.dataset.step === target.id;
+    btn.classList.toggle("active", active);
+    if (active) btn.setAttribute("aria-current", "page"); else btn.removeAttribute("aria-current");
+  });
   $("#section-title").textContent = target.title;
   $("#section-kicker").textContent = target.kicker;
+  $("#section-description").textContent = pageDescriptions[target.id];
   scheduleSave();
-  // 移动端：点击 Tab 后滚动到对应面板（预览区较长，不滚看不到切换效果）
+  // Keep the page heading visible below the sticky mobile header.
   if (window.matchMedia("(max-width: 900px)").matches) {
     requestAnimationFrame(() => {
-      const ws = document.querySelector(".workspace");
-      const panel = document.querySelector(".section-panel.active");
-      const top = (panel || ws).getBoundingClientRect().top + window.scrollY - 8;
-      window.scrollTo({ top, behavior: "smooth" });
+      const ws = $(".workspace"), header = $(".topbar");
+      const top = ws.getBoundingClientRect().top + window.scrollY - header.getBoundingClientRect().height;
+      window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
     });
-  }
+  } else { $(".workspace").scrollTop = 0; }
 }
 
 function renderProfileOptions() {

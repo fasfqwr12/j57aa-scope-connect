@@ -11,6 +11,7 @@ const $ = s => document.querySelector(s);
 const hex = v => v == null ? "—" : "0x" + (v >>> 0).toString(16).toUpperCase().padStart(8, "0");
 const version = v => v == null ? "—" : `${v >>> 8}.${v & 255}`;
 let ctx, firmware = null, snapshot = null, busy = false, session = null, probeAbort = null, wakeLock = null;
+let onlineSelection = null;
 
 export function initOtaUpgrade(context) {
   ctx = context;
@@ -21,6 +22,7 @@ export function initOtaUpgrade(context) {
   $("#ota-firmware-file").addEventListener("change", async event => {
     const file = event.target.files?.[0]; event.target.value = "";
     if (!file || busy) return;
+    onlineSelection = null;
     setBusy(true);
     try {
       if (file.size > 6 * 1024 * 1024) throw new Error("文件过大，不是支持的 APP 镜像");
@@ -44,7 +46,7 @@ export function initOtaUpgrade(context) {
   renderSnapshot(); renderGate(); loadOnlineFirmware();
 }
 function otaLog(type, text) {
-  const row = document.createElement("div"); row.className = "log-row";
+  const row = document.createElement("div"); row.className = "log-row"; row.dataset.level = type;
   row.textContent = `${new Date().toLocaleTimeString()} [${type}] ${text}`;
   const host = $("#ota-log-box"); host.append(row);
   while (host.children.length > 400) host.firstChild.remove();
@@ -92,6 +94,8 @@ function renderSnapshot() {
   const main = snapshot?.main, slave = snapshot?.slave, info = main?.info;
   $("#ota-main-mode").textContent = MODE[main?.mode] || "未检测";
   $("#ota-slave-mode").textContent = MODE[slave?.mode] || "未检测";
+  $("#ota-main-mode").dataset.mode = main?.mode || "UNKNOWN";
+  $("#ota-slave-mode").dataset.mode = slave?.mode || "UNKNOWN";
   $("#ota-main-info").textContent = info ? `${info.model} · 硬件 ${version(info.hw_ver)} · APP ${version(info.sw_ver)} · 上报Boot ${version(info.boot_ver)}\nAPP ${hex(info.app_start)} · ${info.app_size}B · CRC ${hex(info.app_crc)}` : "等待主控身份与地址信息";
   const details = slave?.mode === "APP" ? `APP v${version(slave.appVersion)} · 入口 ${hex(slave.appStart)} · 运行阶段 ${slave.runtimeStage} · 心跳计数 ${slave.heartbeat}` : slave?.mode === "BOOT" ? `Boot v${slave.bootVersion} · 入口 ${hex(slave.appStart)} · APP 向量检查${slave.appValid ? "通过（非整包CRC）" : "未通过（不能区分空白/损坏）"}` : slave?.reason;
   $("#ota-slave-info").textContent = details || "必须收到副板自身应答；代理正常不等于副板在线";
@@ -104,6 +108,14 @@ function renderSnapshot() {
 function renderFirmware() {
   $("#ota-file-meta").textContent = firmware ? `${firmware.name} · ${firmware.bytes.length}B · ${firmware.meta.model} · CRC已核对` : "未选择有效固件";
   $("#ota-main-only").checked = false; renderGate();
+  renderOnlineSelection();
+}
+function renderOnlineSelection() {
+  document.querySelectorAll(".ota-online-item").forEach(item => {
+    const selected = !!firmware && onlineSelection === item.dataset.fileName;
+    item.setAttribute("aria-pressed", String(selected));
+    item.querySelector(".fw-action").textContent = selected ? "已选择" : "选择";
+  });
 }
 function gateReason() {
   const adapter = ctx?.getAdapter();
@@ -117,6 +129,7 @@ function gateReason() {
 function renderGate() {
   const reason = gateReason();
   $("#ota-start").disabled = busy || !!reason;
+  $("#ota-gate-reason").dataset.state = busy ? "busy" : reason ? "blocked" : "ready";
   $("#ota-gate-reason").textContent = busy ? "正在操作，蓝牙通道独占中" : reason || "可确认升级；执行前会再次检测双板，仍需真机验证";
 }
 function onStage(stage, label) {
@@ -162,21 +175,31 @@ async function loadOnlineFirmware() {
     if (!files.length) { list.textContent = "未发布 W515 APP 固件"; return; }
     for (const entry of files) {
       const item = document.createElement("button"); item.type = "button"; item.className = "ota-online-item"; item.disabled = busy;
-      item.textContent = `${entry.name} · ${entry.size}B · ${entry.notes || "待验证版本"}`;
+      item.dataset.fileName = entry.name;
+      item.setAttribute("aria-pressed", "false");
+      const icon = document.createElement("span"); icon.className = "fw-icon"; icon.textContent = "APP"; icon.setAttribute("aria-hidden", "true");
+      const copy = document.createElement("span"); copy.className = "fw-copy";
+      const name = document.createElement("strong"); name.textContent = entry.name;
+      const notes = document.createElement("small"); notes.textContent = `${entry.size}B · ${entry.notes || "待验证版本"}`;
+      copy.append(name, notes);
+      const action = document.createElement("span"); action.className = "fw-action"; action.textContent = "选择";
+      item.append(icon, copy, action);
       item.addEventListener("click", async () => {
         if (busy) return;
         setBusy(true);
+        action.textContent = "核验中…";
         try {
           const response = await fetch(firmwareUrl(entry), { cache: "no-store" });
           if (!response.ok) throw new Error(`下载失败 HTTP ${response.status}`);
           const bytes = new Uint8Array(await response.arrayBuffer()); await verifyDownload(bytes, entry);
           const image = inspectFirmware(bytes, entry.name, entry.target);
           if (entry.metaCrc32 && image.meta.appCrc !== parseInt(entry.metaCrc32, 16)) throw new Error("元数据 CRC 与清单不符");
-          firmware = image; renderFirmware(); otaLog("SYS", "在线固件长度、SHA-256 和元数据 CRC 已核对（不代表真机验收）");
+          firmware = image; onlineSelection = entry.name; renderFirmware(); otaLog("SYS", "在线固件长度、SHA-256 和元数据 CRC 已核对（不代表真机验收）");
         } catch (error) { firmware = null; renderFirmware(); otaLog("ERR", error.message); }
         finally { setBusy(false); }
       });
       list.append(item);
     }
+    renderOnlineSelection();
   } catch (error) { list.textContent = `在线库不可用：${error.message}；可刷新清单或选择本地文件`; }
 }

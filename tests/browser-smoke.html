@@ -10,7 +10,8 @@ function check(ok, title) { count++; const li=document.createElement('li'); li.c
 async function until(test, timeout=12000) { const end=performance.now()+timeout; while(!test()) { if(performance.now()>end) throw new Error('condition timeout'); await new Promise(requestAnimationFrame); } }
 const ids=['device','profile','environment','target','hud','sync','upgrade'];
 const requested=Number(new URLSearchParams(location.search).get('width'));
-const widths=[320,390,768,1440].includes(requested)?[requested]:[320,390,768,1440];
+const supportedWidths=[320,390,768,900,901,1024,1280,1440];
+const widths=supportedWidths.includes(requested)?[requested]:supportedWidths;
 const bootstrap = `window.__smoke={deviceRequests:0,errors:[]};
 Object.defineProperty(navigator,'bluetooth',{configurable:true,value:{requestDevice(){window.__smoke.deviceRequests++;throw new Error('Hardware prohibited in smoke tests');}}});
 window.confirm=()=>false;
@@ -29,6 +30,26 @@ try {
   await until(()=>d.querySelectorAll('#mobile-tabs button').length===7);
   const nav=width<=900?'#mobile-tabs':'#step-list';
   check(d.querySelectorAll(nav+' button').length===7,width+'px 七个导航按钮');
+  const go=id=>d.querySelector(nav+' [data-step="'+id+'"]').click();
+  go('device');
+  await until(()=>d.body.dataset.page==='device');
+  const advanced=d.querySelector('#connection-advanced'), preview=d.querySelector('.preview-rail'), content=d.querySelector('#preview-content'), toggle=d.querySelector('#btn-preview-toggle');
+  const visible=el=>!!el.getClientRects().length && w.getComputedStyle(el).visibility!=='hidden';
+  check([...d.querySelectorAll('[id]')].length===new Set([...d.querySelectorAll('[id]')].map(el=>el.id)).size,width+'px 页面ID无重复');
+  check([...d.styleSheets].some(s=>s.href?.includes('ui-refinement.css')),width+'px 新版样式已加载');
+  check(!advanced.open,width+'px 高级连接参数默认收起');
+  advanced.querySelector('summary').click();
+  const uuid=d.querySelector('[data-bind="connection.serviceUuid"]');
+  check(advanced.open && visible(uuid) && uuid.closest('details')===advanced,width+'px 高级设置可展开');
+  advanced.querySelector('summary').click();
+  check(!advanced.open,width+'px 高级设置可收起');
+  if(width<=900) {
+   check(content.hidden && toggle.getAttribute('aria-expanded')==='false',width+'px 手机预览默认收起');
+   toggle.click(); check(!content.hidden && toggle.getAttribute('aria-expanded')==='true',width+'px 手机预览可展开');
+   toggle.click(); check(content.hidden && toggle.getAttribute('aria-expanded')==='false',width+'px 手机预览可收起');
+   check(d.querySelector('.workspace').getBoundingClientRect().top<preview.getBoundingClientRect().top,width+'px 操作区优先于预览');
+   check(d.querySelector('#btn-connect').getBoundingClientRect().height>=44,width+'px 连接按钮触摸高度');
+  } else { check(!content.hidden && visible(preview),width+'px 桌面预览默认可见'); }
   for(const id of ids) {
    const button=d.querySelector(nav+' [data-step="'+id+'"]'); button.click();
    await until(()=>d.querySelector('.section-panel.active')?.dataset.panel===id);
@@ -38,7 +59,19 @@ try {
     const r=button.getBoundingClientRect(); check(r.left>=-1 && r.right<=w.innerWidth+1 && r.bottom<=w.innerHeight+1,width+'px '+id+' 导航可见');
    }
    check(d.documentElement.scrollWidth<=w.innerWidth+1,width+'px '+id+' 无横向溢出 '+d.documentElement.scrollWidth+'/'+w.innerWidth);
+   const workspace=d.querySelector('.workspace');
+   check(workspace.scrollWidth<=workspace.clientWidth+1,width+'px '+id+' 工作区内部无横向溢出 '+workspace.scrollWidth+'/'+workspace.clientWidth);
+   check(d.querySelectorAll(nav+' [aria-current="page"]').length===1 && button.getAttribute('aria-current')==='page',width+'px '+id+' 导航辅助状态一致');
+   if(width<=900) {
+    await new Promise(w.requestAnimationFrame);
+    const heading=d.querySelector('#section-title').getBoundingClientRect(), topbar=d.querySelector('.topbar').getBoundingClientRect();
+    check(heading.top>=topbar.bottom-1,width+'px '+id+' 标题未被顶栏遮挡');
+   }
   }
+  check(preview.hidden && !visible(preview),width+'px 升级页不占用预览栏');
+  const preflight=d.querySelector('.ota-preflight').getBoundingClientRect(), selection=d.querySelector('.ota-selection').getBoundingClientRect();
+  check(width>1050?Math.abs(preflight.top-selection.top)<2:selection.top>=preflight.bottom,width+'px 升级分段响应式布局');
+  check(d.querySelector('#ota-main-mode').dataset.mode==='UNKNOWN' && d.querySelector('#ota-slave-mode').dataset.mode==='UNKNOWN',width+'px 未检测状态不显示为已就绪');
   check(d.querySelector('#ota-start').disabled,width+'px 未检测不可升级');
   d.querySelector('#ota-query-status').click();
   check(w.__smoke.deviceRequests===0 && !d.querySelector('#ota-query-status').disabled,width+'px 取消查询无蓝牙请求');
@@ -46,6 +79,9 @@ try {
   d.querySelector('.ota-online-item').click();
   await until(()=>d.querySelector('#ota-file-meta').textContent.includes('CRC已核对'));
   check(d.querySelector('#ota-start').disabled && d.querySelector('#ota-log-box').textContent.includes('SHA-256'),width+'px 下载核验不绕过状态门禁');
+  const selected=d.querySelector('.ota-online-item[aria-pressed="true"]');
+  check(!!selected && selected.querySelector('.fw-action').textContent==='已选择' && !!selected.querySelector('.fw-copy strong'),width+'px 固件卡片选中反馈');
+  check(d.querySelector('#ota-gate-reason').dataset.state==='blocked',width+'px 下载后仍明确显示升级受限');
   check(w.__smoke.deviceRequests===0,width+'px 无硬件访问');
   check(w.__smoke.errors.length===0,width+'px 无运行或资源错误'+(w.__smoke.errors.length?' '+w.__smoke.errors.join('; '):''));
  }
