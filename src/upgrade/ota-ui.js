@@ -47,6 +47,64 @@ export function initOtaUpgrade(context) {
       document.querySelectorAll(".ota-target").forEach(el => el.classList.toggle("selected", el.querySelector("input").checked));
     });
   });
+
+  loadOnlineFirmware();
+}
+
+// ===== 在线固件库（firmware/versions.json）=====
+async function loadOnlineFirmware() {
+  const list = document.querySelector("#ota-online-list");
+  try {
+    const base = new URL("../firmware/versions.json", location.href).href;
+    const cacheBust = base + (base.includes("?") ? "&" : "?") + "t=" + Date.now();
+    const res = await fetch(cacheBust);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const files = Array.isArray(data.files) ? data.files : [];
+    if (!files.length) {
+      list.innerHTML = '<span class="ota-online-empty">在线库为空 · 固件请交给管理员放入 firmware/ 目录</span>';
+      return;
+    }
+    list.innerHTML = "";
+    files.forEach(fw => {
+      const item = document.createElement("div");
+      item.className = "ota-online-item";
+      const targetCls = String(fw.target || "").startsWith("n32") ? "n32" : "w515";
+      const tag = targetCls === "n32" ? "N32" : "W515";
+      const rec = fw.recommended ? '<span class="fw-tag rec">推荐</span>' : "";
+      item.innerHTML = `
+        <span class="fw-tag ${targetCls}">${tag}</span>
+        <span class="fw-name">${escapeHtml(fw.version || fw.name)}</span>
+        ${rec}
+        <span class="fw-notes">${escapeHtml(fw.notes || "")}</span>
+        <span class="fw-tag">v${escapeHtml(String(fw.version || "?"))}</span>`;
+      item.addEventListener("click", async () => {
+        await pickOnlineFirmware(fw, item);
+      });
+      list.appendChild(item);
+    });
+  } catch (e) {
+    list.innerHTML = '<span class="ota-online-empty">在线库不可用（本地调试正常，Pages 上无固件清单）</span>';
+  }
+}
+
+async function pickOnlineFirmware(fw, item) {
+  const $ = s => document.querySelector(s);
+  item.style.opacity = ".5";
+  try {
+    const url = new URL("../firmware/" + encodeURIComponent(fw.name), location.href).href;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("下载失败 HTTP " + res.status);
+    const buf = new Uint8Array(await res.arrayBuffer());
+    firmware = buf;
+    const meta = readMetaBrief(buf);
+    $("#ota-file-meta").innerHTML = `<strong>${escapeHtml(fw.name)}</strong> · ${buf.length}B · ${escapeHtml(meta || "无元数据(整包CRC)")}`;
+    otaLog("SYS", `在线固件已载入: ${fw.name} (${buf.length}B)${fw.notes ? " · " + fw.notes : ""}`);
+  } catch (e) {
+    otaLog("ERR", `在线固件获取失败: ${e.message}`);
+  } finally {
+    item.style.opacity = "";
+  }
 }
 
 async function startUpgrade() {

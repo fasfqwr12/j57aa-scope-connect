@@ -134,6 +134,7 @@ button { -webkit-tap-highlight-color: transparent; }
   gap: 12px;
   padding: 10px 18px;
   border-bottom: 1px solid var(--line);
+  background: var(--panel);
   background: color-mix(in srgb, var(--panel) 90%, transparent);
   backdrop-filter: blur(10px);
   flex-shrink: 0;
@@ -198,6 +199,7 @@ h1 { font-size: 16px; line-height: 1.1; }
 /* ---- 左侧流程栏 ---- */
 .flow-rail {
   border-right: 1px solid var(--line);
+  background: var(--panel);
   background: color-mix(in srgb, var(--panel) 70%, transparent);
   padding: 14px 12px;
   overflow: auto;
@@ -397,7 +399,9 @@ input[type="range"] { padding: 0; height: 26px; accent-color: var(--accent); }
 .validation-note {
   margin-top: 10px;
   border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent);
+  border: 1px solid var(--line2);
   border-radius: 9px;
+  background: var(--card2);
   background: color-mix(in srgb, var(--warn) 8%, transparent);
   color: var(--warn);
   padding: 10px 11px;
@@ -455,12 +459,12 @@ input[type="range"] { padding: 0; height: 26px; accent-color: var(--accent); }
   flex-shrink: 0;
   transition: .15s;
 }
-.toggle-pill:has(input:checked) {
+.toggle-pill.on {
   border-color: var(--accent-line);
   background: var(--accent-soft);
   color: var(--text);
 }
-.toggle-pill:has(input:checked)::before {
+.toggle-pill.on::before {
   border-color: var(--accent);
   background: var(--accent);
   box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent);
@@ -488,6 +492,7 @@ input[type="range"] { padding: 0; height: 26px; accent-color: var(--accent); }
 .preview-rail {
   min-width: 0;
   border-left: 1px solid var(--line);
+  background: var(--panel);
   background: color-mix(in srgb, var(--panel) 70%, transparent);
   padding: 14px;
   overflow: auto;
@@ -495,7 +500,9 @@ input[type="range"] { padding: 0; height: 26px; accent-color: var(--accent); }
 .solve-strip {
   height: 48px;
   border: 1px solid color-mix(in srgb, var(--ok) 26%, transparent);
+  border: 1px solid var(--line2);
   border-radius: 11px;
+  background: var(--card);
   background: color-mix(in srgb, var(--ok) 9%, transparent);
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -534,8 +541,7 @@ body.ble-live .connect-hint { display: none; }
 .scope-preview {
   position: relative;
   aspect-ratio: 1 / 1;
-  border-radius: 50%;
-  overflow: hidden;
+  border-radius: 50%;  overflow: hidden;
   background:
     url("../assets/scope-view.svg?v=20260703_v3") center / cover no-repeat,
     radial-gradient(circle at 50% 50%, #f1f0eb 0%, #e5e3dc 48%, #b9bab6 100%);
@@ -664,6 +670,7 @@ body.ble-live .connect-hint { display: none; }
   display: none;
   flex-shrink: 0;
   border-top: 1px solid var(--line);
+  background: var(--panel);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   backdrop-filter: blur(12px);
   padding: 7px calc(8px + env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
@@ -684,6 +691,29 @@ body.ble-live .connect-hint { display: none; }
 .mobile-tabs button svg { width: 20px; height: 20px; }
 .mobile-tabs button.active { color: var(--accent-deep); border-color: var(--accent-line); background: var(--accent-soft); }
 .mobile-tabs button.active svg { color: var(--accent); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent)); }
+
+/* 在线固件库 */
+.ota-online-row { margin-bottom: 12px; }
+.ota-online-head { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.ota-online-list { display: grid; gap: 6px; }
+.ota-online-empty { font-size: 12px; color: var(--dim); }
+.ota-online-item {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--card); padding: 9px 12px;
+  cursor: pointer; transition: .15s;
+}
+.ota-online-item:hover { border-color: var(--accent-line); }
+.ota-online-item .fw-name { font-size: 13px; font-weight: 600; }
+.ota-online-item .fw-tag {
+  font: 700 9px var(--mono); letter-spacing: 1px;
+  border: 1px solid var(--line2); border-radius: 999px; padding: 2px 7px;
+  color: var(--muted); white-space: nowrap;
+}
+.ota-online-item .fw-tag.w515 { color: var(--accent-deep); border-color: var(--accent-line); }
+.ota-online-item .fw-tag.n32 { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.ota-online-item .fw-tag.rec { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.ota-online-item .fw-notes { flex: 1; min-width: 0; font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ============ 升级（OTA） ============ */
 .ota-target-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
@@ -756,6 +786,14 @@ body.ble-live .connect-hint { display: none; }
   .ota-stats { grid-template-columns: 1fr 1fr; }
   .ota-file-meta { flex-basis: 100%; }
 }
+
+/* ============ 兼容性兜底 ============ */
+/* aspect-ratio 不支持（旧内核）：给固定高度 */
+@supports not (aspect-ratio: 1) {
+  .scope-preview { aspect-ratio: auto; height: 340px; }
+  .phone .screen { min-height: 500px; }
+}
+/* env() 安全区不支持时忽略，无害 */
 
 /* ============ 响应式 ============ */
 @media (max-width: 1180px) {

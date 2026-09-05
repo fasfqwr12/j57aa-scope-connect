@@ -106,12 +106,12 @@ function renderSteps() {
   const mobile = $("#mobile-tabs");
   stepList.innerHTML = steps.map(s => `
     <button class="step-item" data-step="${s.id}" type="button">
-      <svg class="step-icon"><use href="#i-${s.id}"/></svg>
+      <svg class="step-icon"><use href="#i-${s.id}" xlink:href="#i-${s.id}"/></svg>
       <strong>${s.label}</strong>
       <em>${s.title}</em>
     </button>
   `).join("");
-  mobile.innerHTML = steps.map(s => `<button data-step="${s.id}" type="button"><svg><use href="#i-${s.id}"/></svg>${s.label}</button>`).join("");
+  mobile.innerHTML = steps.map(s => `<button data-step="${s.id}" type="button"><svg><use href="#i-${s.id}" xlink:href="#i-${s.id}"/></svg>${s.label}</button>`).join("");
   $$("[data-step]").forEach(btn => btn.addEventListener("click", () => setStep(btn.dataset.step)));
 }
 
@@ -123,6 +123,15 @@ function setStep(step) {
   $("#section-title").textContent = target.title;
   $("#section-kicker").textContent = target.kicker;
   scheduleSave();
+  // 移动端：点击 Tab 后滚动到对应面板（预览区较长，不滚看不到切换效果）
+  if (window.matchMedia("(max-width: 900px)").matches) {
+    requestAnimationFrame(() => {
+      const ws = document.querySelector(".workspace");
+      const panel = document.querySelector(".section-panel.active");
+      const top = (panel || ws).getBoundingClientRect().top + window.scrollY - 8;
+      window.scrollTo({ top, behavior: "smooth" });
+    });
+  }
 }
 
 function renderProfileOptions() {
@@ -148,8 +157,10 @@ function renderZoneToggles() {
   `).join("");
   host.querySelectorAll("input").forEach(input => {
     input.checked = !!state.hud.zones[input.dataset.zoneKey];
+    input.closest(".toggle-pill").classList.toggle("on", input.checked);
     input.addEventListener("change", () => {
       state.hud.zones[input.dataset.zoneKey] = input.checked;
+      input.closest(".toggle-pill").classList.toggle("on", input.checked);
       refreshAll();
     });
   });
