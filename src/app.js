@@ -2,6 +2,7 @@ import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closur
 import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=status-first-1";
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
+import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-04";
 import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=quiet-olive-03";
 
 const steps = [
@@ -44,6 +45,7 @@ let adapter = null;
 let saveTimer = null;
 let otaBusy = false;
 let connecting = false;
+let mobileScreens = null;
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => Array.from(document.querySelectorAll(selector));
@@ -55,6 +57,7 @@ function init() {
   renderProfileOptions();
   renderAmmoPresets();
   renderZoneToggles();
+  mobileScreens = initMobileScreens();
   bindForms();
   bindActions();
   buildReticle();
@@ -102,17 +105,6 @@ function bindActions() {
   $("#btn-clear-log").addEventListener("click", () => { $("#log-box").innerHTML = ""; });
   $("#btn-open-hud").addEventListener("click", openLegacyHud);
   $("#btn-hint-connect").addEventListener("click", connect);
-  const preview = $(".preview-rail"), content = $("#preview-content"), toggle = $("#btn-preview-toggle");
-  const mobile = window.matchMedia("(max-width: 900px)");
-  const updatePreview = () => {
-    const visible = !mobile.matches || preview.dataset.expanded === "true";
-    content.hidden = !visible;
-    toggle.setAttribute("aria-expanded", String(visible));
-    toggle.textContent = visible ? "收起预览" : "展开预览";
-  };
-  toggle.addEventListener("click", () => { preview.dataset.expanded = String(preview.dataset.expanded !== "true"); updatePreview(); });
-  mobile.addEventListener("change", updatePreview);
-  updatePreview();
 }
 
 function bindForms() {
@@ -155,14 +147,8 @@ function setStep(step) {
   $("#section-kicker").textContent = target.kicker;
   $("#section-description").textContent = pageDescriptions[target.id];
   scheduleSave();
-  // Keep the page heading visible below the sticky mobile header.
-  if (window.matchMedia("(max-width: 900px)").matches) {
-    requestAnimationFrame(() => {
-      const ws = $(".workspace"), header = $(".topbar");
-      const top = ws.getBoundingClientRect().top + window.scrollY - header.getBoundingClientRect().height;
-      window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
-    });
-  } else { $(".workspace").scrollTop = 0; }
+  mobileScreens?.show(target.id);
+  $(".workspace").scrollTop = 0;
 }
 
 function renderProfileOptions() {

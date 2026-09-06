@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RUNNING Mobile screen smoke</title>
+<style>body{font:14px system-ui;margin:16px;background:#f0efe6;color:#23261a}iframe{display:block;border:0;background:white}li{padding:3px;white-space:pre-wrap;overflow-wrap:anywhere}.fail{color:#a11}.pass{color:#276536}.info{color:#685500}summary,button{min-height:44px}#result{font-weight:bold}#viewport{overflow:auto;max-width:100%}button{font:inherit}code{overflow-wrap:anywhere}</style></head>
+<body><h1>手机一屏主 Tab：离线 DOM 烟测</h1>
+<p>从现有同源 HTTP(S) 站点打开本页。无依赖，不下载固件，不点连接、检测、升级、同步或弹道操作。srcdoc 中先隔离存储、拒绝蓝牙和 Bridge，再加载应用。所有应用 fetch 返回本地 503 fixture；静态脚本/样式/图片仍从本站加载。</p>
+<p>默认覆盖 7 个宽高以及 900/901 断点往返两轮。可指定 <code>?width=390&amp;height=844&amp;review=upgrade</code>；review=device 或 upgrade 最终停第一子页。折叠列表含实际值。内部长文/日志滚动仅 INFO，几何越界才 FAIL。</p>
+<p><strong>边界：</strong>iframe 只模拟 CSS 视口，不模拟实际键盘、safe-area、触摸、可信按键。自动检查模态与关闭焦点；真实 Escape 须点击下方人工按钮后按 Escape，结果会追加。PASS 不代表这项人工检查已执行。</p>
+<p id="result">运行中…</p><button id="manual" disabled>人工 Escape：打开预览后按 Escape</button>
+<details><summary id="summary">逐项结果（折叠）</summary><ol id="checks"></ol></details><div id="viewport"></div>
+<script type="module">
+const host=document.querySelector('#viewport'), list=document.querySelector('#checks');
+let total=0, failed=0, infos=0, finished=false, manualFrame=null;
+function report(ok,label,values=''){ const li=document.createElement('li');li.className=ok===null?'info':ok?'pass':'fail';li.textContent=(ok===null?'INFO ':ok?'PASS ':'FAIL ')+label+(values?' | '+values:'');list.append(li);if(ok===null)infos++;else{total++;if(!ok)failed++;}summary(); }
+function summary(){document.querySelector('#summary').textContent=`逐项结果：${total-failed}/${total} PASS，${failed} FAIL，${infos} INFO`;document.querySelector('#result').textContent=(finished?'完成':'运行中')+`：${total-failed}/${total} PASS，${failed} FAIL；真实 Escape 需人工`;document.title=(failed?'FAIL':finished?'PASS':'RUNNING')+' Mobile screen smoke';}
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+async function until(fn,label,ms=12000){const end=performance.now()+ms;while(!fn()){if(performance.now()>end)throw Error('Timeout: '+label);await pause(30);}}
+async function settle(w){await new Promise(r=>w.requestAnimationFrame(()=>w.requestAnimationFrame(r)));await pause(40);}
+const ids=['device','profile','environment','target','hud','sync','upgrade'];
+const params=new URLSearchParams(location.search), qw=Number(params.get('width')), qh=Number(params.get('height'));
+const sizes=params.has('width')||params.has('height')?[[qw,qh]]:[[320,568],[360,640],[390,844],[430,932],[768,1024],[844,390],[390,420]];
+// Stringified function executes FIRST in the iframe. Never touch parent storage.
+function guard(){
+ const audit=window.__mobileSmoke={blocked:[],fetches:[],errors:[],listeners:[],modalCalls:0};
+ const deny=kind=>function(){audit.blocked.push(kind);throw new DOMException('Smoke prohibited: '+kind,'NotAllowedError');};
+ for(const key of ['localStorage','sessionStorage']){const map=new Map();Object.defineProperty(window,key,{configurable:false,value:{get length(){return map.size;},key:i=>[...map.keys()][i]??null,getItem:k=>map.get(String(k))??null,setItem:(k,v)=>map.set(String(k),String(v)),removeItem:k=>map.delete(String(k)),clear:()=>map.clear()}});}
+ Object.defineProperty(navigator,'bluetooth',{value:{requestDevice:deny('bluetooth.requestDevice'),getDevices:async()=>[],getAvailability:async()=>false}});
+ for(const key of ['serial','usb','hid'])Object.defineProperty(navigator,key,{value:{requestPort:deny(key),requestDevice:deny(key),getPorts:async()=>[],getDevices:async()=>[]}});
+ window.confirm=()=>false;window.open=deny('window.open');
+ window.fetch=async input=>{audit.fetches.push(String(input?.url||input));return new Response('Offline layout smoke fixture',{status:503,statusText:'Smoke fixture'});};
+ window.XMLHttpRequest=class{constructor(){deny('XMLHttpRequest')();}};
+ for(const key of ['WebSocket','EventSource','RTCPeerConnection','Worker','SharedWorker'])window[key]=class{constructor(){deny(key)();}};
+ Object.defineProperty(navigator,'sendBeacon',{value:deny('sendBeacon')});
+ if(navigator.serviceWorker)Object.defineProperty(navigator.serviceWorker,'register',{value:deny('serviceWorker.register')});
+ const add=EventTarget.prototype.addEventListener,remove=EventTarget.prototype.removeEventListener;
+ EventTarget.prototype.addEventListener=function(type,fn,opts){if(type==='click'||type==='keydown')audit.listeners.push({target:this,type,fn,source:String(fn),capture:typeof opts==='boolean'?opts:!!opts?.capture,active:true});return add.call(this,type,fn,opts);};
+ EventTarget.prototype.removeEventListener=function(type,fn,opts){const capture=typeof opts==='boolean'?opts:!!opts?.capture;for(const x of audit.listeners)if(x.target===this&&x.type===type&&x.fn===fn&&x.capture===capture)x.active=false;return remove.call(this,type,fn,opts);};
+ const modal=HTMLDialogElement.prototype.showModal;HTMLDialogElement.prototype.showModal=function(){audit.modalCalls++;return modal.call(this);};
+ window.addEventListener('error',e=>audit.errors.push(e.message||e.target?.src||e.target?.href||'Resource error'),true);
+ window.addEventListener('unhandledrejection',e=>audit.errors.push(String(e.reason)));
+}
+function helpers(f){const w=f.contentWindow,d=f.contentDocument;
+ const all=s=>[...d.querySelectorAll(s)], $=s=>d.querySelector(s);
+ const visible=e=>!!e&&!!e.getClientRects().length&&w.getComputedStyle(e).visibility!=='hidden'&&w.getComputedStyle(e).display!=='none';
+ const rect=e=>e?.getBoundingClientRect();
+ const inside=e=>{const r=rect(e);return visible(e)&&r.width>0&&r.height>0&&r.left>=-1&&r.top>=-1&&r.right<=w.innerWidth+1&&r.bottom<=w.innerHeight+1;};
+ const desc=e=>e?.id||e?.dataset.bind||e?.textContent?.trim().slice(0,32)||e?.tagName||'MISSING';
+ const box=e=>{const r=rect(e);return r?`${desc(e)} x=${r.x.toFixed(1)} y=${r.y.toFixed(1)} w=${r.width.toFixed(1)} h=${r.height.toFixed(1)}`:'MISSING';};
+ async function go(id){const nav=w.innerWidth<=900?'#mobile-tabs':'#step-list';const b=$(`${nav} [data-step="${id}"]`);if(!b)throw Error('Missing navigation '+id);b.click();await settle(w);return b;}
+ return{w,d,all,$,visible,rect,inside,desc,box,go};}
+function duplicateCheck(h,label){const seen=new Set(),duplicates=[];for(const e of h.all('[id]')){if(seen.has(e.id))duplicates.push(e.id);seen.add(e.id);}report(!duplicates.length,label+' unique IDs',duplicates.join(',')||`count=${seen.size}`);}
+function listenerCheck(h,label){const live=h.w.__mobileSmoke.listeners.filter(x=>x.active&&x.target instanceof h.w.Element&&x.target.isConnected&&(x.target.closest('#mobile-tabs,.mobile-page-nav')||x.target.id==='btn-mobile-preview'));
+ const dup=live.filter((x,i)=>live.slice(0,i).some(y=>x.target===y.target&&x.type===y.type&&x.source===y.source&&x.capture===y.capture&&x.fn!==y.fn));report(!dup.length,label+' no repeated live navigation listeners',dup.map(x=>h.desc(x.target)+':'+x.type).join(',')||`registrations=${live.length}`);}
+async function scrollCheck(h,e,label){const {w,rect,box}=h;if(!e||!h.visible(e))return;const old=e.scrollTop,max=e.scrollHeight-e.clientHeight;e.scrollTop=e.scrollHeight;await settle(w);report(max<=1||Math.abs(e.scrollTop-max)<=2,label+' scroll reaches end',`${box(e)} scroll=${e.scrollTop}/${max}, overflow=${w.getComputedStyle(e).overflowY}`);e.scrollTop=old;}
+async function geometry(h,label){const {w,d,$,all,visible,inside,box}=h;
+ for(const e of [d.documentElement,d.body,$('.app-shell')])report(!!e&&Math.abs(e.getBoundingClientRect().height-w.innerHeight)<=2,label+' viewport height',`${box(e)} expected=${w.innerHeight}`);
+ for(const e of [d.documentElement,d.body])report(e.scrollWidth<=w.innerWidth+1&&e.scrollHeight<=w.innerHeight+1,label+' no document XY overflow',`${e.tagName} scroll=${e.scrollWidth}x${e.scrollHeight} viewport=${w.innerWidth}x${w.innerHeight}`);
+ const windowOffset=[w.scrollX,w.scrollY];w.scrollTo(10000,10000);report(w.scrollX===0&&w.scrollY===0,label+' document cannot scroll',`offset=${w.scrollX},${w.scrollY}; before=${windowOffset}`);w.scrollTo(0,0);
+ const pages=all('.mobile-page[role="tabpanel"]').filter(visible), p=pages[0];report(pages.length===1,label+' exactly one visible panel',pages.map(e=>e.id).join(',')||'none');
+ for(const e of [$('header.topbar'),$('.workspace-head'),$('#mobile-tabs'),$('.section-panel.active .mobile-page-nav')].filter(e=>e&&!e.hidden))report(inside(e),label+' header/navigation inside viewport',box(e));
+ if(!p)return;
+ report(p.clientHeight>0&&inside(p),label+' positive group viewport',box(p));
+ report(p.scrollWidth<=p.clientWidth+1,label+' no group horizontal overflow',`${p.scrollWidth}/${p.clientWidth}`);
+ const root=p.closest('.mobile-screen-root'),nav=$('#mobile-tabs');
+ const selected=[...root.querySelectorAll('[role="tab"][aria-selected="true"]')];report(selected.length===1&&selected[0].getAttribute('aria-controls')===p.id&&p.getAttribute('aria-labelledby')===selected[0].id,label+' ARIA tab/panel linkage',`selected=${selected.map(e=>e.id)} panel=${p.id}`);
+ const controls=all('.topbar button,#btn-mobile-preview,#mobile-tabs button,.section-panel.active button,.section-panel.active summary,.section-panel.active .toggle-pill').filter(visible);
+ const small=controls.filter(e=>e.getBoundingClientRect().height<43.5||e.getBoundingClientRect().width<43.5);report(!small.length,label+' 44px touch targets',small.map(box).join('; ')||`checked=${controls.length}`);
+ const inputs=[...p.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),select,textarea')].filter(visible);
+ const tiny=inputs.filter(e=>parseFloat(w.getComputedStyle(e).fontSize)<16);report(!tiny.length,label+' primary input font >=16px',tiny.map(e=>h.desc(e)+'='+w.getComputedStyle(e).fontSize).join('; ')||`checked=${inputs.length}`);
+ if(p.scrollHeight>p.clientHeight+1)report(null,label+' internal vertical scroll required',`${p.scrollHeight}/${p.clientHeight}`);
+ else report(null,label+' no internal vertical scroll',`${p.scrollHeight}/${p.clientHeight}`);
+ const old=p.scrollTop;p.scrollTop=p.scrollHeight;await settle(w);
+ const last=[...p.children].filter(visible).at(-1),r=last?.getBoundingClientRect(),pr=p.getBoundingClientRect();
+ report(!!r&&r.bottom<=pr.bottom+2&&pr.bottom<=nav.getBoundingClientRect().top+1,label+' final block reachable above bottom nav',`${box(last)} panelBottom=${pr.bottom} navTop=${nav.getBoundingClientRect().top}`);
+ await scrollCheck(h,p,label+' panel');
+ for(const e of [...p.querySelectorAll('*')].filter(e=>visible(e)&&/auto|scroll/.test(w.getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+1))await scrollCheck(h,e,label+' nested '+h.desc(e));
+ p.scrollTop=old;
+ if(d.body.dataset.page==='upgrade')for(const id of ['ota-gate-reason','ota-abort']){const e=$('#'+id);report(inside(e)&&!!e.closest('.mobile-ota-footer'),label+' persistent '+id,box(e));}
+}
+async function keyboard(h,label){const {w,$}=h,buttons=[...$('.section-panel.active').querySelectorAll('.mobile-page-nav [data-mobile-group]')];if(buttons.length<2)return;
+ buttons[0].click();buttons[0].focus();let i=0;
+ for(const [key,next] of [['ArrowRight',1],['End',buttons.length-1],['ArrowRight',0],['ArrowLeft',buttons.length-1],['Home',0]]){const event=new w.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true});buttons[i].dispatchEvent(event);await settle(w);report(event.defaultPrevented&&h.d.activeElement===buttons[next]&&buttons[next].getAttribute('aria-selected')==='true'&&buttons.every((b,j)=>b.tabIndex===(j===next?0:-1)),label+' keyboard '+key,`from=${i} expected=${next} focus=${h.d.activeElement?.id}`);i=next;}
+}
+async function preview(h,label){await h.go('device');const b=h.$('#btn-mobile-preview'),dialog=h.$('#mobile-preview-dialog'),rail=h.$('.preview-rail');if(!b||!dialog){report(false,label+' preview exists');return;}
+ b.focus();let calls=h.w.__mobileSmoke.modalCalls;b.click();await settle(h.w);
+ report(dialog.open&&dialog.matches(':modal')&&dialog.contains(rail),label+' preview modal owns original rail',`open=${dialog.open} modal=${dialog.matches(':modal')}`);
+ report(h.inside(dialog),label+' dialog within viewport',h.box(dialog));
+ const background=h.$('#mobile-tabs button');background.focus();report(dialog.contains(h.d.activeElement),label+' modal prevents background focus',h.d.activeElement?.id||h.d.activeElement?.tagName);
+ report(h.w.__mobileSmoke.modalCalls-calls===1,label+' one click one showModal',`calls=${h.w.__mobileSmoke.modalCalls-calls}`);
+ dialog.querySelector('.mobile-preview-header button').click();await settle(h.w);report(!dialog.open&&h.d.activeElement===b,label+' close restores opener focus',`open=${dialog.open} focus=${h.d.activeElement?.id}`);
+ if(typeof dialog.requestClose==='function'){b.focus();b.click();let cancels=0;dialog.addEventListener('cancel',()=>cancels++,{once:true});dialog.requestClose();await settle(h.w);report(!dialog.open&&cancels===1&&h.d.activeElement===b,label+' native requestClose cancel path (not real Escape)',`cancel=${cancels} open=${dialog.open} focus=${h.d.activeElement?.id}`);}
+ else report(null,label+' requestClose unavailable; real Escape manual only');
+}
+async function stress(h,label){await h.go('upgrade');const feedback=h.$('#ota-feedback'),gate=h.$('#ota-gate-reason'),status=h.$('#ota-main-info');
+ const nodes=[feedback,gate,status],saved=nodes.map(e=>({e,children:[...e.childNodes],hidden:e.hidden}));
+ try{feedback.hidden=false;feedback.textContent=('布局错误说明：仅 DOM 文本，不执行升级。\n').repeat(80)+'ERROR_END';status.textContent=('状态详情仅测试排版。\n').repeat(80)+'STATUS_END';
+ for(const b of [...h.$('.section-panel.active').querySelectorAll('[data-mobile-group]')]){b.click();await settle(h.w);gate.textContent=('门禁仍阻止升级。 ').repeat(80)+'GATE_END';const name=label+' stress '+b.dataset.mobileGroup;
+ report(feedback.parentElement.classList.contains('mobile-screen-root')&&h.inside(feedback),name+' feedback persists outside subpage',h.box(feedback));
+ await scrollCheck(h,feedback,name+' long error');await scrollCheck(h,gate,name+' long gate');await geometry(h,name);
+ if(h.visible(status)){const p=status.closest('.mobile-page');p.scrollTop=p.scrollHeight;await settle(h.w);report(status.getBoundingClientRect().bottom<=p.getBoundingClientRect().bottom+2,name+' final status text reachable',h.box(status));}
+ }}finally{for(const s of saved){s.e.replaceChildren(...s.children);s.e.hidden=s.hidden;}}
+}
+try{
+ if(!/^https?:$/.test(location.protocol))throw Error('请在已有同源 HTTP(S) 服务打开；本测试不启动服务器。');
+ if(sizes.some(([w,h])=>!Number.isInteger(w)||w<280||w>900||!Number.isInteger(h)||h<300||h>2000))throw Error('width/height 必须同时提供整数：width 280..900，height 300..2000');
+ const appURL=new URL('../index.html',location.href),response=await fetch(appURL,{cache:'no-store'});if(!response.ok)throw Error('Index HTTP '+response.status);
+ const html=await response.text();if(!/<head\b[^>]*>/i.test(html))throw Error('Missing head; refuse unguarded app');
+ const prefix='<base href="'+appURL.href+'"><meta http-equiv="Content-Security-Policy" content="default-src \'self\' data: blob:; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; connect-src \'none\'; worker-src \'none\'; frame-src \'none\'; object-src \'none\'; form-action \'none\'"><script>('+guard.toString()+')();<'+ '/script>';
+ for(const [width,height] of sizes){
+  const f=document.createElement('iframe');f.title=`Mobile ${width}x${height}`;f.setAttribute('sandbox','allow-scripts allow-same-origin allow-modals');f.style.width='1100px';f.style.height=height+'px';host.replaceChildren(f);
+  const loaded=new Promise((resolve,reject)=>{f.onload=resolve;f.onerror=()=>reject(Error('iframe load'));});f.srcdoc=html.replace(/<head\b[^>]*>/i,m=>m+prefix);await Promise.race([loaded,pause(15000).then(()=>{throw Error('iframe load timeout');})]);
+  const h=helpers(f),label=`${width}x${height}`;await until(()=>h.$('#mobile-tabs button')&&h.$('#ota-gate-reason')?.textContent,'app initialized');await settle(h.w);
+  report(!!h.w.__mobileSmoke,label+' early safety guard installed');
+  const input=h.$('[data-bind="connection.namePrefix"]'),originalValue=input.value,rail=h.$('.preview-rail'),advanced=h.$('#connection-advanced'),originalOpen=advanced.open;
+  // Snapshot EVERY original element parent and element-sibling order on initialized desktop.
+  const baseline=h.all('body *').map(e=>({e,parent:e.parentElement,children:[...e.children]}));
+  async function resize(w){f.style.width=w+'px';await until(()=>h.w.innerWidth===w,'resize '+w);await until(()=>h.d.body.classList.contains('mobile-screen-mode')===(w<=900),'mount '+w);await settle(h.w);}
+  await resize(width);
+  for(const id of ids){const b=await h.go(id);report(h.all('.section-panel.active').length===1&&h.$('.section-panel.active').dataset.panel===id&&b.getAttribute('aria-current')==='page',label+' main '+id+' active');
+   const groups=[...h.$('.section-panel.active').querySelectorAll('[data-mobile-group]')];report(groups.length>0,label+' '+id+' subpages exist',`count=${groups.length}`);
+   for(const group of groups){group.click();await settle(h.w);await geometry(h,label+' '+id+'/'+group.dataset.mobileGroup);}
+   await keyboard(h,label+' '+id);
+  }
+  await preview(h,label);await stress(h,label);
+  for(let round=1;round<=2;round++){
+   input.value='mobile-smoke-round-'+round;const marker=input.value;
+   await resize(901);
+   const changed=baseline.filter(s=>s.e.parentElement!==s.parent||s.children.length!==s.e.children.length||s.children.some((e,i)=>s.e.children[i]!==e));
+   report(!changed.length,label+' desktop round '+round+' original DOM parent/order',changed.slice(0,15).map(s=>h.desc(s.e)).join('; ')||`elements=${baseline.length}`);
+   report(!h.$('.mobile-screen-root,.mobile-page,#mobile-preview-dialog,#btn-mobile-preview')&&advanced.open===originalOpen&&h.$('.preview-rail')===rail,label+' desktop restoration round '+round);
+   report(h.$('[data-bind="connection.namePrefix"]')===input&&input.value===marker,label+' desktop input identity/value',`value=${input.value}`);duplicateCheck(h,label+' desktop '+round);
+   await resize(900);report(h.$('[data-bind="connection.namePrefix"]')===input&&input.value===marker,label+' 900px input identity/value',`value=${input.value}`);await h.go('device');await geometry(h,label+' breakpoint 900 round '+round);duplicateCheck(h,label+' mobile '+round);listenerCheck(h,label+' round '+round);await preview(h,label+' round '+round);
+   await resize(width);
+  }
+  input.value=originalValue;
+  const review=params.get('review')==='upgrade'?'upgrade':'device';await h.go(review);h.$('.section-panel.active [data-mobile-group]').click();await settle(h.w);
+  const audit=h.w.__mobileSmoke;report(audit.blocked.length===0,label+' no hardware/Bridge attempts',audit.blocked.join('; ')||'0 attempts');report(audit.errors.length===0,label+' no uncaught runtime/resource errors',audit.errors.join('; ')||'0 errors');report(null,label+' offline fetch fixture',`intercepted=${audit.fetches.length}; no application fetch transmitted`);
+  if(width===390&&height===844){const p=h.$('.section-panel.active .mobile-page:not([hidden])');report(null,label+' review default page scroll budget',`${review}: ${p.scrollHeight}/${p.clientHeight}; long pages are not automatically failures`);}
+  manualFrame=f;
+ }
+ report(null,'Real Escape pending','Use manual button; synthetic KeyboardEvent does not invoke browser default Escape. Listener check detects duplicate identical live navigation callbacks, not every possible closure side effect.');
+}catch(e){report(false,'Runner failure',e.stack||String(e));}
+finished=true;summary();
+const manual=document.querySelector('#manual');manual.disabled=!manualFrame;
+manual.addEventListener('click',async()=>{manual.disabled=true;try{const h=helpers(manualFrame);await h.go('device');h.$('.section-panel.active [data-mobile-group]').click();const b=h.$('#btn-mobile-preview'),dialog=h.$('#mobile-preview-dialog');b.focus();b.click();let escape=false;dialog.addEventListener('keydown',e=>{if(e.isTrusted&&e.key==='Escape')escape=true;},{capture:true});dialog.addEventListener('close',()=>{report(escape&&!dialog.open&&h.d.activeElement===b,'MANUAL real Escape + focus return',`trustedEscape=${escape} focus=${h.d.activeElement?.id}`);manual.disabled=false;},{once:true});report(null,'Now press Escape inside the iframe','Do not click Close for this manual check.');}catch(e){report(false,'Manual preview',String(e));manual.disabled=false;}});
+</script></body></html>

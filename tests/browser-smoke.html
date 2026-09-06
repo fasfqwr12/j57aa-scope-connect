@@ -15,6 +15,7 @@ const widths=supportedWidths.includes(requested)?[requested]:supportedWidths;
 const bootstrap = `window.__smoke={deviceRequests:0,errors:[]};
 Object.defineProperty(navigator,'bluetooth',{configurable:true,value:{requestDevice(){window.__smoke.deviceRequests++;throw new Error('Hardware prohibited in smoke tests');}}});
 window.confirm=()=>false;
+Storage.prototype.getItem=()=>null;Storage.prototype.setItem=()=>{};Storage.prototype.removeItem=()=>{};
 window.addEventListener('error',e=>window.__smoke.errors.push(e.message||e.target?.src||e.target?.href||'resource error'),true);
 window.addEventListener('unhandledrejection',e=>window.__smoke.errors.push(String(e.reason)));`;
 try {
@@ -31,6 +32,7 @@ try {
   const nav=width<=900?'#mobile-tabs':'#step-list';
   check(d.querySelectorAll(nav+' button').length===7,width+'px 七个导航按钮');
   const go=id=>d.querySelector(nav+' [data-step="'+id+'"]').click();
+  const sub=(page,id)=>{if(width<=900)d.querySelector('[data-panel="'+page+'"] [data-mobile-group="'+id+'"]').click();};
   go('device');
   await until(()=>d.body.dataset.page==='device');
   const advanced=d.querySelector('#connection-advanced'), preview=d.querySelector('.preview-rail'), content=d.querySelector('#preview-content'), toggle=d.querySelector('#btn-preview-toggle');
@@ -49,19 +51,29 @@ try {
    check(rail.bottom<=d.querySelector('.workspace').getBoundingClientRect().top+1 && rail.height<=56,width+'px 轻量导航在工作区上方');
   }
   check(d.querySelector('.device-identity h3')?.textContent==='J57AA-2000A' && !d.querySelector('.device-art, .hero-name') && d.querySelector('.device-overview').getBoundingClientRect().height<150,width+'px 设备信息条取代宣传大图');
-  check(!advanced.open,width+'px 高级连接参数默认收起');
-  advanced.querySelector('summary').click();
   const uuid=d.querySelector('[data-bind="connection.serviceUuid"]');
-  check(advanced.open && visible(uuid) && uuid.closest('details')===advanced,width+'px 高级设置可展开');
-  advanced.querySelector('summary').click();
-  check(!advanced.open,width+'px 高级设置可收起');
   if(width<=900) {
-   check(content.hidden && toggle.getAttribute('aria-expanded')==='false',width+'px 手机预览默认收起');
-   toggle.click(); check(!content.hidden && toggle.getAttribute('aria-expanded')==='true',width+'px 手机预览可展开');
-   toggle.click(); check(content.hidden && toggle.getAttribute('aria-expanded')==='false',width+'px 手机预览可收起');
-   check(d.querySelector('.workspace').getBoundingClientRect().top<preview.getBoundingClientRect().top,width+'px 操作区优先于预览');
+   check(!visible(uuid),width+'px 高级参数不占连接首页');
+   sub('device','settings');
+   check(advanced.open && visible(uuid) && uuid.closest('details')===advanced,width+'px 参数分组保留高级设置');
+   sub('device','connection');
+   check(!visible(uuid),width+'px 返回连接组隐藏高级参数');
+   const dialog=d.querySelector('#mobile-preview-dialog'), opener=d.querySelector('#btn-mobile-preview');
+   check(!dialog.open && !visible(preview),width+'px 手机预览不占主页面高度');
+   opener.click();
+   check(dialog.open && visible(preview) && !content.hidden,width+'px 手机预览弹窗可打开');
+   dialog.querySelector('.mobile-preview-header button').click();
+   check(!dialog.open && !visible(preview),width+'px 手机预览弹窗可关闭');
+   check(d.documentElement.scrollHeight<=w.innerHeight+1 && d.querySelector('.app-shell').getBoundingClientRect().bottom<=w.innerHeight+1,width+'px 外壳固定一屏');
    check(d.querySelector('#btn-connect').getBoundingClientRect().height>=44,width+'px 连接按钮触摸高度');
-  } else { check(!content.hidden && visible(preview),width+'px 桌面预览默认可见'); }
+  } else {
+   check(!advanced.open,width+'px 高级连接参数默认收起');
+   advanced.querySelector('summary').click();
+   check(advanced.open && visible(uuid) && uuid.closest('details')===advanced,width+'px 高级设置可展开');
+   advanced.querySelector('summary').click();
+   check(!advanced.open,width+'px 高级设置可收起');
+   check(!content.hidden && visible(preview),width+'px 桌面预览默认可见');
+  }
   for(const id of ids) {
    const button=d.querySelector(nav+' [data-step="'+id+'"]'); button.click();
    await until(()=>d.querySelector('.section-panel.active')?.dataset.panel===id);
@@ -82,20 +94,29 @@ try {
   }
   check(preview.hidden && !visible(preview),width+'px 升级页不占用预览栏');
   const dock=d.querySelector('.ota-dock'), consoleGrid=d.querySelector('.ota-console');
-  check(consoleGrid.contains(d.querySelector('.ota-preflight')) && consoleGrid.contains(d.querySelector('.ota-selection')),width+'px 独立检测与固件操作台');
-  check(dock.contains(d.querySelector('#ota-start')) && dock.contains(d.querySelector('#ota-abort')) && dock.contains(d.querySelector('#ota-gate-reason')) && !d.querySelector('.ota-selection').contains(dock),width+'px 确认区独立且保留门禁提示');
+  if(width<=900) {
+   check(d.querySelector('#mobile-upgrade-detect').contains(d.querySelector('.ota-preflight')) && d.querySelector('#mobile-upgrade-file').contains(d.querySelector('.ota-selection')),width+'px 手机检测与文件分组保留原控件');
+   const footer=d.querySelector('.mobile-ota-footer');
+   check(dock.contains(d.querySelector('#ota-start')) && footer.contains(d.querySelector('#ota-abort')) && footer.contains(d.querySelector('#ota-gate-reason')) && visible(footer),width+'px 手机门禁和中止不随升级分组隐藏');
+  } else {
+   check(consoleGrid.contains(d.querySelector('.ota-preflight')) && consoleGrid.contains(d.querySelector('.ota-selection')),width+'px 独立检测与固件操作台');
+   check(dock.contains(d.querySelector('#ota-start')) && dock.contains(d.querySelector('#ota-abort')) && dock.contains(d.querySelector('#ota-gate-reason')) && !d.querySelector('.ota-selection').contains(dock),width+'px 确认区独立且保留门禁提示');
+  }
   check(!d.querySelector('.ota-intro h3, .ota-sequence') && d.querySelectorAll('[data-panel="upgrade"] .step-number').length===3,width+'px 仅保留操作标题避免重复口号');
   const transfer=d.querySelector('#ota-transfer-details'), logs=d.querySelector('#ota-log-details');
   check(!transfer.open && !logs.open,width+'px 参数与日志默认收起');
+  sub('upgrade','file');
   transfer.querySelector('summary').click();
   check(transfer.open && visible(d.querySelector('#ota-preset')),width+'px 传输参数可展开');
   transfer.querySelector('summary').click();
+  sub('upgrade','execute');
   logs.querySelector('summary').click();
   check(logs.open && visible(d.querySelector('#ota-clear-log')) && visible(d.querySelector('#ota-log-box')),width+'px 完整操作日志可展开');
   logs.querySelector('summary').click();
   check(!transfer.open && !logs.open,width+'px 参数与日志可收起');
+  sub('upgrade','detect');
   const preflight=d.querySelector('.ota-preflight').getBoundingClientRect(), selection=d.querySelector('.ota-selection').getBoundingClientRect();
-  check(width>1050?Math.abs(preflight.top-selection.top)<2:selection.top>=preflight.bottom,width+'px 升级分段响应式布局');
+  check(width<=900?visible(d.querySelector('.ota-preflight')) && !visible(d.querySelector('.ota-selection')):width>1050?Math.abs(preflight.top-selection.top)<2:selection.top>=preflight.bottom,width+'px 升级分段响应式布局');
   check(d.querySelector('#ota-main-mode').dataset.mode==='UNKNOWN' && d.querySelector('#ota-slave-mode').dataset.mode==='UNKNOWN',width+'px 未检测状态不显示为已就绪');
   check(d.querySelector('#ota-start').disabled,width+'px 未检测不可升级');
   const query=d.querySelector('#ota-query-status'), notice=d.querySelector('.ota-preflight > .ota-notice');
@@ -107,6 +128,7 @@ try {
   }
   query.click();
   check(w.__smoke.deviceRequests===0 && !d.querySelector('#ota-query-status').disabled,width+'px 取消查询无蓝牙请求');
+  sub('upgrade','file');
   await until(()=>d.querySelector('.ota-online-item'));
   d.querySelector('.ota-online-item').click();
   await until(()=>d.querySelector('#ota-file-meta').textContent.includes('CRC已核对'));
@@ -114,6 +136,7 @@ try {
   const selected=d.querySelector('.ota-online-item[aria-pressed="true"]');
   check(!!selected && selected.querySelector('.fw-action').textContent==='已选择' && !!selected.querySelector('.fw-copy strong'),width+'px 固件卡片选中反馈');
   check(d.querySelector('#ota-gate-reason').dataset.state==='blocked',width+'px 下载后仍明确显示升级受限');
+  sub('upgrade','execute');
   const start=d.querySelector('#ota-start');
   start.scrollIntoView({block:'center',behavior:'instant'});
   await new Promise(w.requestAnimationFrame);
@@ -128,10 +151,13 @@ try {
    return url.pathname.endsWith('.bin')?new w.Response('',{status:503,statusText:'Offline smoke failure'}):nativeFetch.call(w,input,init);
   };
   try {
+   sub('upgrade','file');
    selected.click();
    await until(()=>feedback.textContent.includes('HTTP 503') && !query.disabled);
    check(!feedback.hidden && visible(feedback) && logs.open,width+'px 下载失败自动展开日志并显示独立错误');
    check(start.disabled && feedback.dataset.level==='ERR',width+'px 下载失败不解除门禁');
+   sub('upgrade','execute');
+   check(visible(feedback),width+'px 切换执行区错误仍可见');
    logs.querySelector('summary').click();
    check(!logs.open && visible(feedback) && feedback.textContent.includes('HTTP 503'),width+'px 手动折叠日志不隐藏具体错误');
    logs.querySelector('summary').click();
