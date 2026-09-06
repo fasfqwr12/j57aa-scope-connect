@@ -21,7 +21,11 @@ const params=new URLSearchParams(location.search), qw=Number(params.get('width')
 const sizes=params.has('width')||params.has('height')?[[qw,qh]]:[[320,568],[360,640],[390,844],[430,932],[768,1024],[844,390],[390,420]];
 // Stringified function executes FIRST in the iframe. Never touch parent storage.
 function guard(){
- const audit=window.__mobileSmoke={blocked:[],fetches:[],errors:[],listeners:[],modalCalls:0,freezeIntervals:false};
+ const audit=window.__mobileSmoke={blocked:[],fetches:[],errors:[],listeners:[],modalCalls:0,freezeIntervals:false,mediaQueries:[],viewportEvents:[]};
+ // Observe native viewport events without dispatching or replacing app callbacks.
+ const nativeMatchMedia=window.matchMedia.bind(window);
+ window.matchMedia=query=>{const m=nativeMatchMedia(query),record={query,initial:m.matches,changes:[]};audit.mediaQueries.push(record);m.addEventListener('change',event=>record.changes.push({matches:event.matches,width:innerWidth}));return m;};
+ window.addEventListener('resize',()=>audit.viewportEvents.push({type:'resize',width:innerWidth}));
  // Freeze periodic renderers only while measuring injected layout text.
  const interval=window.setInterval.bind(window);
  window.setInterval=(fn,ms,...args)=>interval(()=>{if(!audit.freezeIntervals)fn(...args);},ms);
@@ -161,7 +165,7 @@ try{
  report(false,'Runner failure',e.stack||String(e));
  const frame=host.querySelector('iframe');
  if(frame?.contentDocument){const w=frame.contentWindow,d=frame.contentDocument,a=w.__mobileSmoke;
-  report(null,'Failure ENTRY runtime',JSON.stringify({width:w.innerWidth,media:w.matchMedia('(max-width: 900px)').matches,bodyClass:d.body.className,groups:d.querySelectorAll('.mobile-screen-root').length,errors:a?.errors,blocked:a?.blocked,scripts:[...d.scripts].filter(s=>s.src).map(s=>s.src),resources:w.performance.getEntriesByType('resource').filter(r=>/app\.js|mobile-screens/.test(r.name)).map(r=>r.name)}));
+  report(null,'Failure ENTRY runtime',JSON.stringify({width:w.innerWidth,media:w.matchMedia('(max-width: 900px)').matches,bodyClass:d.body.className,groups:d.querySelectorAll('.mobile-screen-root').length,errors:a?.errors,blocked:a?.blocked,mediaQueries:a?.mediaQueries,viewportEvents:a?.viewportEvents,frameBounds:frame.getBoundingClientRect().toJSON(),scripts:[...d.scripts].filter(s=>s.src).map(s=>s.src),resources:w.performance.getEntriesByType('resource').filter(r=>/app\.js|mobile-screens/.test(r.name)).map(r=>r.name)}));
  }
 }
 finished=true;summary();
