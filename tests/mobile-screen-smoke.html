@@ -11,7 +11,7 @@
 <script type="module">
 const host=document.querySelector('#viewport'), list=document.querySelector('#checks');
 let total=0, failed=0, infos=0, finished=false, manualFrame=null;
-function report(ok,label,values=''){ const li=document.createElement('li');li.className=ok===null?'info':ok?'pass':'fail';li.textContent=(ok===null?'INFO ':ok?'PASS ':'FAIL ')+label+(values?' | '+values:'');list.append(li);if(ok===false||label.includes(' DEFAULT ')){const line=document.createElement('p');line.className=li.className;line.textContent=li.textContent;document.querySelector('#diagnostics').append(line);}if(ok===null)infos++;else{total++;if(!ok)failed++;}summary(); }
+function report(ok,label,values=''){ const li=document.createElement('li');li.className=ok===null?'info':ok?'pass':'fail';li.textContent=(ok===null?'INFO ':ok?'PASS ':'FAIL ')+label+(values?' | '+values:'');list.append(li);if(ok===false||label.includes(' DEFAULT ')||label.includes(' ENTRY ')){const line=document.createElement('p');line.className=li.className;line.textContent=li.textContent;document.querySelector('#diagnostics').append(line);}if(ok===null)infos++;else{total++;if(!ok)failed++;}summary(); }
 function summary(){document.querySelector('#summary').textContent=`逐项结果：${total-failed}/${total} PASS，${failed} FAIL，${infos} INFO`;document.querySelector('#result').textContent=(finished?'完成':'运行中')+`：${total-failed}/${total} PASS，${failed} FAIL；真实 Escape 需人工`;document.title=(failed?'FAIL':finished?'PASS':'RUNNING')+' Mobile screen smoke';}
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn,label,ms=12000){const end=performance.now()+ms;while(!fn()){if(performance.now()>end)throw Error('Timeout: '+label);await pause(30);}}
@@ -108,8 +108,13 @@ async function stress(h,label){await h.go('upgrade');const feedback=h.$('#ota-fe
 try{
  if(!/^https?:$/.test(location.protocol))throw Error('请在已有同源 HTTP(S) 服务打开；本测试不启动服务器。');
  if(sizes.some(([w,h])=>!Number.isInteger(w)||w<280||w>900||!Number.isInteger(h)||h<300||h>2000))throw Error('width/height 必须同时提供整数：width 280..900，height 300..2000');
- const appURL=new URL('../index.html',location.href),response=await fetch(appURL,{cache:'no-store'});if(!response.ok)throw Error('Index HTTP '+response.status);
+ const appURL=new URL('../index.html',location.href);
+ if(params.has('release'))appURL.searchParams.set('release',params.get('release'));
+ const response=await fetch(appURL,{cache:'no-store'});if(!response.ok)throw Error('Index HTTP '+response.status);
  const html=await response.text();if(!/<head\b[^>]*>/i.test(html))throw Error('Missing head; refuse unguarded app');
+ const entryAssets=[...html.matchAll(/(?:src|href)="([^"]*(?:app\.js|mobile-screens\.css)[^"]*)"/g)].map(m=>m[1]);
+ report(null,'Published ENTRY resources',`${response.url}; ${entryAssets.join('; ')}; ETag=${response.headers.get('etag')}; Last-Modified=${response.headers.get('last-modified')}`);
+ if(!entryAssets.some(s=>s.includes('app.js?v=mobile-screen-04'))||!entryAssets.some(s=>s.includes('mobile-screens.css?v=mobile-screen-04')))throw Error('Entry HTML is not the mobile-screen-04 release; stop before running obsolete assets');
  const prefix='<base href="'+appURL.href+'"><meta http-equiv="Content-Security-Policy" content="default-src \'self\' data: blob:; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; connect-src \'none\'; worker-src \'none\'; frame-src \'none\'; object-src \'none\'; form-action \'none\'"><script>('+guard.toString()+')();<'+ '/script>';
  for(const [width,height] of sizes){
   const f=document.createElement('iframe');f.title=`Mobile ${width}x${height}`;f.setAttribute('sandbox','allow-scripts allow-same-origin allow-modals');f.style.width='1100px';f.style.height=height+'px';host.replaceChildren(f);
