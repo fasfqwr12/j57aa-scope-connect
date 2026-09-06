@@ -6,12 +6,12 @@
 <p>从现有同源 HTTP(S) 站点打开本页。无依赖，不下载固件，不点连接、检测、升级、同步或弹道操作。srcdoc 中先隔离存储、拒绝蓝牙和 Bridge，再加载应用。所有应用 fetch 返回本地 503 fixture；静态脚本/样式/图片仍从本站加载。</p>
 <p>默认覆盖 7 个宽高以及 900/901 断点往返两轮。可指定 <code>?width=390&amp;height=844&amp;review=upgrade</code>；review=device 或 upgrade 最终停第一子页。折叠列表含实际值。内部长文/日志滚动仅 INFO，几何越界才 FAIL。</p>
 <p><strong>边界：</strong>iframe 只模拟 CSS 视口，不模拟实际键盘、safe-area、触摸、可信按键。自动检查模态与关闭焦点；真实 Escape 须点击下方人工按钮后按 Escape，结果会追加。PASS 不代表这项人工检查已执行。</p>
-<p id="result">运行中…</p><button id="manual" disabled>人工 Escape：打开预览后按 Escape</button>
+<p id="result">运行中…</p><div id="diagnostics" aria-label="默认页高度与失败摘要"></div><button id="manual" disabled>人工 Escape：打开预览后按 Escape</button>
 <details><summary id="summary">逐项结果（折叠）</summary><ol id="checks"></ol></details><div id="viewport"></div>
 <script type="module">
 const host=document.querySelector('#viewport'), list=document.querySelector('#checks');
 let total=0, failed=0, infos=0, finished=false, manualFrame=null;
-function report(ok,label,values=''){ const li=document.createElement('li');li.className=ok===null?'info':ok?'pass':'fail';li.textContent=(ok===null?'INFO ':ok?'PASS ':'FAIL ')+label+(values?' | '+values:'');list.append(li);if(ok===null)infos++;else{total++;if(!ok)failed++;}summary(); }
+function report(ok,label,values=''){ const li=document.createElement('li');li.className=ok===null?'info':ok?'pass':'fail';li.textContent=(ok===null?'INFO ':ok?'PASS ':'FAIL ')+label+(values?' | '+values:'');list.append(li);if(ok===false||label.includes(' DEFAULT ')){const line=document.createElement('p');line.className=li.className;line.textContent=li.textContent;document.querySelector('#diagnostics').append(line);}if(ok===null)infos++;else{total++;if(!ok)failed++;}summary(); }
 function summary(){document.querySelector('#summary').textContent=`逐项结果：${total-failed}/${total} PASS，${failed} FAIL，${infos} INFO`;document.querySelector('#result').textContent=(finished?'完成':'运行中')+`：${total-failed}/${total} PASS，${failed} FAIL；真实 Escape 需人工`;document.title=(failed?'FAIL':finished?'PASS':'RUNNING')+' Mobile screen smoke';}
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn,label,ms=12000){const end=performance.now()+ms;while(!fn()){if(performance.now()>end)throw Error('Timeout: '+label);await pause(30);}}
