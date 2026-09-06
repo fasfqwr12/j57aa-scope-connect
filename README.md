@@ -66,9 +66,9 @@ python tools\generate_reference_trajectory.py --profile 308_168_match --max-rang
 
 ## 界面与响应式验收
 
-Console 02 已重做横向导航、深绿顶栏、首页主视觉与独立升级确认区，手机检测操作前置；协议与升级门禁保持不变。详见 [界面重做与验收记录](docs/UI_REFINEMENT.md)。
+Quiet Olive 已改为暖白灰绿的紧凑设备界面：去除大口号与重复编号、统一排版尺度、收起低频参数和日志，并保留独立错误提示。设计依据与验证边界见 [界面设计与验收记录](docs/UI_REFINEMENT.md)。
 
-页面检查覆盖320至1440像素的14种宽度，含临界断点；通过项目 HTTP(S) 地址打开 `tests/browser-smoke.html` 可复现。视口模拟不是真机触摸或蓝牙验收。
+页面检查覆盖320至1440像素的14种宽度，含临界断点；打开 `tests/browser-smoke.html` 可复现。九主题可读性检查见 `tests/theme-smoke.html`。自动检查不代表审美认可、全站无障碍认证或真机蓝牙验收。
 
 ## 当前限制
 

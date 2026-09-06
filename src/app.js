@@ -2,7 +2,7 @@ import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closur
 import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=status-first-1";
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
-import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=olive-ui-1";
+import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=quiet-olive-03";
 
 const steps = [
   { id: "device", label: "设备", title: "设备连接", kicker: "DEVICE" },

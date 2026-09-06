@@ -18,7 +18,7 @@ export function initOtaUpgrade(context) {
   $("#ota-query-status").addEventListener("click", detect);
   $("#ota-start").addEventListener("click", startUpgrade);
   $("#ota-abort").addEventListener("click", () => { session?.abort(); probeAbort?.abort(); otaLog("WARN", "已请求停止，等待当前写入结束和本会话清理"); });
-  $("#ota-clear-log").addEventListener("click", () => { $("#ota-log-box").replaceChildren(); });
+  $("#ota-clear-log").addEventListener("click", () => { $("#ota-log-box").replaceChildren(); clearFeedback(); });
   $("#ota-firmware-file").addEventListener("change", async event => {
     const file = event.target.files?.[0]; event.target.value = "";
     if (!file || busy) return;
@@ -50,9 +50,19 @@ function otaLog(type, text) {
   row.textContent = `${new Date().toLocaleTimeString()} [${type}] ${text}`;
   const host = $("#ota-log-box"); host.append(row);
   while (host.children.length > 400) host.firstChild.remove();
+  if (type === "ERR" || type === "WARN") {
+    const feedback = $("#ota-feedback"), details = $("#ota-log-details");
+    if (feedback) { feedback.textContent = `${type === "ERR" ? "操作失败" : "注意"}：${text}`; feedback.dataset.level = type; feedback.hidden = false; }
+    if (details) details.open = true;
+  }
   host.scrollTop = host.scrollHeight;
 }
+function clearFeedback() {
+  const feedback = $("#ota-feedback");
+  if (feedback) { feedback.hidden = true; feedback.textContent = ""; delete feedback.dataset.level; }
+}
 function setBusy(value) {
+  if (value) clearFeedback();
   busy = value; ctx.setBusy?.(value);
   $("#ota-query-status").disabled = value;
   $("#ota-firmware-file").disabled = value;

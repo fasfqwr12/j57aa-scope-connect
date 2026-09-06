@@ -121,6 +121,24 @@ try {
   const topLimit=width<=900?d.querySelector('.topbar').getBoundingClientRect().bottom:d.querySelector('.flow-rail').getBoundingClientRect().bottom;
   const hit=d.elementFromPoint(sr.left+sr.width/2,sr.top+sr.height/2);
   check(sr.top>=topLimit && sr.bottom<=bottomLimit && (hit===start || start.contains(hit)),width+'px 滚动后确认按钮不被导航或其他元素遮挡');
+  // Deterministic failure: never send this request to a network or device.
+  const nativeFetch=w.fetch, feedback=d.querySelector('#ota-feedback');
+  w.fetch=async (input,init)=>{
+   const url=new w.URL(typeof input==='string'?input:input.url||String(input),appUrl.href);
+   return url.pathname.endsWith('.bin')?new w.Response('',{status:503,statusText:'Offline smoke failure'}):nativeFetch.call(w,input,init);
+  };
+  try {
+   selected.click();
+   await until(()=>feedback.textContent.includes('HTTP 503') && !query.disabled);
+   check(!feedback.hidden && visible(feedback) && logs.open,width+'px 下载失败自动展开日志并显示独立错误');
+   check(start.disabled && feedback.dataset.level==='ERR',width+'px 下载失败不解除门禁');
+   logs.querySelector('summary').click();
+   check(!logs.open && visible(feedback) && feedback.textContent.includes('HTTP 503'),width+'px 手动折叠日志不隐藏具体错误');
+   logs.querySelector('summary').click();
+   d.querySelector('#ota-clear-log').click();
+   check(feedback.hidden && !d.querySelector('#ota-log-box').children.length,width+'px 清空记录同时清理错误提示');
+   logs.querySelector('summary').click();
+  } finally { w.fetch=nativeFetch; }
   check(w.__smoke.deviceRequests===0,width+'px 无硬件访问');
   check(w.__smoke.errors.length===0,width+'px 无运行或资源错误'+(w.__smoke.errors.length?' '+w.__smoke.errors.join('; '):''));
  }

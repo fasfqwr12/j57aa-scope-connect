@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="../assets/icon.svg"><title>Quiet Olive theme checks</title>
+<style>body{margin:16px;font:14px/1.6 system-ui;background:#f5f6f2;color:#2e352c}iframe{display:block;height:800px;border:1px solid #cdd3c3;background:white}.fail{color:#b23a32}.pass{color:#2f703e}#result{font-weight:600}</style>
+<h1>主题可读性检查</h1><p>在隔离页面中测量实际CSS颜色；不连接硬件，不改变主应用配置。不是全站无障碍认证。</p><p id="result">运行中</p><details><summary>逐项结果</summary><ol id="checks"></ol></details><div id="viewport"></div>
+<script type="module">
+const themes=['olive','light','graphite','teal','warm','red','nv','cyan','amber'];
+let total=0,failed=0;
+function check(ok,title){total++;if(!ok)failed++;const li=document.createElement('li');li.className=ok?'pass':'fail';li.textContent=(ok?'PASS ':'FAIL ')+title;document.querySelector('#checks').append(li);}
+async function until(test){const end=performance.now()+12000;while(!test()){if(performance.now()>end)throw new Error('condition timeout');await new Promise(requestAnimationFrame);}}
+const bootstrap=`window.__themeTest={requests:0,errors:[]};
+Object.defineProperty(navigator,'bluetooth',{configurable:true,value:{requestDevice(){window.__themeTest.requests++;throw new Error('Hardware prohibited');}}});
+window.confirm=()=>false;
+// Isolate the app's saved state and theme from the ordinary application tab.
+Storage.prototype.getItem=()=>null;Storage.prototype.setItem=()=>{};Storage.prototype.removeItem=()=>{};
+window.addEventListener('error',e=>window.__themeTest.errors.push(e.message||e.target?.src||'resource error'),true);
+window.addEventListener('unhandledrejection',e=>window.__themeTest.errors.push(String(e.reason)));`;
+const rgba=s=>{const a=s.match(/[\d.]+/g)?.map(Number);if(!a||a.length<3)throw new Error('Unsupported CSS color '+s);return [...a.slice(0,3),a[3]??1];};
+const over=(f,b)=>{const a=f[3]+b[3]*(1-f[3]);return [0,1,2].map(i=>(f[i]*f[3]+b[i]*b[3]*(1-f[3]))/a).concat(a);};
+function background(w,el){const chain=[];for(let n=el;n;n=n.parentElement)chain.unshift(n);return chain.reduce((bg,n)=>over(rgba(w.getComputedStyle(n).backgroundColor),bg),[255,255,255,1]);}
+function luminance(c){return c.slice(0,3).map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4).reduce((v,x,i)=>v+x*[.2126,.7152,.0722][i],0);}
+function contrast(w,el){const bg=background(w,el),fg=over(rgba(w.getComputedStyle(el).color),bg),a=luminance(bg),b=luminance(fg);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);}
+try{
+ const appUrl=new URL('../index.html',location.href),r=await fetch(appUrl,{cache:'no-store'});if(!r.ok)throw new Error('App HTTP '+r.status);const html=await r.text();
+ for(const width of [390,1280]){
+  const frame=document.createElement('iframe');frame.title='Theme viewport '+width;frame.style.width=width+'px';document.querySelector('#viewport').replaceChildren(frame);
+  const loaded=new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=reject;});
+  frame.srcdoc=html.replace('<head>','<head><base href="'+appUrl.href+'"><script>'+bootstrap+'<'+ '/script>');await loaded;
+  const w=frame.contentWindow,d=frame.contentDocument;await until(()=>d.querySelectorAll('#mobile-tabs button').length===7);
+  const style=d.createElement('style');style.textContent='*,*::before,*::after{transition:none!important;animation:none!important}';d.head.append(style);
+  d.querySelector((width<=900?'#mobile-tabs':'#step-list')+' [data-step="upgrade"]').click();
+  const samples=[];
+  for(const kind of ['tx','rx','err','warn']){const el=d.createElement('div');el.className='log-line '+kind;el.textContent='主题测试样本';d.querySelector('#log-box').append(el);samples.push([kind+'普通日志',el]);}
+  for(const kind of ['ERR','WARN']){const el=d.createElement('div');el.className='log-row';el.dataset.level=kind;el.textContent='主题测试样本';d.querySelector('#ota-log-box').append(el);samples.push([kind+'升级日志',el]);}
+  const feedback=d.querySelector('#ota-feedback');feedback.hidden=false;feedback.dataset.level='ERR';feedback.textContent='主题测试用错误提示';
+  for(const theme of themes){
+   d.documentElement.dataset.theme=theme;await new Promise(w.requestAnimationFrame);
+   const targets=[['连接按钮',d.querySelector('#btn-connect')],['检测按钮',d.querySelector('#ota-query-status')],['正文',d.querySelector('.ota-notice')],['活动导航',d.querySelector(width<=900?'#mobile-tabs .active':'#step-list .active strong')],['独立错误',feedback],...samples];
+   for(const [label,el] of targets){const ratio=contrast(w,el);check(ratio>=4.5,width+'px '+theme+' '+label+' '+ratio.toFixed(2)+':1');}
+   check(d.documentElement.scrollWidth<=width+1 && d.querySelector('.workspace').scrollWidth<=d.querySelector('.workspace').clientWidth+1,width+'px '+theme+' 无横向溢出');
+  }
+  check(w.__themeTest.requests===0,width+'px 无硬件访问');
+  check(w.__themeTest.errors.length===0,width+'px 无运行错误 '+w.__themeTest.errors.join('; '));
+  d.documentElement.dataset.theme='olive';feedback.hidden=true;samples.forEach(([,el])=>el.remove());
+ }
+}catch(e){check(false,e.stack||String(e));}
+document.querySelector('#result').textContent=`完成：${total-failed}/${total} 通过，${failed} 失败`;document.title=failed?'FAIL Theme checks':'PASS Theme checks';
+</script></html>
