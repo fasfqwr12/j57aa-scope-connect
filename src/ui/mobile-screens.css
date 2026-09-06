@@ -85,9 +85,11 @@
   .mobile-preview-dialog #preview-content { padding-top: 0; }
 }
 @media (max-width: 360px) {
+  .mobile-screen-mode .mobile-tabs { padding-inline: max(2px, env(safe-area-inset-left)) max(2px, env(safe-area-inset-right)); gap: 1px; }
   .mobile-screen-mode .workspace { padding-inline: 12px; }
+  .mobile-page { gap: 8px; }
   .mobile-page .field-band { padding: 12px; }
-  .mobile-page .device-overview { padding: 12px; }
+  .mobile-page .device-overview { padding: 10px 12px; }
 }
 @media (max-width: 900px) and (max-height: 540px) {
   .mobile-screen-mode .topbar { min-height: 52px; }

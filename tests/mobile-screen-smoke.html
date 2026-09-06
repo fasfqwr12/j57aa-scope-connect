@@ -21,7 +21,10 @@ const params=new URLSearchParams(location.search), qw=Number(params.get('width')
 const sizes=params.has('width')||params.has('height')?[[qw,qh]]:[[320,568],[360,640],[390,844],[430,932],[768,1024],[844,390],[390,420]];
 // Stringified function executes FIRST in the iframe. Never touch parent storage.
 function guard(){
- const audit=window.__mobileSmoke={blocked:[],fetches:[],errors:[],listeners:[],modalCalls:0};
+ const audit=window.__mobileSmoke={blocked:[],fetches:[],errors:[],listeners:[],modalCalls:0,freezeIntervals:false};
+ // Freeze periodic renderers only while measuring injected layout text.
+ const interval=window.setInterval.bind(window);
+ window.setInterval=(fn,ms,...args)=>interval(()=>{if(!audit.freezeIntervals)fn(...args);},ms);
  const deny=kind=>function(){audit.blocked.push(kind);throw new DOMException('Smoke prohibited: '+kind,'NotAllowedError');};
  for(const key of ['localStorage','sessionStorage']){const map=new Map();Object.defineProperty(window,key,{configurable:false,value:{get length(){return map.size;},key:i=>[...map.keys()][i]??null,getItem:k=>map.get(String(k))??null,setItem:(k,v)=>map.set(String(k),String(v)),removeItem:k=>map.delete(String(k)),clear:()=>map.clear()}});}
  Object.defineProperty(navigator,'bluetooth',{value:{requestDevice:deny('bluetooth.requestDevice'),getDevices:async()=>[],getAvailability:async()=>false}});
@@ -93,12 +96,14 @@ async function preview(h,label){await h.go('device');const b=h.$('#btn-mobile-pr
 }
 async function stress(h,label){await h.go('upgrade');const feedback=h.$('#ota-feedback'),gate=h.$('#ota-gate-reason'),status=h.$('#ota-main-info');
  const nodes=[feedback,gate,status],saved=nodes.map(e=>({e,children:[...e.childNodes],hidden:e.hidden}));
+ const audit=h.w.__mobileSmoke; audit.freezeIntervals=true;
+ report(null,label+' static text fixture','Periodic renderers paused only during injected long-text geometry; production gate refresh is unchanged.');
  try{feedback.hidden=false;feedback.textContent=('布局错误说明：仅 DOM 文本，不执行升级。\n').repeat(80)+'ERROR_END';status.textContent=('状态详情仅测试排版。\n').repeat(80)+'STATUS_END';
  for(const b of [...h.$('.section-panel.active').querySelectorAll('[data-mobile-group]')]){b.click();await settle(h.w);gate.textContent=('门禁仍阻止升级。 ').repeat(80)+'GATE_END';const name=label+' stress '+b.dataset.mobileGroup;
  report(feedback.parentElement.classList.contains('mobile-screen-root')&&h.inside(feedback),name+' feedback persists outside subpage',h.box(feedback));
  await scrollCheck(h,feedback,name+' long error');await scrollCheck(h,gate,name+' long gate');await geometry(h,name);
  if(h.visible(status)){const p=status.closest('.mobile-page');p.scrollTop=p.scrollHeight;await settle(h.w);report(status.getBoundingClientRect().bottom<=p.getBoundingClientRect().bottom+2,name+' final status text reachable',h.box(status));}
- }}finally{for(const s of saved){s.e.replaceChildren(...s.children);s.e.hidden=s.hidden;}}
+ }}finally{for(const s of saved){s.e.replaceChildren(...s.children);s.e.hidden=s.hidden;}audit.freezeIntervals=false;}
 }
 try{
  if(!/^https?:$/.test(location.protocol))throw Error('请在已有同源 HTTP(S) 服务打开；本测试不启动服务器。');
