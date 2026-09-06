@@ -15,13 +15,9 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <svg class="brand-logo" aria-hidden="true"><use href="#sym-logo"/></svg>
-        <div class="brand-block">
-          <span class="brand-kicker">J57AA / DEVICE WORKSPACE</span>
-          <h1>SCOPE CONNECT<span class="edition-tag">02</span></h1>
-        </div>
+        <span class="brand-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M17 6H9a4 4 0 0 0 0 8h6a2 2 0 0 1 0 4H7M7 18h8a4 4 0 0 0 0-8H9a2 2 0 0 1 0-4h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+        <div class="brand-block"><h1>Scope Connect</h1><span class="brand-kicker">J57AA · 设备管理</span></div>
       </div>
-      <div class="header-caption"><span>设备管理工作台</span><small>连接 · 配置 · 固件</small></div>
 
       <div class="top-status" aria-live="polite">
         <span class="status-dot" id="status-dot"></span>
@@ -58,18 +54,13 @@
 
         <!-- ============ 设备 ============ -->
         <div class="section-panel active" data-panel="device">
-          <div class="hero device-overview">
-            <div class="hero-copy">
-              <span class="hero-eyebrow">01 / DEVICE CONNECTION</span>
-              <h3 class="hero-name">你的设备。<br><span>一个工作空间。</span></h3>
-              <p class="hero-description">连接与配置各归其位。先建立链路，再查看设备返回的信息。</p>
-              <div class="hero-sub"><span>J57AA-2000A</span><span>浏览器 BLE</span></div>
-            </div>
-            <div class="device-art" aria-hidden="true"><div class="device-art-ring"><svg><use href="#sym-logo"/></svg></div><span class="device-art-label">J57AA<br><small>DEVICE SERIES</small></span><span class="art-coordinate">SC—02</span></div>
-            <div class="hero-footnote"><span class="footnote-dot" aria-hidden="true"></span>未连接时为本地配置，不代表设备状态<span>WEB BLUETOOTH</span></div>
+          <div class="device-overview">
+            <span class="device-symbol" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><rect x="8" y="6" width="16" height="20" rx="4" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="10" width="8" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M14 22h4M4 12h4m-4 8h4m16-8h4m-4 8h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+            <div class="device-identity"><span class="eyebrow">设备型号</span><h3>J57AA-2000A</h3><p>E104-BT5005A · Web Bluetooth</p></div>
+            <p class="device-local-note">连接后读取设备信息<br><span>未连接时仅显示本地配置</span></p>
           </div>
 
-          <div class="field-band">
+          <div class="field-band connection-panel">
             <div class="band-head">
               <h3>蓝牙链路</h3>
               <span class="source-pill live">主链路</span>
