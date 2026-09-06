@@ -122,6 +122,7 @@ export function initMobileScreens() {
     move($('.preview-rail'), dialog); $('#preview-content').hidden = false;
     previewButton.addEventListener('click', () => { if (!dialog.open) dialog.showModal(); });
     close.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => { if (mounted && media.matches) previewButton.focus({ preventScroll: true }); });
     document.body.classList.add('mobile-screen-mode');
     window.scrollTo(0, 0); viewportSize();
   }

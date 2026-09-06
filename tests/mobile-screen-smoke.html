@@ -116,6 +116,14 @@ try{
   const baseline=h.all('body *').map(e=>({e,parent:e.parentElement,children:[...e.children]}));
   async function resize(w){f.style.width=w+'px';await until(()=>h.w.innerWidth===w,'resize '+w);await until(()=>h.d.body.classList.contains('mobile-screen-mode')===(w<=900),'mount '+w);await settle(h.w);}
   await resize(width);
+  // Measure pristine first subpages before keyboard, preview or long-text stress.
+  for(const id of ids){
+   await h.go(id);h.$('.section-panel.active [data-mobile-group]').click();await settle(h.w);
+   const p=h.$('.section-panel.active .mobile-page:not([hidden])');
+   const overflow=Math.max(0,p.scrollHeight-p.clientHeight);
+   const nested=[...p.querySelectorAll('*')].filter(e=>h.visible(e)&&/auto|scroll/.test(h.w.getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+1);
+   report(null,label+' DEFAULT '+id+'/'+p.id+' scroll budget',`content=${p.scrollHeight}px available=${p.clientHeight}px overflow=${overflow}px; ${overflow<=1&&nested.length===0?'single-screen without internal scrolling':'internal scrolling required'}; nested=${nested.map(e=>h.desc(e)+':'+(e.scrollHeight-e.clientHeight)+'px').join(',')||'none'}; offline 503 fixture, not live firmware catalogue`);
+  }
   for(const id of ids){const b=await h.go(id);report(h.all('.section-panel.active').length===1&&h.$('.section-panel.active').dataset.panel===id&&b.getAttribute('aria-current')==='page',label+' main '+id+' active');
    const groups=[...h.$('.section-panel.active').querySelectorAll('[data-mobile-group]')];report(groups.length>0,label+' '+id+' subpages exist',`count=${groups.length}`);
    for(const group of groups){group.click();await settle(h.w);await geometry(h,label+' '+id+'/'+group.dataset.mobileGroup);}
