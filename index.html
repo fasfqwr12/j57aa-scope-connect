@@ -3,22 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f0efe6">
+  <meta name="theme-color" content="#233328">
   <title>J57AA Scope Connect</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./src/app.css?v=status-first-1">
-  <link rel="stylesheet" href="./src/ui-refinement.css?v=olive-ui-1">
+  <link rel="stylesheet" href="./src/ui-refinement.css?v=console-02">
 </head>
 <body data-page="device">
   <div class="app-shell">
     <header class="topbar">
-      <svg class="brand-logo"><use href="#sym-logo" xlink:href="#sym-logo"/></svg>
-      <div class="brand-block">
-        <h1>Scope Connect</h1>
-        <span class="brand-sub">BLE PROFILE / DOPE / HUD</span>
+      <div class="brand-lockup">
+        <svg class="brand-logo" aria-hidden="true"><use href="#sym-logo"/></svg>
+        <div class="brand-block">
+          <span class="brand-kicker">J57AA / DEVICE WORKSPACE</span>
+          <h1>SCOPE CONNECT<span class="edition-tag">02</span></h1>
+        </div>
       </div>
+      <div class="header-caption"><span>设备管理工作台</span><small>连接 · 配置 · 固件</small></div>
 
       <div class="top-status" aria-live="polite">
         <span class="status-dot" id="status-dot"></span>
@@ -55,14 +58,15 @@
 
         <!-- ============ 设备 ============ -->
         <div class="section-panel active" data-panel="device">
-          <div class="hero">
-            <svg class="hero-emblem"><use href="#sym-logo" xlink:href="#sym-logo"/></svg>
+          <div class="hero device-overview">
             <div class="hero-copy">
-              <span class="hero-eyebrow">DEVICE / J57AA</span>
-              <div class="hero-name">让设备与配置保持连接</div>
-              <p class="hero-description">选择连接方式，配对设备，再读取状态。未连接时仅展示本地预览。</p>
-              <div class="hero-sub">J57AA-2000A · E104-BT5005A</div>
+              <span class="hero-eyebrow">01 / DEVICE CONNECTION</span>
+              <h3 class="hero-name">你的设备。<br><span>一个工作空间。</span></h3>
+              <p class="hero-description">连接与配置各归其位。先建立链路，再查看设备返回的信息。</p>
+              <div class="hero-sub"><span>J57AA-2000A</span><span>浏览器 BLE</span></div>
             </div>
+            <div class="device-art" aria-hidden="true"><div class="device-art-ring"><svg><use href="#sym-logo"/></svg></div><span class="device-art-label">J57AA<br><small>DEVICE SERIES</small></span><span class="art-coordinate">SC—02</span></div>
+            <div class="hero-footnote"><span class="footnote-dot" aria-hidden="true"></span>未连接时为本地配置，不代表设备状态<span>WEB BLUETOOTH</span></div>
           </div>
 
           <div class="field-band">
@@ -312,16 +316,17 @@
         </div>
         <!-- ============ 升级 ============ -->
         <div class="section-panel" data-panel="upgrade">
-          <div class="ota-intro"><div><span class="hero-eyebrow">FIRMWARE CENTER</span><h3>每次更新，先确认状态</h3><p>主控与副板分别检测，文件核验后再明确确认写入。</p></div><span class="ota-intro-badge"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>待真机验证</span></div>
+          <div class="ota-intro"><div><span class="hero-eyebrow">07 / FIRMWARE WORKSPACE</span><h3>更新有序，状态先行。</h3><p>主控、副板分别检测；核验文件后再确认。</p></div><span class="ota-intro-badge"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>尚未真机验收</span><ol class="ota-sequence" aria-label="升级操作顺序"><li><b>01</b>检测主控与副板</li><li><b>02</b>选择并核验文件</li><li><b>03</b>明确确认写入</li></ol></div>
+          <div class="ota-console">
           <div class="field-band ota-preflight">
             <div class="band-head"><div class="numbered-heading"><span class="step-number">01</span><div><h3>检测主控与副板</h3><p>先识别设备，再选择更新</p></div></div><span class="source-pill pending">状态优先</span></div>
             <p class="ota-notice">不发送进 Boot 或擦写命令。检测会暂占测距通道；若 N32 已在 Boot 启动窗口，查询可能让它停留在 Boot。请先停止测距。</p>
+            <button class="btn primary" id="ota-query-status" type="button"><svg aria-hidden="true"><use href="#i-sync"/></svg>检测双板状态</button>
             <div class="ota-board-grid" aria-live="polite">
               <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>W515 主控</h4><strong id="ota-main-mode">未检测</strong><p id="ota-main-info">等待主控身份与地址信息</p></section>
               <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>N32 副板</h4><strong id="ota-slave-mode">未检测</strong><p id="ota-slave-info">等待副板自身应答</p></section>
             </div>
             <p class="ota-route-summary">代理通道 <strong id="ota-proxy-state">未检测</strong><span id="ota-state-time">尚无有效状态</span></p>
-            <button class="btn primary" id="ota-query-status" type="button"><svg aria-hidden="true"><use href="#i-sync"/></svg>检测双板状态</button>
           </div>
           <div class="field-band ota-selection">
             <div class="band-head">
@@ -362,11 +367,7 @@
             </div>
             <label class="ota-check" id="ota-main-only-row" hidden><input type="checkbox" id="ota-main-only">副板状态未确认；我已查看原因，仅恢复 W515 主控 APP</label>
             <p class="ota-notice">仅支持匹配的 W515 APP。此浏览器实现尚未真机验证；请保持稳定供电、亮屏、页面前台。失败不自动重发擦写，不支持锁屏续传。</p>
-            <p class="ota-notice" id="ota-gate-reason" role="status">第一步：检测主控与副板状态</p>
-            <div class="action-row">
-              <button class="btn primary" id="ota-start" type="button" disabled>确认并升级主控</button>
-              <button class="btn" id="ota-abort" type="button" disabled>中止</button>
-            </div>
+          </div>
           </div>
 
           <div class="field-band" id="ota-progress-band" style="display:none">
@@ -391,6 +392,13 @@
             </div>
             <div class="log-box ota-log" id="ota-log-box"></div>
           </div>
+          <section class="ota-dock" aria-label="升级确认区">
+            <div class="dock-heading"><span class="step-number" aria-hidden="true">03</span><div><h3>确认与执行</h3><p class="ota-notice" id="ota-gate-reason" role="status">第一步：检测主控与副板状态</p></div></div>
+            <div class="action-row">
+              <button class="btn primary" id="ota-start" type="button" disabled>确认并升级主控</button>
+              <button class="btn" id="ota-abort" type="button" disabled>中止</button>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -498,7 +506,7 @@
     // ===== 主题切换（独立于 App 逻辑，记忆 + 移动端浏览器栏变色）=====
     (function () {
       var map = {
-        olive: "#f0efe6", light: "#eef1f5", graphite: "#f4f5f7", teal: "#ecf2f1", warm: "#faf6f0",
+        olive: "#233328", light: "#eef1f5", graphite: "#f4f5f7", teal: "#ecf2f1", warm: "#faf6f0",
         red: "#07090d", nv: "#040906", cyan: "#05080f", amber: "#0b0805"
       };
       var root = document.documentElement;
@@ -519,6 +527,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/app.js?v=olive-ui-1"></script>
+  <script type="module" src="./src/app.js?v=console-02"></script>
 </body>
 </html>

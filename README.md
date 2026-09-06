@@ -66,9 +66,9 @@ python tools\generate_reference_trajectory.py --profile 308_168_match --max-rang
 
 ## 界面与响应式验收
 
-本轮 Olive UI 调整集中在视觉层级、手机操作区优先、预览折叠和固件卡片反馈；协议与升级门禁保持不变。详见 [界面优化与验收记录](docs/UI_REFINEMENT.md)。
+Console 02 已重做横向导航、深绿顶栏、首页主视觉与独立升级确认区，手机检测操作前置；协议与升级门禁保持不变。详见 [界面重做与验收记录](docs/UI_REFINEMENT.md)。
 
-页面检查覆盖320至1440像素的八种宽度；通过项目 HTTP(S) 地址打开 `tests/browser-smoke.html` 可复现。视口模拟不是真机触摸或蓝牙验收。
+页面检查覆盖320至1440像素的14种宽度，含临界断点；通过项目 HTTP(S) 地址打开 `tests/browser-smoke.html` 可复现。视口模拟不是真机触摸或蓝牙验收。
 
 ## 当前限制
 

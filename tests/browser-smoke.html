@@ -2,7 +2,7 @@
 <html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="../assets/icon.svg"><title>Scope responsive smoke tests</title>
 <style>body{font:14px system-ui;background:#f0efe6;color:#23261a;margin:16px}iframe{display:block;border:1px solid #6b7d4f;height:800px;background:white}li{padding:3px;overflow-wrap:anywhere}.fail{color:#a11}.pass{color:#276536}#result{font-weight:bold}</style>
 <h1>响应式离线交互测试</h1><p>只点导航、选择公开固件、取消检测；启动前拦截蓝牙请求。iframe 模拟 CSS 视口，不是真机触摸测试。</p>
-<p id="result">运行中</p><ol id="checks"></ol><div id="viewport"></div>
+<p id="result">运行中</p><details id="test-details"><summary>查看逐项检查结果</summary><ol id="checks"></ol></details><div id="viewport"></div>
 <script type="module">
 const host = document.querySelector('#viewport'), list = document.querySelector('#checks');
 let count = 0, failed = 0;
@@ -10,7 +10,7 @@ function check(ok, title) { count++; const li=document.createElement('li'); li.c
 async function until(test, timeout=12000) { const end=performance.now()+timeout; while(!test()) { if(performance.now()>end) throw new Error('condition timeout'); await new Promise(requestAnimationFrame); } }
 const ids=['device','profile','environment','target','hud','sync','upgrade'];
 const requested=Number(new URLSearchParams(location.search).get('width'));
-const supportedWidths=[320,390,768,900,901,1024,1280,1440];
+const supportedWidths=[320,390,520,521,640,768,900,901,1024,1050,1051,1180,1280,1440];
 const widths=supportedWidths.includes(requested)?[requested]:supportedWidths;
 const bootstrap = `window.__smoke={deviceRequests:0,errors:[]};
 Object.defineProperty(navigator,'bluetooth',{configurable:true,value:{requestDevice(){window.__smoke.deviceRequests++;throw new Error('Hardware prohibited in smoke tests');}}});
@@ -36,7 +36,18 @@ try {
   const advanced=d.querySelector('#connection-advanced'), preview=d.querySelector('.preview-rail'), content=d.querySelector('#preview-content'), toggle=d.querySelector('#btn-preview-toggle');
   const visible=el=>!!el.getClientRects().length && w.getComputedStyle(el).visibility!=='hidden';
   check([...d.querySelectorAll('[id]')].length===new Set([...d.querySelectorAll('[id]')].map(el=>el.id)).size,width+'px 页面ID无重复');
-  check([...d.styleSheets].some(s=>s.href?.includes('ui-refinement.css')),width+'px 新版样式已加载');
+  check([...d.styleSheets].some(s=>s.href?.includes('ui-refinement.css?v=console-02')),width+'px Console 02 样式已加载');
+  const header=d.querySelector('.topbar'), brand=d.querySelector('.brand-lockup');
+  check(d.querySelector('.edition-tag')?.textContent==='02' && visible(brand),width+'px 新版品牌标记');
+  check(w.getComputedStyle(header).backgroundColor==='rgb(35, 51, 40)',width+'px 深绿顶栏实际生效');
+  const br=brand.getBoundingClientRect(), cr=d.querySelector('#btn-connect').getBoundingClientRect();
+  check(br.left>=0 && br.right<=cr.left && cr.right<=w.innerWidth,width+'px 顶栏品牌与连接操作不重叠');
+  if(width>900) {
+   const buttons=[...d.querySelectorAll('#step-list button')], rects=buttons.map(el=>el.getBoundingClientRect());
+   check(rects.every(r=>Math.abs(r.top-rects[0].top)<1) && rects.at(-1).right<=w.innerWidth,width+'px 桌面七项横向导航');
+   check(d.querySelector('.flow-rail').getBoundingClientRect().bottom<=d.querySelector('.workspace').getBoundingClientRect().top+1,width+'px 导航在工作区上方');
+  }
+  check(d.querySelector('.device-overview .hero-name')?.textContent.includes('一个工作空间'),width+'px 首页主视觉已替换');
   check(!advanced.open,width+'px 高级连接参数默认收起');
   advanced.querySelector('summary').click();
   const uuid=d.querySelector('[data-bind="connection.serviceUuid"]');
@@ -69,11 +80,22 @@ try {
    }
   }
   check(preview.hidden && !visible(preview),width+'px 升级页不占用预览栏');
+  const dock=d.querySelector('.ota-dock'), consoleGrid=d.querySelector('.ota-console');
+  check(consoleGrid.contains(d.querySelector('.ota-preflight')) && consoleGrid.contains(d.querySelector('.ota-selection')),width+'px 独立检测与固件操作台');
+  check(dock.contains(d.querySelector('#ota-start')) && dock.contains(d.querySelector('#ota-abort')) && dock.contains(d.querySelector('#ota-gate-reason')) && !d.querySelector('.ota-selection').contains(dock),width+'px 确认区独立且保留门禁提示');
+  check(d.querySelectorAll('.ota-sequence li').length===3,width+'px 升级三个步骤清晰可见');
   const preflight=d.querySelector('.ota-preflight').getBoundingClientRect(), selection=d.querySelector('.ota-selection').getBoundingClientRect();
   check(width>1050?Math.abs(preflight.top-selection.top)<2:selection.top>=preflight.bottom,width+'px 升级分段响应式布局');
   check(d.querySelector('#ota-main-mode').dataset.mode==='UNKNOWN' && d.querySelector('#ota-slave-mode').dataset.mode==='UNKNOWN',width+'px 未检测状态不显示为已就绪');
   check(d.querySelector('#ota-start').disabled,width+'px 未检测不可升级');
-  d.querySelector('#ota-query-status').click();
+  const query=d.querySelector('#ota-query-status'), notice=d.querySelector('.ota-preflight > .ota-notice');
+  const qr=query.getBoundingClientRect(), nr=notice.getBoundingClientRect();
+  check(nr.bottom<=qr.top && qr.bottom<=d.querySelector('.ota-board-grid').getBoundingClientRect().top,width+'px 风险说明、检测操作、状态卡片顺序');
+  if(width<=520) {
+   const tabsTop=d.querySelector('#mobile-tabs').getBoundingClientRect().top;
+   check(qr.top>=d.querySelector('.topbar').getBoundingClientRect().bottom && qr.bottom<=tabsTop,width+'px 手机首屏可见检测按钮');
+  }
+  query.click();
   check(w.__smoke.deviceRequests===0 && !d.querySelector('#ota-query-status').disabled,width+'px 取消查询无蓝牙请求');
   await until(()=>d.querySelector('.ota-online-item'));
   d.querySelector('.ota-online-item').click();
@@ -82,6 +104,13 @@ try {
   const selected=d.querySelector('.ota-online-item[aria-pressed="true"]');
   check(!!selected && selected.querySelector('.fw-action').textContent==='已选择' && !!selected.querySelector('.fw-copy strong'),width+'px 固件卡片选中反馈');
   check(d.querySelector('#ota-gate-reason').dataset.state==='blocked',width+'px 下载后仍明确显示升级受限');
+  const start=d.querySelector('#ota-start');
+  start.scrollIntoView({block:'center',behavior:'instant'});
+  await new Promise(w.requestAnimationFrame);
+  const sr=start.getBoundingClientRect(), bottomLimit=width<=900?d.querySelector('#mobile-tabs').getBoundingClientRect().top:w.innerHeight;
+  const topLimit=width<=900?d.querySelector('.topbar').getBoundingClientRect().bottom:d.querySelector('.flow-rail').getBoundingClientRect().bottom;
+  const hit=d.elementFromPoint(sr.left+sr.width/2,sr.top+sr.height/2);
+  check(sr.top>=topLimit && sr.bottom<=bottomLimit && (hit===start || start.contains(hit)),width+'px 滚动后确认按钮不被导航或其他元素遮挡');
   check(w.__smoke.deviceRequests===0,width+'px 无硬件访问');
   check(w.__smoke.errors.length===0,width+'px 无运行或资源错误'+(w.__smoke.errors.length?' '+w.__smoke.errors.join('; '):''));
  }
