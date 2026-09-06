@@ -2,7 +2,7 @@ import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closur
 import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=status-first-1";
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
-import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-04";
+import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-05";
 import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=quiet-olive-03";
 
 const steps = [

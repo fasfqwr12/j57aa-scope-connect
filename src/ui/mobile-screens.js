@@ -45,6 +45,7 @@ function definitions() {
 
 export function initMobileScreens() {
   const media = window.matchMedia('(max-width: 900px)');
+  const isMobile = () => window.innerWidth <= 900;
   const compositions = new Map(), selections = new Map();
   const moved = [], detailsState = [];
   const workspace = $('.workspace');
@@ -122,7 +123,7 @@ export function initMobileScreens() {
     move($('.preview-rail'), dialog); $('#preview-content').hidden = false;
     previewButton.addEventListener('click', () => { if (!dialog.open) dialog.showModal(); });
     close.addEventListener('click', () => dialog.close());
-    dialog.addEventListener('close', () => { if (mounted && media.matches) previewButton.focus({ preventScroll: true }); });
+    dialog.addEventListener('close', () => { if (mounted && isMobile()) previewButton.focus({ preventScroll: true }); });
     document.body.classList.add('mobile-screen-mode');
     window.scrollTo(0, 0); viewportSize();
   }
@@ -145,16 +146,18 @@ export function initMobileScreens() {
   function viewportSize() {
     cancelAnimationFrame(viewportFrame);
     viewportFrame = requestAnimationFrame(() => {
-      if (!media.matches) return;
+      if (!isMobile()) return;
       const height = Math.round(window.visualViewport?.height || window.innerHeight);
       document.documentElement.style.setProperty('--mobile-viewport-height', `${height}px`);
       const focused = document.activeElement;
       if (focused?.matches('input, select, textarea') && focused.closest('.mobile-page')) focused.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
   }
-  function syncMode() { if (media.matches) mount(); else unmount(); }
+  function syncMode() { if (isMobile()) mount(); else unmount(); }
   media.addEventListener('change', syncMode);
-  window.addEventListener('resize', viewportSize);
+  // Some embedded viewports deliver resize without a MediaQueryList change.
+  // mount/unmount are idempotent; recheck the breakpoint on both signals.
+  window.addEventListener('resize', () => { syncMode(); viewportSize(); });
   window.visualViewport?.addEventListener('resize', viewportSize);
   // A real progress update only changes the visible group; it never starts work.
   const progress = $('#ota-progress-band');
