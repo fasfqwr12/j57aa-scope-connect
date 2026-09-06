@@ -157,7 +157,13 @@ try{
   manualFrame=f;
  }
  report(null,'Real Escape pending','Use manual button; synthetic KeyboardEvent does not invoke browser default Escape. Listener check detects duplicate identical live navigation callbacks, not every possible closure side effect.');
-}catch(e){report(false,'Runner failure',e.stack||String(e));}
+}catch(e){
+ report(false,'Runner failure',e.stack||String(e));
+ const frame=host.querySelector('iframe');
+ if(frame?.contentDocument){const w=frame.contentWindow,d=frame.contentDocument,a=w.__mobileSmoke;
+  report(null,'Failure ENTRY runtime',JSON.stringify({width:w.innerWidth,media:w.matchMedia('(max-width: 900px)').matches,bodyClass:d.body.className,groups:d.querySelectorAll('.mobile-screen-root').length,errors:a?.errors,blocked:a?.blocked,scripts:[...d.scripts].filter(s=>s.src).map(s=>s.src),resources:w.performance.getEntriesByType('resource').filter(r=>/app\.js|mobile-screens/.test(r.name)).map(r=>r.name)}));
+ }
+}
 finished=true;summary();
 const manual=document.querySelector('#manual');manual.disabled=!manualFrame;
 manual.addEventListener('click',async()=>{manual.disabled=true;try{const h=helpers(manualFrame);await h.go('device');h.$('.section-panel.active [data-mobile-group]').click();const b=h.$('#btn-mobile-preview'),dialog=h.$('#mobile-preview-dialog');b.focus();b.click();let escape=false;dialog.addEventListener('keydown',e=>{if(e.isTrusted&&e.key==='Escape')escape=true;},{capture:true});dialog.addEventListener('close',()=>{report(escape&&!dialog.open&&h.d.activeElement===b,'MANUAL real Escape + focus return',`trustedEscape=${escape} focus=${h.d.activeElement?.id}`);manual.disabled=false;},{once:true});report(null,'Now press Escape inside the iframe','Do not click Close for this manual check.');}catch(e){report(false,'Manual preview',String(e));manual.disabled=false;}});
