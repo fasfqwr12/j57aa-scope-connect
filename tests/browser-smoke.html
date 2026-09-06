@@ -36,18 +36,19 @@ try {
   const advanced=d.querySelector('#connection-advanced'), preview=d.querySelector('.preview-rail'), content=d.querySelector('#preview-content'), toggle=d.querySelector('#btn-preview-toggle');
   const visible=el=>!!el.getClientRects().length && w.getComputedStyle(el).visibility!=='hidden';
   check([...d.querySelectorAll('[id]')].length===new Set([...d.querySelectorAll('[id]')].map(el=>el.id)).size,width+'px 页面ID无重复');
-  check([...d.styleSheets].some(s=>s.href?.includes('ui-refinement.css?v=console-02')),width+'px Console 02 样式已加载');
+  check([...d.styleSheets].some(s=>s.href?.includes('ui-refinement.css?v=quiet-olive-03')),width+'px Quiet Olive 样式已加载');
   const header=d.querySelector('.topbar'), brand=d.querySelector('.brand-lockup');
-  check(d.querySelector('.edition-tag')?.textContent==='02' && visible(brand),width+'px 新版品牌标记');
-  check(w.getComputedStyle(header).backgroundColor==='rgb(35, 51, 40)',width+'px 深绿顶栏实际生效');
+  check(visible(brand) && d.querySelector('h1')?.textContent==='Scope Connect' && !d.querySelector('.edition-tag'),width+'px 单层品牌去除装饰编号');
+  check(w.getComputedStyle(header).backgroundColor==='rgb(253, 253, 250)' && header.getBoundingClientRect().height<=80,width+'px 暖白紧凑顶栏');
   const br=brand.getBoundingClientRect(), cr=d.querySelector('#btn-connect').getBoundingClientRect();
   check(br.left>=0 && br.right<=cr.left && cr.right<=w.innerWidth,width+'px 顶栏品牌与连接操作不重叠');
   if(width>900) {
    const buttons=[...d.querySelectorAll('#step-list button')], rects=buttons.map(el=>el.getBoundingClientRect());
    check(rects.every(r=>Math.abs(r.top-rects[0].top)<1) && rects.at(-1).right<=w.innerWidth,width+'px 桌面七项横向导航');
-   check(d.querySelector('.flow-rail').getBoundingClientRect().bottom<=d.querySelector('.workspace').getBoundingClientRect().top+1,width+'px 导航在工作区上方');
+   const rail=d.querySelector('.flow-rail').getBoundingClientRect();
+   check(rail.bottom<=d.querySelector('.workspace').getBoundingClientRect().top+1 && rail.height<=56,width+'px 轻量导航在工作区上方');
   }
-  check(d.querySelector('.device-overview .hero-name')?.textContent.includes('一个工作空间'),width+'px 首页主视觉已替换');
+  check(d.querySelector('.device-identity h3')?.textContent==='J57AA-2000A' && !d.querySelector('.device-art, .hero-name') && d.querySelector('.device-overview').getBoundingClientRect().height<150,width+'px 设备信息条取代宣传大图');
   check(!advanced.open,width+'px 高级连接参数默认收起');
   advanced.querySelector('summary').click();
   const uuid=d.querySelector('[data-bind="connection.serviceUuid"]');
@@ -83,7 +84,16 @@ try {
   const dock=d.querySelector('.ota-dock'), consoleGrid=d.querySelector('.ota-console');
   check(consoleGrid.contains(d.querySelector('.ota-preflight')) && consoleGrid.contains(d.querySelector('.ota-selection')),width+'px 独立检测与固件操作台');
   check(dock.contains(d.querySelector('#ota-start')) && dock.contains(d.querySelector('#ota-abort')) && dock.contains(d.querySelector('#ota-gate-reason')) && !d.querySelector('.ota-selection').contains(dock),width+'px 确认区独立且保留门禁提示');
-  check(d.querySelectorAll('.ota-sequence li').length===3,width+'px 升级三个步骤清晰可见');
+  check(!d.querySelector('.ota-intro h3, .ota-sequence') && d.querySelectorAll('[data-panel="upgrade"] .step-number').length===3,width+'px 仅保留操作标题避免重复口号');
+  const transfer=d.querySelector('#ota-transfer-details'), logs=d.querySelector('#ota-log-details');
+  check(!transfer.open && !logs.open,width+'px 参数与日志默认收起');
+  transfer.querySelector('summary').click();
+  check(transfer.open && visible(d.querySelector('#ota-preset')),width+'px 传输参数可展开');
+  transfer.querySelector('summary').click();
+  logs.querySelector('summary').click();
+  check(logs.open && visible(d.querySelector('#ota-clear-log')) && visible(d.querySelector('#ota-log-box')),width+'px 完整操作日志可展开');
+  logs.querySelector('summary').click();
+  check(!transfer.open && !logs.open,width+'px 参数与日志可收起');
   const preflight=d.querySelector('.ota-preflight').getBoundingClientRect(), selection=d.querySelector('.ota-selection').getBoundingClientRect();
   check(width>1050?Math.abs(preflight.top-selection.top)<2:selection.top>=preflight.bottom,width+'px 升级分段响应式布局');
   check(d.querySelector('#ota-main-mode').dataset.mode==='UNKNOWN' && d.querySelector('#ota-slave-mode').dataset.mode==='UNKNOWN',width+'px 未检测状态不显示为已就绪');

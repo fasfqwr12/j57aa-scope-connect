@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#233328">
+  <meta name="theme-color" content="#fdfdfa">
   <title>J57AA Scope Connect</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./src/app.css?v=status-first-1">
-  <link rel="stylesheet" href="./src/ui-refinement.css?v=console-02">
+  <link rel="stylesheet" href="./src/ui-refinement.css?v=quiet-olive-03">
 </head>
 <body data-page="device">
   <div class="app-shell">
@@ -307,7 +307,7 @@
         </div>
         <!-- ============ 升级 ============ -->
         <div class="section-panel" data-panel="upgrade">
-          <div class="ota-intro"><div><span class="hero-eyebrow">07 / FIRMWARE WORKSPACE</span><h3>更新有序，状态先行。</h3><p>主控、副板分别检测；核验文件后再确认。</p></div><span class="ota-intro-badge"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>尚未真机验收</span><ol class="ota-sequence" aria-label="升级操作顺序"><li><b>01</b>检测主控与副板</li><li><b>02</b>选择并核验文件</li><li><b>03</b>明确确认写入</li></ol></div>
+          <div class="ota-intro"><span class="ota-intro-badge"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>尚未真机验收</span><p>仅开放 W515 APP 更新，副板仅检测。</p></div>
           <div class="ota-console">
           <div class="field-band ota-preflight">
             <div class="band-head"><div class="numbered-heading"><span class="step-number">01</span><div><h3>检测主控与副板</h3><p>先识别设备，再选择更新</p></div></div><span class="source-pill pending">状态优先</span></div>
@@ -347,15 +347,13 @@
               <div class="ota-online-head" id="ota-online-head">在线固件库 <button class="btn compact" id="ota-online-refresh" type="button">刷新清单</button></div>
               <div class="ota-online-list" id="ota-online-list"><span class="ota-online-empty">加载中…</span></div>
             </div>
-            <div class="form-grid small-grid">
-              <label>
-                <span>传输档位</span>
-                <select id="ota-preset">
-                  <option value="safe">保守 ACK · GATT20B / 数据40B</option>
-                </select>
-              </label>
-              <label><span>写入校验</span><input type="text" value="逐包 ACK + CRC + APP 回应确认" disabled></label>
-            </div>
+            <details class="transfer-details" id="ota-transfer-details">
+              <summary>传输与校验参数<span>保守 ACK</span></summary>
+              <div class="form-grid small-grid">
+                <label><span>传输档位</span><select id="ota-preset"><option value="safe">保守 ACK · GATT20B / 数据40B</option></select></label>
+                <label><span>写入校验</span><input type="text" value="逐包 ACK + CRC + APP 回应确认" disabled></label>
+              </div>
+            </details>
             <label class="ota-check" id="ota-main-only-row" hidden><input type="checkbox" id="ota-main-only">副板状态未确认；我已查看原因，仅恢复 W515 主控 APP</label>
             <p class="ota-notice">仅支持匹配的 W515 APP。此浏览器实现尚未真机验证；请保持稳定供电、亮屏、页面前台。失败不自动重发擦写，不支持锁屏续传。</p>
           </div>
@@ -376,13 +374,6 @@
             </div>
           </div>
 
-          <div class="field-band ota-log-panel">
-            <div class="band-head">
-              <h3>升级日志</h3>
-              <button class="btn compact" id="ota-clear-log" type="button">清空</button>
-            </div>
-            <div class="log-box ota-log" id="ota-log-box"></div>
-          </div>
           <section class="ota-dock" aria-label="升级确认区">
             <div class="dock-heading"><span class="step-number" aria-hidden="true">03</span><div><h3>确认与执行</h3><p class="ota-notice" id="ota-gate-reason" role="status">第一步：检测主控与副板状态</p></div></div>
             <div class="action-row">
@@ -390,6 +381,11 @@
               <button class="btn" id="ota-abort" type="button" disabled>中止</button>
             </div>
           </section>
+          <details class="field-band ota-log-panel" id="ota-log-details">
+            <summary>操作日志<span>检测、校验与升级记录</span></summary>
+            <div class="ota-log-tools"><button class="btn compact" id="ota-clear-log" type="button">清空</button></div>
+            <div class="log-box ota-log" id="ota-log-box"></div>
+          </details>
         </div>
       </section>
 
@@ -497,7 +493,7 @@
     // ===== 主题切换（独立于 App 逻辑，记忆 + 移动端浏览器栏变色）=====
     (function () {
       var map = {
-        olive: "#233328", light: "#eef1f5", graphite: "#f4f5f7", teal: "#ecf2f1", warm: "#faf6f0",
+        olive: "#fdfdfa", light: "#eef1f5", graphite: "#f4f5f7", teal: "#ecf2f1", warm: "#faf6f0",
         red: "#07090d", nv: "#040906", cyan: "#05080f", amber: "#0b0805"
       };
       var root = document.documentElement;
@@ -518,6 +514,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/app.js?v=console-02"></script>
+  <script type="module" src="./src/app.js?v=quiet-olive-03"></script>
 </body>
 </html>

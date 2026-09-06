@@ -130,12 +130,10 @@ function bindForms() {
 function renderSteps() {
   const stepList = $("#step-list");
   const mobile = $("#mobile-tabs");
-  stepList.innerHTML = steps.map((s, index) => `
-    <button class="step-item" data-step="${s.id}" type="button">
-      <span class="step-index" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span>
+  stepList.innerHTML = steps.map(s => `
+    <button class="step-item" data-step="${s.id}" type="button" title="${s.title}">
       <svg class="step-icon" aria-hidden="true"><use href="#i-${s.id}"/></svg>
       <strong>${s.label}</strong>
-      <em>${s.title}</em>
     </button>
   `).join("");
   mobile.innerHTML = steps.map(s => `<button data-step="${s.id}" type="button"><svg><use href="#i-${s.id}" xlink:href="#i-${s.id}"/></svg>${s.label}</button>`).join("");
