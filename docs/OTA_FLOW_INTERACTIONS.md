@@ -221,7 +221,49 @@ B+/B−=主控Boot完好/损坏；A+/A−=主控APP完好/损坏；副板同理�
 
 ## 8. 检测会话的代理通道流程
 
-（GLPX 启动/状态/停止/超时的逐步交互——由代理提取任务补充，占位）
+### 8.1 代理会话生命周期
+
+```text
+① GLPX STATUS 查询（session=0 通配）
+   发送 AA 7E 00 15 47 4C 50 58 03 [session=0] [参数区] CRC 55（27B，无帧尾）
+   期望 AA 7E 00 05 47 4C 50 58 05 E4 93（status=05 未激活 → 可以启动）
+   status=00 → 已激活（可能他人会话）→ 不抢占，标记 BUSY
+② GLPX START（session=随机, baud=115200, idle=5000, total=12000, flags=0）
+   发送 28B 帧（示例 CRC=0x4F14）
+   期望 11B 响应 status=00；01=len/flags错；03=忙
+③ 经代理发 N32 0x31 握手（NORMAL 模式逐帧收集转发）
+   期望 N32 响应经 UART1→BLE 回传（AA B1 ...）
+   GLPE 0x82/0x84 事件可佐证链路（0x81 不报 0x34，PX:241）
+④ 清理：GLPX STOP（带自己的 session）
+   期望 status=00（先回后停，PX:1619-1622）
+   再查 STATUS 确认 05（未激活）→ routeClear
+   会话不符→04（他人会话，只回不动）；未激活→05
+```
+
+### 8.2 超时与异常退出（条件字典）
+
+| 标签 | 判什么 | 判定式 | 位置 |
+|---|---|---|---|
+| idle | 空闲超时 | `idle_elapsed > g_proxy.idle_timeout_ms` | PX:1345 |
+| total | 总超时（0=禁用） | `(g_proxy.total_timeout_ms != 0U) && (total_elapsed > g_proxy.total_timeout_ms)` | PX:1351 |
+| grace | 启动期阈值钳制 | `(steady > APP_PROXY_START_GRACE_MS) ? APP_PROXY_START_GRACE_MS : steady` | PX:199 |
+| passthru | 首次透传切换 | `range_data && !g_proxy.passthrough_started` | PX:267-270 |
+
+超时执行者为 RT 主循环（RT:1700-1702）。**关键事实**：
+- 5000ms 来自 `APP_PROXY_START_GRACE_MS`（CFG:128-129），启动期 idle=min(请求值,5000)；**首次透传后**切换为请求值（0 则 5000）
+- **12000ms 不是固件常量**，是 GLPX START 的 TOTAL32 请求值；**0=不限**
+- **超时退出静默**：不产生 GLPX 响应或 GLPE（仅统计），BLE 侧表现为「等不到任何帧」（PX:1006-1010,1357-1359）
+- STOP 成功回 00 后**才执行停止**（先回后停）
+
+### 8.3 代理字节模式对检测的影响
+
+| 模式 | flags | 检测行为 |
+|---|---|---|
+| **NORMAL** | 00 | 帧收集+GLPX识别（网页检测用此模式） |
+| RAW | 02/08 | 逐字节转发含 AA 7E，**无GLPX解析** |
+| BALLISTIC | 04 | 弹道专用 |
+
+⚠️ W515 升级会话激活期间（RT 分发表序2）GLPX 帧被吞（RT:311 在 312 前）——升级与代理互斥由表序保证。未激活时 GLPX 须**完整帧**一次到达（半包不触发，RT:237、BP:1790），网页因此用 27B 一次 GATT 写入。
 
 ## 9. 时间参数汇总（源码常量）
 
@@ -231,8 +273,10 @@ B+/B−=主控Boot完好/损坏；A+/A−=主控APP完好/损坏；副板同理�
 | N32 Boot窗口 | 5000ms | NB:54 |
 | AA帧收集超时(N32 APP) | 100ms | NA:12 |
 | 遗留/弹道收集超时(N32) | 150ms | NI:54 |
-| GLPX空闲超时 | 5000ms | PX（待补行号） |
-| GLPX总会话超时 | 12000ms | PX（待补行号） |
+| 代理启动宽限 | 5000ms（`APP_PROXY_START_GRACE_MS`） | CFG:128-129, PX:199 |
+| 代理空闲超时 | **请求值**（启动期钳到5000；透传后用请求值，0→5000） | PX:196-200,267-270 |
+| 代理总超时 | **请求值**（TOTAL32，0=不限；12000 仅是网页取值） | PX:1351 |
+| 弹道模式缺省 | idle 2000ms / total 5000ms | PX:31-32,948-950 |
 
 ## 10. 不确定项/缺口
 

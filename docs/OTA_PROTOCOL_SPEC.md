@@ -442,9 +442,178 @@ APP 的 switch 仅含 0x31/0x38/0x3A 三个 case（NA:194-237）；其余全落 
 | 58-59 | payload_len BE16 | 60 | rx_result |
 | 61 | 最后RX字节 | | |
 
-## 3. GLPX / GLPE 代理通道
+## 3. GLPX / GLPE 代理通道（主控 APP 固件，PX）
 
-（本节由代理提取任务补充——占位，待 GLPX 提取完成后填充）
+代理仅编译在 W515 **APP** 工程（Boot 工程无 PX）；负责 BLE 与 UART1（N32 副板）之间的受控转发。文件：PX=`upgrade_proxy.c`、RT=`bsp_rangefinder.c`、BP=`bsp_ble_protocol.c`、IT=`Template/gd32w51x_it.c`、CFG=`boot_sdk/product_config.h`。
+
+### 3.1 GLPX 请求帧（27B；START 带 flags 为 28B）
+
+```text
+AA 7E [LEN16 BE] "GLPX" MODE SESSION32 BAUD32 IDLE32 TOTAL32 [FLAGS8] CRC_H CRC_L
+```
+**无 0x55 帧尾**（区别于 W515/N32 升级帧）。
+
+| 偏移 | 长度 | 字段 | 端序 | 语义 | 证据 |
+|---|---|---|---|---|---|
+| 0-1 | 2 | `AA 7E` | — | 控制帧标识 | PX:1101,1128 |
+| 2-3 | 2 | LEN16 | **BE** | =payload(21/22)，不含头和CRC | PX:1137-1138 |
+| 4-7 | 4 | "GLPX" | ASCII | 魔数 | PX:1146-1149 |
+| 8 | 1 | MODE | — | 01启动/02停止/03状态/04保活 | PX:1526 |
+| 9-12 | 4 | SESSION32 | **BE** | 会话号（**0=通配**，见§3.2） | PX:1554-1555 |
+| 13-16 | 4 | BAUD32 | **BE** | UART1 波特率 | PX:1556-1557 |
+| 17-20 | 4 | IDLE32 | **BE** | 空闲超时 ms | PX:1558-1559 |
+| 21-24 | 4 | TOTAL32 | **BE** | 总超时 ms，**0=不限** | PX:1560-1561 |
+| 25 | 1 | FLAGS8 | — | **仅 START 且 len≥28 才解析**，否则按0 | PX:1562 |
+| 末2B | 2 | CRC16 | **高字节在前** | 覆盖自 AA 起至末参数（含flags），**无尾标记** | PX:1160-1161 |
+
+⚠️ CRC 链路：固件 `CRC16_Modbus` 查表实现返回值是标准 A001 值的**字节交换**，`proxy_crc16_wire` 再交换回标准值（PX:689-693）——线上最终为标准 CRC-16/MODBUS 高字节在前（程序验证一致）。
+
+### 3.2 MODE 处理矩阵
+
+| MODE | 名称 | 最短帧 | 成功码 | 失败码 | 副作用 |
+|---|---|---|---|---|---|
+| 01 | 启动 | 27（带flags 28） | **00** | len<27→**01**；flags非法→**01**；已激活→**03** | `usart1_proxy_enter(baud)`、填 g_proxy |
+| 02 | 停止 | 27 | **00**→**先回后停** | 会话不符→**04**；未激活→**05** | stop：还原UART1、清队列 |
+| 03 | 状态 | 27 | **00**活动且匹配 | **04**/**05**（只回不动作） | 无 |
+| 04 | 保活 | 27 | **00** | 同02/03 | 仅OK时刷新 last_activity（**仅NORMAL模式有效**，PX:1634） |
+| 其他 | — | 9 | — | **07** 不支持 | 无 |
+
+（START PX:1539-1605；STOP PX:1606-1623；STATUS PX:1624-1632；KEEPALIVE PX:1633-1644；默认 PX:1645-1651）
+
+**MODE 分发条件字典**：
+
+| 标签 | 判什么 | 判定式 | 位置 |
+|---|---|---|---|
+| len9 | 帧长下限 | `if (length < 9)` | PX:1505 |
+| magic | GLPX魔数 | `data[4] != 'G' \|\| ... \|\| data[7] != 'X'` | PX:1517 |
+| crc | CRC通过 | `recv_crc == calc_crc` | PX:1162 |
+| startlen | START最短帧 | `if (length < 27)` | PX:1544 |
+| inact | 未激活 | `!g_proxy.active` | PX:1048 |
+| sess | 会话匹配 | `requested_session != 0U && requested_session != g_proxy.session` | PX:1052 |
+| flagsok | flags合法 | `proxy_mode_from_flags(flags, NULL)` | PX:1564/154 |
+
+```mermaid
+flowchart TD
+    A[收到完整帧] --> B{crc}
+    B -- 否 --> X[静默丢弃]
+    B -- 是 --> C{MODE}
+    C -- 01 --> D{inact且flagsok}
+    D -- 是 --> E[启动回00]
+    D -- 否 --> F[回01或03]
+    C -- 02 --> G{inact或sess}
+    G -- 否 --> H[回00后停止]
+    G -- 是 --> I[回05或04]
+    C -- 03/04 --> J{inact或sess}
+    J -- 否 --> K[回00_保活刷新]
+    J -- 是 --> I
+    C -- 其他 --> L[回07]
+```
+
+会话判定（PX:1048-1054）：未激活→05；`requested_session != 0 && != g_proxy.session`→04；**session=0 通配**。
+
+### 3.3 GLPX 响应帧（11B，固定）
+
+| 偏移 | 字段 | 值 | 证据 |
+|---|---|---|---|
+| 0-1 | 帧头 | `AA 7E` | PX:1387 |
+| 2-3 | LEN16 BE | `00 05` | PX:1388 |
+| 4-7 | 魔数 | "GLPX" | PX:1389 |
+| 8 | STATUS | 见下表 | PX:1390 |
+| 9-10 | CRC16 | 高字节在前，覆盖前9B | PX:1393-1395 |
+
+**无 MODE/SESSION 回显**（mode 参数仅用于 trace 日志，PX:1397-1399）。发送出口固定 `usart2_send_data`（BLE侧，PX:1401）。
+
+**STATUS 枚举**（PX:47-52）：
+
+| 值 | 含义 |
+|---|---|
+| 00 | 活动/成功 |
+| 01 | 坏帧（len或flags错） |
+| 03 | 忙（已激活） |
+| 04 | 会话不符 |
+| 05 | 未激活 |
+| 07 | 不支持的MODE |
+| 0x10~0x15 | 弹道事务专用收尾码（PX:33-38,1319-1325；成功0x00不回帧） |
+
+02/06 未定义。
+
+### 3.4 GLPE 事件帧
+
+**普通事件 19B**（`APP_ENABLE_PROXY_EVENT_LOG=1` 才编译，当前=1，CFG:92-93）：
+
+```text
+AA FE 00 0D "GLPE" EVENT SEQ16 CMD STATUS VALUE32 CRC_H CRC_L
+```
+
+| 偏移 | 字段 | 端序 | 证据 |
+|---|---|---|---|
+| 8 | EVENT | — | PX:1404-1430 |
+| 9-10 | SEQ16 | BE | 发送序号 |
+| 11 | CMD | — | 触发命令字节 |
+| 12 | STATUS | — | N32帧状态或0xFF |
+| 13-16 | VALUE32 | BE | 附值（耗时ms/长度） |
+
+**EVENT 枚举**：
+
+| EVENT | 含义 | 触发点 |
+|---|---|---|
+| 0x81 | BLE→UART1 整包发出 | PX:632（0x34写默认**不上报**，PX:241） |
+| 0x82 | N32 首字节返回 | PX:646 |
+| 0x83 | N32 应答超时（status=0xFF，value=已等ms） | PX:617 |
+| 0x84 | N32 响应帧 CRC 正确 | PX:813 |
+| 0x85 | N32 响应 CRC 错/超长 | PX:798,813 |
+| 0x86 | **镜像 N32 回包（变长）** | PX:1464 |
+
+**0x86 镜像变长布局**（PX:1432-1484）：`AA FE LEN16(=13+N) "GLPE" 86 SEQ16 CMD STATUS LEN32(=N) frame[N] CRC16`，N∈[7,96]；队列容量8，满丢最旧（PX:24,718-721）。
+
+### 3.5 RAW / NORMAL / BALLISTIC 字节模式
+
+| 维度 | RAW（flags=02/08） | NORMAL（flags=00） | BALLISTIC（flags=04） |
+|---|---|---|---|
+| BLE→UART1 | **逐字节原样转发（含AA 7E，无GLPX解析）** | 帧收集+GLPX识别+非AA直透 | 弹道52B查询校验转发 |
+| UART1→BLE | 逐字节 | 逐字节+N32响应解析 | 弹道23B回包 |
+| flags校验 | 掩码0x0E，未知位/多位并存拒绝（PX:154-159） | 0=NORMAL | 同左 |
+
+（RAW转发 PX:1182-1190,1203-1205；NORMAL收集 PX:1213-1243）
+
+### 3.6 GLPX hex 示例（CRC 程序验证）
+
+```text
+STATUS请求(session=0,全零参) 27B:
+  AA 7E 00 15 47 4C 50 58 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2B 29   CRC=0x2B29
+STATUS请求(网页实际参数) 27B:
+  AA 7E 00 15 47 4C 50 58 03 00 00 00 00 00 01 C2 00 00 00 13 88 00 00 2E E0 B5 77   CRC=0xB577
+START请求(session=12345678,baud=115200,idle=5000,total=12000,flags=0) 28B:
+  AA 7E 00 16 47 4C 50 58 01 12 34 56 78 00 01 C2 00 00 00 13 88 00 00 2E E0 00 4F 14   CRC=0x4F14
+响应模板(STATUS=00) 11B:
+  AA 7E 00 05 47 4C 50 58 00 E4 93   CRC=0xE493
+GLPE普通事件(EVENT=81,SEQ=1,CMD=33,STATUS=0,VALUE=0) 19B:
+  AA FE 00 0D 47 4C 50 45 81 00 01 33 00 00 00 00 00 25 6C   CRC=0x256C
+```
+
+### 3.7 分发顺序（RT 主循环，APP 固件）
+
+入口链：USART2 ISR 逐字节入 `proxy_frame_buf[768]`（IT:503-510）→ IDLE 置 ready（IT:663-669）→ 主循环快照（RT:1717-1747）→ `app_ble_cmd_dispatch`（RT:1750），**首中即停**（RT:331-337）：
+
+| 序 | 条目 | 匹配判定 | 位置 |
+|---|---|---|---|
+| 1 | F7 信息 | 10B 整帧全等（**byte[7]=0xF7或0x00**） | RT:310,173-202 |
+| 2 | W515 升级 | `upgrade_service_rx_active()` 或 AA+CMD01~09 | RT:311,204-224 |
+| 3 | 完整 GLPX 控制 | `len≥11 && AA 7E && len≥expected_len && 魔数` | RT:312,226-251 |
+| 4 | 活动代理数据 | `upgrade_proxy_is_active()`（激活即兜底通配） | RT:313,253-269 |
+| 5 | N32 直通 | `is_n32_boot_debug_frame`（**本编译=0，剔除**） | RT:315,272-291 |
+| 6 | 普通业务 | `len≥11 && FE FF FF FE` | RT:317,294-307 |
+
+⚠️ **W515 升级会话激活期间 GLPX 帧被其吞掉**（表序互斥，RT:311 在 312 之前）；未激活时 GLPX 要求**完整帧**（半包不触发，RT:237、BP:1790）。
+
+### 3.8 F7 在 APP(RT) 与 Boot(WP) 的差异
+
+| 维度 | APP(RT) | Boot(WP) |
+|---|---|---|
+| 匹配 | 整帧10B比对 | 流式前缀累积 |
+| byte[7] | **0xF7 或 0x00** | **仅 0xF7** |
+| 响应出口 | `usart2_send_data`（BLE） | `boot_comm_send`（升级通道） |
+| 证据 | RT:185, IT:421-446 | WP:22-23, WB:467-502 |
 
 ## 4. 已核对的易错点汇总
 
