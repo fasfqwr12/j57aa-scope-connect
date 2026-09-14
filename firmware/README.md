@@ -5,7 +5,7 @@
 ## 发布规则
 
 1. 只放已获准公开的镜像；仓库和 GitHub Pages 均为公开访问。
-2. 当前列表仅允许 `target: "w515-app"`；N32 刷写未实现，Boot 文件仅存档，不登记为 OTA 候选。
+2. OTA 候选清单当前仅允许 `target: "w515-app"`（网页升级路径只实现 W515 APP）；N32 刷写路径协议已提取（见 docs/OTA_FLOW_INTERACTIONS.md §5）但网页未实现，副板镜像与 Boot 文件**仅存档**（URL 可直接下载），待上位机 B 路径实现后再登记为候选。
 3. 文件名只能是本目录的安全文件名，不允许路径、URL 或 `..`。
 4. `size` 必须是原始下载文件的准确字节数；`sha256` 必填，64位十六进制。
 5. `fileCrc32` 是整文件 CRC32；`metaCrc32` 是 W515 元数据兼容 CRC32，二者不可混用。
@@ -18,6 +18,11 @@
 - SHA-256：`a0d446c18a04b52ab4b954af6e12cc25534b121d64fd3e30a81cf2f939f14b36`。
 - 整文件 CRC32：`8D78A553`；元数据兼容 CRC32：`E4503DFD`。
 - 本地元数据、向量及校验已核对；未证明它对应最新源码，也未通过浏览器OTA真机验收。
+
+## 存档镜像（不在 OTA 候选清单）
+
+- `N32-APP-v01p2-20260728.hex`：副板 N32 APP，Intel HEX，数据 34632B @0x08002000~0x0800A748；整文件 SHA-256 `c9dc003f9a32af06388479a2a6864467a02985a1796fb00c47236e6bd9f0706c`、CRC32 `ECCD603E`。升级协议见 docs/OTA_FLOW_INTERACTIONS.md §5；网页 B 路径未实现，暂不可在线刷写。
+- `W515_BOOT_20260804.bin`：主控 Boot 存档，12272B；SHA-256 `74af9cd9e36b87c15f71bda6feb94c7e3a50e6fd9d7977bdaebb680a50bbe65f`、CRC32 `71BEDF62`。Boot 不经网页刷写。
 
 ## 使用入口
 
