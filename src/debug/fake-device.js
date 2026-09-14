@@ -235,10 +235,10 @@ export class FakeAdapter {
   assertNormal() { if (this.exclusive) throw new Error("状态检测/升级正在独占蓝牙通道"); }
   requestWire(frame, options) {
     if (!this.exclusive) throw new Error("先获取独占通道再发送升级协议");
-    this.tap?.("tx", frame);
+    this.tap?.push?.("tx", frame);
     return this.channel.request(frame, options);
   }
-  async write(value) { this.assertNormal(); this.tap?.("tx", value); return this.fakeWrite(value, { chunkSize: value.length }); }
+  async write(value) { this.assertNormal(); this.tap?.push?.("tx", value); return this.fakeWrite(value, { chunkSize: value.length }); }
   async fakeWrite(value, { signal } = {}) {
     checkAbort(signal);
     if (!this.connected) throw new Error("BLE 未连接");
@@ -257,7 +257,7 @@ export class FakeAdapter {
       if (!response) continue;
       // RX 回路：tap + channel.receive（与 onNotify 同路径）
       queueMicrotask(() => {
-        this.tap?.("rx", Uint8Array.from(response));
+        this.tap?.push?.("rx", Uint8Array.from(response));
         this.channel.receive(Uint8Array.from(response));
         if (!this.exclusive) this.log("RX", Array.from(response, b => b.toString(16).padStart(2, "0").toUpperCase()).join(""));
       });
