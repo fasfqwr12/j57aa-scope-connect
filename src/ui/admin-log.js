@@ -28,7 +28,7 @@ function buildUi() {
         <span class="al-count" id="al-count">0 条</span>
         <div class="al-spacer"></div>
         <div class="al-filters" id="al-filters">
-          ${["all:全部", "tx:TX", "rx:RX", "w515:W515", "n32:N32", "glpx:GLPX", "event:GLPE", "f7:F7", "noise:噪声"].map(s => { const [v, l] = s.split(":"); return `<button type="button" data-f="${v}" class="${v === "all" ? "on" : ""}">${l}</button>`; }).join("")}
+          ${["all:全部", "tx:TX", "rx:RX", "w515:W515", "n32:N32", "glpx:GLPX", "event:GLPE", "f7:F7", "biz:业务"].map(s => { const [v, l] = s.split(":"); return `<button type="button" data-f="${v}" class="${v === "all" ? "on" : ""}">${l}</button>`; }).join("")}
         </div>
         <button type="button" id="al-inject" class="al-act">注入示例</button>
         <button type="button" id="al-pause" class="al-act">暂停</button>
@@ -39,7 +39,8 @@ function buildUi() {
       <div class="al-table-head"><span>时间</span><span>向</span><span>协议</span><span>解读</span><span>HEX</span></div>
       <div class="al-body" id="al-body"></div>
       <footer class="al-foot">
-        <span>仅观察通道：面板不发送任何帧；RX 在升级独占期同样捕获。</span>
+        <span>仅观察通道：面板不发送任何帧；升级独占期 RX 同样捕获。</span>
+        <span id="al-noise">未识别 0B</span>
         <label class="al-autoscroll"><input type="checkbox" id="al-autoscroll" checked>自动滚动</label>
       </footer>
     </div>`;
@@ -87,7 +88,7 @@ function appendRow(e) {
   ui.body.appendChild(row);
   if (autoScroll) scrollBottom();
 }
-function refreshCount() { ui.count.textContent = `${tap.entries.length} 条`; }
+function refreshCount() { ui.count.textContent = `${tap.entries.length} 条`; ui.panel.querySelector("#al-noise").textContent = `未识别 ${tap.rxNoise}B`; }
 function scrollBottom() { ui.body.scrollTop = ui.body.scrollHeight; }
 function exportLog() {
   const data = { exportedAt: new Date().toISOString(), filter, entries: tap.entries.filter(matchFilter) };

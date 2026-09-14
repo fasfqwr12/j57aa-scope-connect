@@ -1,12 +1,13 @@
 // 管理员协议分接器：捕获 TX/RX 原始字节，解码为结构化中文解读。
 // 解读映射全部来自当前固件源码提取（docs/OTA_PROTOCOL_SPEC.md），仅观察不发送。
-import { WireDecoder, toHex, PROXY_MODE } from "../upgrade/ota-protocol.js?v=status-first-1";
+import { WireDecoder, toHex, PROXY_MODE, buildOtaFrame, buildProxyFrame } from "../upgrade/ota-protocol.js?v=status-first-1";
 
 const W515_STATE = { 0x00: "IDLE", 0x01: "CONNECTING", 0x02: "CONNECTED", 0x10: "BOOT模式", 0x11: "擦除中", 0x12: "写入中", 0x13: "校验中", 0x20: "升级成功", 0xF0: "错误", 0xF1: "超时" };
 const W515_ERR = { 0x00: "成功", 0x01: "未知命令", 0x02: "参数/长度错", 0x03: "Flash失败", 0x04: "CRC错(未用)", 0x05: "超时(未用)", 0x06: "校验失败" };
 const N32_ERR = { 0x00: "成功", 0x01: "未知命令", 0x02: "长度错", 0x03: "APP载荷错/Boot范围或顺序错", 0x04: "CRC错", 0x05: "Flash错", 0x06: "校验失败" };
 const PROXY_ST = { 0x00: "成功/活动", 0x01: "坏帧", 0x03: "忙(已激活)", 0x04: "会话不符", 0x05: "未激活", 0x07: "不支持" };
 const GLPE_EV = { 0x81: "BLE→UART1整包发出", 0x82: "N32首字节返回", 0x83: "N32应答超时", 0x84: "N32响应CRC正确", 0x85: "N32响应CRC错/超长", 0x86: "N32回包镜像" };
+const VERIFY_RESULT = { 0x00: "未校验", 0x01: "成功", 0x02: "CRC失败", 0x03: "meta失败", 0xE1: "长度失败" };
 const W515_CMD = { 0x01: "握手", 0x02: "读信息", 0x03: "进Boot", 0x04: "擦除", 0x05: "写入", 0x06: "校验", 0x07: "复位", 0x09: "查状态" };
 const N32_CMD = { 0x31: "N32握手", 0x32: "N32信息", 0x33: "N32擦除", 0x34: "N32写入", 0x35: "N32校验", 0x36: "N32复位", 0x37: "N32进APP", 0x38: "N32进Boot", 0x39: "N32状态" };
 const PROXY_MODE_NAME = { [PROXY_MODE.START]: "启动", [PROXY_MODE.STOP]: "停止", [PROXY_MODE.STATUS]: "状态查询", [PROXY_MODE.KEEPALIVE]: "保活" };
@@ -43,7 +44,7 @@ function w515Rx(cmd, p) {
       const st = `${hex(p[0])}${W515_STATE[p[0]] ? "(" + W515_STATE[p[0]] + ")" : ""}`;
       const written = be32(p, 1);
       let s = `状态: state=${st} written=${written}B`;
-      if (p.length >= 30) s += ` verify=${W515_ERR[p[9]] || hex(p[9])} crc计算=${hex(be32(p, 29))}`;
+      if (p.length >= 30) s += ` verify=${VERIFY_RESULT[p[9]] || hex(p[9])} crc计算=${hex(be32(p, 29))}`;
       if (p.length >= 49) s += `(${p.length}B新版)`;
       return s;
     }
@@ -73,7 +74,9 @@ function n32Rx(cmd, p) {
   if (cmd === 0xB9 && st === 0 && p.length >= 5) return `N32状态62B: written=${be32(p, 1)}B 最近写=${hex(be32(p, 5))}`;
   return `N32 ACK ${N32_CMD[cmd & 0x7F] || hex(cmd)} ${base}`;
 }
-function proxyTx(p) {
+function proxyTx(bytes) {
+  const len = (bytes[2] << 8) | bytes[3];
+  const p = bytes.slice(4, 4 + len); // 严格按 LEN 截断，不含 CRC
   const mode = p[4];
   const name = PROXY_MODE_NAME[mode] || hex(mode);
   const session = be32(p, 5);
@@ -84,7 +87,7 @@ function proxyTx(p) {
 function interpretFrame(frame) {
   const p = frame.payload;
   if (frame.protocol === "f7") return frame.cmd === 0xF7 ? "F7 信息应答(48B)" : "F7 帧";
-  if (frame.protocol === "proxy") return `GLPX 应答: ${PROXY_ST[p ? p[0] : 0xFF] || hex(p ? p[0] : 0xFF)}`;
+  if (frame.protocol === "proxy") { const st = frame.raw[8]; return `GLPX 应答: ${PROXY_ST[st] || hex(st)}(${hex(st)})`; }
   if (frame.protocol === "event") {
     const ev = frame.raw[8];
     return `GLPE 事件: ${GLPE_EV[ev] || hex(ev)} cmd=${hex(frame.raw[11])} value=${hex(be32(frame.raw, 13))}`;
@@ -95,7 +98,7 @@ function interpretFrame(frame) {
 }
 function interpretTx(bytes) {
   if (bytes.length >= 10 && bytes[0] === 0xAA && bytes[1] === 0xEE && bytes[2] === 0xF7) return { protocol: "f7", name: "F7 信息查询", detail: "" };
-  if (bytes.length >= 9 && bytes[0] === 0xAA && bytes[1] === 0x7E) return { protocol: "glpx", name: "GLPX 控制", detail: proxyTx(bytes.slice(4)) };
+  if (bytes.length >= 9 && bytes[0] === 0xAA && bytes[1] === 0x7E) return { protocol: "glpx", name: "GLPX 控制", detail: proxyTx(bytes) };
   if (bytes.length >= 4 && bytes[0] === 0xFE && bytes[1] === 0xFF && bytes[2] === 0xFF && bytes[3] === 0xFE) return { protocol: "biz", name: "业务帧", detail: `len=${bytes.length}B` };
   if (bytes.length >= 4 && bytes[0] === 0xAA) {
     const cmd = bytes[1];
@@ -122,14 +125,21 @@ export class ProtocolTap {
       this.add({ time, dir: "TX", protocol, name, detail, hex: toHex(bytes) });
       return;
     }
-    // RX: 先喂解码器提取协议帧，剩余计为噪声
-    let consumed = 0;
-    for (const frame of this.decoder.push(bytes)) {
-      this.add({ time, dir: "RX", protocol: frame.protocol, name: frameLabel(frame), detail: interpretFrame(frame), hex: toHex(frame.raw) });
-      consumed = frame.consumed;
+    // RX: 业务信封直接识别；协议帧走解码器；其余字节计入累计未识别（页脚显示）
+    if (bytes.length >= 11 && bytes[0] === 0xFE && bytes[1] === 0xFF && bytes[2] === 0xFF && bytes[3] === 0xFE) {
+      this.add({ time, dir: "RX", protocol: "biz", name: "业务帧", detail: `len=${bytes.length}B(测距/弹道数据)`, hex: "" });
+      this.decoder.push(bytes); // 解码器吞掉整包，防止残留
+      return;
     }
-    const noise = bytes.length - Math.min(consumed, bytes.length);
-    if (noise > 0) { this.rxNoise += noise; this.add({ time, dir: "RX", protocol: "noise", name: "未识别字节", detail: `+${noise}B(累计${this.rxNoise}B)`, hex: "" }); }
+    const before = this.decoder.buffer.length;
+    const frames = this.decoder.push(bytes);
+    for (const frame of frames) {
+      this.add({ time, dir: "RX", protocol: frame.protocol, name: frameLabel(frame), detail: interpretFrame(frame), hex: toHex(frame.raw) });
+    }
+    if (!frames.length) {
+      const swallowed = before + bytes.length - this.decoder.buffer.length;
+      if (swallowed > 0) this.rxNoise += swallowed;
+    }
   }
   add(entry) {
     entry.id = ++this.seq;
@@ -139,35 +149,44 @@ export class ProtocolTap {
   }
   clear() { this.entries = []; this.rxNoise = 0; this.decoder.reset(); this.emit(null); }
   injectDemo() {
-    // 无真机自验：按 docs/OTA_FLOW_INTERACTIONS.md §2 检测序列注入示例帧（CRC 均程序验证过）
-    const D = [
-      ["tx", "AA EE F7 00 00 00 00 F7 BB FF"],
-      ["rx", "AA FE F7 30 4D 3C 2B 1A 00 01 00 01 00 01 00 00 4A 35 37 41 41 2D 57 35 31 35 00 00 00 00 00 00 20 00 00 80 00 08 00 80 1F 00 00 00 01 00 EF BE AD DE 91 BB FF"],
-      ["tx", "AA 01 00 04 12 34 56 78 34 81 55"],
-      ["rx", "AA 81 00 04 AA 55 AA 55 9F F4 55"],
-      ["tx", "AA 7E 00 15 47 4C 50 58 03 00 00 00 00 00 01 C2 00 00 00 13 88 00 00 2E E0 B5 77"],
-      ["rx", "AA 7E 00 05 47 4C 50 58 05 E7 53"],
-      ["tx", "AA 7E 00 16 47 4C 50 58 01 12 34 56 78 00 01 C2 00 00 00 13 88 00 00 2E E0 00 4F 14"],
-      ["rx", "AA 7E 00 05 47 4C 50 58 00 E4 93"],
-      ["tx", "AA 31 00 04 4E 33 32 42 75 B8 55"],
-      ["rx", "AA B1 00 11 00 4E 33 32 42 01 08 00 20 00 08 00 F7 FF 08 00 01 49 58 55"],
-      ["rx", "AA FE 00 0D 47 4C 50 45 81 00 01 33 00 00 00 00 00 25 6C"],
-      ["tx", "AA 7E 00 15 47 4C 50 58 02 12 34 56 78 00 00 00 00 00 00 00 00 00 00 00 00 2F 36"],
-      ["rx", "AA 7E 00 05 47 4C 50 58 00 E4 93"],
-      ["tx", "AA 03 00 00 C0 81 55"],
-      ["rx", "AA 83 00 01 00 30 28 55"],
-      ["tx", "AA 04 00 09 08 00 80 00 00 02 00 00 00 52 A2 55"],
-      ["rx", "AA 84 00 01 00 44 29 55"],
-      ["tx", "AA 05 00 29 01 08 00 80 00 11 22 33 44 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 1D 93 55"],
-      ["rx", "AA 85 00 01 00 B8 28 55"],
-      ["tx", "AA 09 00 00 C2 A1 55"],
-      ["rx", "AA 89 00 31 12 00 00 00 29 00 00 00 00 00 00 01 00 00 00 00 00 00 01 08 00 80 00 00 00 00 29 DE AD BE EF DE AD BE EF 46 49 52 4D 00 00 00 29 DE AD BE EF 00 00 01 F4 99 A1 55"],
-      ["rx", "AA 85 00 01 03 B9 68 55"]
-    ];
-    for (const [dir, h] of D) this.push(dir, Uint8Array.from(h.split(" ").map(s => parseInt(s, 16))));
+    // 无真机自验：按 docs/OTA_FLOW_INTERACTIONS.md §2 检测序列注入示例帧（全部程序构建，CRC 保证正确）
+    const F = (bytes, dir = "rx") => this.push(dir, Uint8Array.from(bytes));
+    F([0xAA, 0xEE, 0xF7, 0x00, 0x00, 0x00, 0x00, 0xF7, 0xBB, 0xFF], "tx");
+    const info48 = new Array(48).fill(0);
+    [0x4D, 0x3C, 0x2B, 0x1A].forEach((b, i) => info48[i] = b);
+    info48[5] = 0x01; info48[7] = 0x01; info48[9] = 0x01;
+    "J57AA-W515".split("").forEach((ch, i) => info48[12 + i] = ch.charCodeAt(0));
+    info48[28] = 0x20; info48[33] = 0x08; info48[35] = 0x80; info48[36] = 0x1F;
+    info48[42] = 0x01; info48[44] = 0xEF; info48[45] = 0xBE; info48[46] = 0xAD; info48[47] = 0xDE;
+    const f7 = [0xAA, 0xFE, 0xF7, 0x30, ...info48];
+    let x = 0; for (let k = 2; k < 52; k++) x ^= f7[k];
+    f7.push(x, 0xBB, 0xFF);
+    F(f7);
+    F(buildOtaFrame(0x01, [0x12, 0x34, 0x56, 0x78]), "tx");
+    F([0xAA, 0x81, 0x00, 0x04, 0xAA, 0x55, 0xAA, 0x55, 0x9F, 0xF4, 0x55]);
+    F(buildProxyFrame(3, { session: 0 }), "tx");
+    F([0xAA, 0x7E, 0x00, 0x05, 0x47, 0x4C, 0x50, 0x58, 0x05, 0xE7, 0x53]);
+    F(buildProxyFrame(1, { session: 0x12345678, baud: 115200, idleMs: 5000, totalMs: 12000 }), "tx");
+    F([0xAA, 0x7E, 0x00, 0x05, 0x47, 0x4C, 0x50, 0x58, 0x00, 0xE4, 0x93]);
+    F(buildOtaFrame(0x31, [..."N32B"].map(c => c.charCodeAt(0))), "tx");
+    F([0xAA, 0xB1, 0x00, 0x11, 0x00, 0x4E, 0x33, 0x32, 0x42, 0x01, 0x08, 0x00, 0x20, 0x00, 0x08, 0x00, 0xF7, 0xFF, 0x08, 0x00, 0x01, 0x49, 0x58, 0x55]);
+    F([0xAA, 0xFE, 0x00, 0x0D, 0x47, 0x4C, 0x50, 0x45, 0x81, 0x00, 0x01, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x25, 0x6C]);
+    F(buildProxyFrame(2, { session: 0x12345678 }), "tx");
+    F([0xAA, 0x7E, 0x00, 0x05, 0x47, 0x4C, 0x50, 0x58, 0x00, 0xE4, 0x93]);
+    F(buildOtaFrame(0x03, []), "tx");
+    F([0xAA, 0x83, 0x00, 0x01, 0x00, 0x30, 0x28, 0x55]);
+    F(buildOtaFrame(0x04, [0x08, 0x00, 0x80, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00]), "tx");
+    F([0xAA, 0x84, 0x00, 0x01, 0x00, 0x44, 0x29, 0x55]);
+    F(buildOtaFrame(0x05, [0x01, 0x08, 0x00, 0x80, 0x00, ...new Array(40).fill(0)]), "tx");
+    F([0xAA, 0x85, 0x00, 0x01, 0x00, 0xB8, 0x28, 0x55]);
+    F(buildOtaFrame(0x09, []), "tx");
+    const st = [0x12, 0, 0, 0, 41, 0, 0, 0, 0, 0x01, 0, 0, 0, 0, 0, 0, 1, 0x08, 0x00, 0x80, 0x00, 0, 0, 0, 41, 0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF, 0x46, 0x49, 0x52, 0x4D, 0, 0, 0, 41, 0xDE, 0xAD, 0xBE, 0xEF, 0, 0, 1, 0xF4];
+    F([0xAA, 0x89, 0x00, 0x31, ...st, 0x73, 0x29, 0x55]);
+    F([0xAA, 0x85, 0x00, 0x01, 0x03, 0xB9, 0x68, 0x55]);
   }
 }
 function frameLabel(frame) {
   const n = { f7: "F7", proxy: "GLPX", event: "GLPE", w515: "W515", n32: "N32" };
+  if (frame.protocol === "f7") return "F7 应答";
   return `${n[frame.protocol] || frame.protocol} ${hex(frame.cmd)}`;
 }
