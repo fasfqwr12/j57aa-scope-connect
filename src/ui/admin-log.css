@@ -1,0 +1,37 @@
+/* 管理员协议日志面板 — 仅 ?admin=1 时挂载 */
+#admin-log-fab{position:fixed;right:14px;bottom:14px;z-index:9000;padding:8px 14px;border-radius:999px;border:1px solid #8a8f6a;background:#4a5240;color:#f4f6e8;font:600 13px/1 inherit;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+#admin-log-fab:hover{background:#5a6350}
+#admin-log-overlay{position:fixed;inset:0;z-index:9001;background:rgba(12,14,10,.55);backdrop-filter:blur(3px);display:flex;align-items:stretch;justify-content:center}
+#admin-log-overlay[hidden]{display:none}
+.al-panel{display:flex;flex-direction:column;width:min(1180px,96vw);height:94vh;margin:auto;background:#fbfbf7;border-radius:12px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.4)}
+.al-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#3f4636;color:#f2f4ea}
+.al-head strong{font-size:14px}
+.al-count{font-size:12px;opacity:.75}
+.al-spacer{flex:1}
+.al-filters{display:flex;gap:4px;flex-wrap:wrap}
+.al-filters button,.al-act{border:1px solid rgba(255,255,255,.25);background:transparent;color:#f2f4ea;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
+.al-filters button.on{background:#8a9668;color:#1f2418;border-color:#8a9668}
+.al-act:hover{background:rgba(255,255,255,.12)}
+.al-close{font-size:14px;padding:4px 10px}
+.al-table-head,.al-row{display:grid;grid-template-columns:96px 34px 92px minmax(260px,1fr) minmax(220px,1.2fr);gap:8px;padding:4px 14px;font-size:12px;font-family:ui-monospace,Consolas,monospace;align-items:baseline}
+.al-table-head{background:#e8ead9;color:#41462f;font-weight:700;border-bottom:1px solid #c9cdb2;position:sticky;top:0}
+.al-body{flex:1;overflow:auto;background:#fdfdf8}
+.al-row{border-bottom:1px solid #ececdd;white-space:nowrap}
+.al-row.tx .al-dir{color:#7c5ea8;font-weight:700}
+.al-row.rx .al-dir{color:#2c7a4b;font-weight:700}
+.al-row.p-noise{opacity:.55;font-style:italic}
+.al-row.p-noise .al-hex{font-style:italic}
+.al-row.rx.p-w515 .al-detail,.al-row.rx.p-n32 .al-detail{color:#244d33}
+.al-time{color:#77796a}
+.al-proto{color:#4a5568;font-weight:600}
+.al-detail{white-space:normal;word-break:break-all;color:#33362a}
+.al-hex{color:#8b6d2f;overflow:hidden;text-overflow:ellipsis}
+.al-row:has(.al-detail:not(:empty)) .al-hex:hover{white-space:normal;overflow:visible}
+.al-foot{display:flex;align-items:center;gap:14px;padding:7px 14px;background:#e8ead9;color:#5c6047;font-size:12px}
+.al-foot .al-spacer{flex:1}
+.al-autoscroll{display:flex;gap:5px;align-items:center;cursor:pointer}
+@media (max-width:760px){
+  .al-table-head,.al-row{grid-template-columns:76px 28px 76px 1fr;font-size:11px}
+  .al-hex{display:none}
+  .al-panel{height:100vh;width:100vw;border-radius:0}
+}

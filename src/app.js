@@ -3,6 +3,7 @@ import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=status-first-
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
 import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-05";
+import { initAdminLog } from "./ui/admin-log.js?v=admin-log-1";
 import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=quiet-olive-03";
 
 const steps = [
@@ -46,6 +47,7 @@ let saveTimer = null;
 let otaBusy = false;
 let connecting = false;
 let mobileScreens = null;
+let adminTap = null;
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => Array.from(document.querySelectorAll(selector));
@@ -58,6 +60,7 @@ function init() {
   renderAmmoPresets();
   renderZoneToggles();
   mobileScreens = initMobileScreens();
+  adminTap = initAdminLog();
   bindForms();
   bindActions();
   buildReticle();
@@ -450,9 +453,11 @@ async function syncProfile() {
 }
 
 function makeAdapter() {
-  return state.connection.mode === "local-bridge"
+  const a = state.connection.mode === "local-bridge"
     ? new LocalBridgeAdapter(state.connection, log)
     : new WebBluetoothAdapter(state.connection, log);
+  if (adminTap) a.tap = adminTap;
+  return a;
 }
 
 function setConnectionState(kind, label) {

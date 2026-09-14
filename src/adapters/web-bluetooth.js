@@ -72,6 +72,7 @@ export class WebBluetoothAdapter {
   requestWire(frame, options) {
     if (!this.exclusive) throw new Error("先获取独占通道再发送升级协议");
     this.log("TX", bytesToHex(frame));
+    this.tap?.("tx", frame);
     return this.channel.request(frame, options);
   }
   async writeRaw(value, { chunkSize = 20, withResponse = true, signal } = {}) {
@@ -98,12 +99,15 @@ export class WebBluetoothAdapter {
   }
   async write(value) {
     this.assertNormal(); this.log("TX", bytesToHex(value));
+    this.tap?.("tx", value);
     if (value.length > 244) throw new Error("普通协议帧过长，不能假定 APP 支持分片重组");
     return this.writeRaw(value, { chunkSize: Math.max(20, value.length), withResponse: false });
   }
   onNotify(event) {
     const v = event.target.value;
     const data = new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
+    // 管理员分接：独占（检测/升级）期间的 RX 同样可见，先于独占判断。
+    this.tap?.("rx", data);
     // Track complete envelopes even between exclusive sessions.
     this.channel.receive(data);
     if (this.exclusive) return;
