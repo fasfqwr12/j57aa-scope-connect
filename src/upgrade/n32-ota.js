@@ -4,14 +4,14 @@
 // 数据长度 4 字节对齐（末包 0xFF 填充）；擦除只覆盖 APP 区 0x08002000+，N32 Boot 永不擦除。
 import { N32_CMD, PROXY_MODE, PROXY_STATUS, buildOtaFrame, buildProxyFrame, crc32, parseN32Info } from "./ota-protocol.js?v=status-first-1";
 import { DeviceProbe } from "./device-probe.js?v=status-first-1";
-import { checkAbort, delay } from "./ota-channel.js?v=status-first-1";
+import { checkAbort, delay } from "./ota-channel.js?v=fast-path-1";
 
 const N32_APP_BASE = 0x08002000;
 const N32_APP_END = 0x0800F7FF;          // NB:23-24
 const N32_PAGE = 2048;                    // NB 页大小
 const N32_MAGIC_BOOT = [0x4E, 0x33, 0x32, 0x42]; // "N32B"
 const N32_MAGIC_APP = [0x4E, 0x33, 0x32, 0x41];  // "N32A"
-const CHUNK = 40;                         // 与 W515 保守档一致；帧 52B 单次 GATT 写
+const CHUNK = 180;                        // 帧 192B < 244 GATT 单帧上限；对齐 unified-tool 224B 上限留余量
 
 export const N32_LAYOUT = Object.freeze({ appBase: N32_APP_BASE, appEnd: N32_APP_END, page: N32_PAGE });
 
@@ -37,6 +37,19 @@ export class N32OtaSession {
     checkAbort(this.controller.signal);
     const frame = buildOtaFrame(cmd, payload);
     return this.adapter.requestWire(frame, { protocol: "n32", cmd: cmd | 0x80, timeoutMs, signal: this.controller.signal, chunkSize: frame.length });
+  }
+  // 流式发送：flag=0 时 Boot 静默写入不回帧；只发不等（noWait 跳过回包匹配）
+  async sendOnly(cmd, payload = []) {
+    checkAbort(this.controller.signal);
+    const frame = buildOtaFrame(cmd, payload);
+    return this.adapter.requestWire(frame, { protocol: "n32", cmd: null, timeoutMs: 10, signal: this.controller.signal, chunkSize: frame.length, noWait: true });
+  }
+  // 0x39 状态：status@0, written be32@1, last_write_addr be32@5
+  async status() {
+    const f = await this.send(N32_CMD.STATUS, [], 3000);
+    if (f.payload.length < 5) throw new Error("N32 状态回包过短");
+    const dv = new DataView(f.payload.buffer, f.payload.byteOffset, f.payload.byteLength);
+    return { status: f.payload[0], written: dv.getUint32(1, false), lastAddr: dv.getUint32(5, false) };
   }
   async ack(cmd, payload, timeoutMs) {
     const f = await this.send(cmd, payload, timeoutMs);
@@ -94,21 +107,64 @@ export class N32OtaSession {
       this.stage("erase", `0x33 擦除 APP ${eraseSize}B（页${N32_PAGE}）`);
       this.mutatingStarted = true;
       await this.ack(N32_CMD.ERASE, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(eraseSize), 0x08, 0x00], 30000);
-      this.stage("write", "0x34 顺序写入（带 ACK）");
+      this.stage("write", "0x34 流式写入（180B/包，窗口ACK）");
+      // 对齐 unified-tool 快速路径：大块 + flag=0 流式（不等待），窗口尾包 flag=1 收 ACK 兜底
       const started = this.now(), total = Math.ceil(size / CHUNK);
+      const WINDOW = 8; // 每窗口包数：窗口尾包带 ACK 确认整窗落盘
       for (let offset = 0, index = 0; offset < size; offset += CHUNK, index++) {
         checkAbort(this.controller.signal);
         const part = image.bytes.slice(offset, Math.min(size, offset + CHUNK));
         const pad = (4 - (part.length % 4)) % 4;
         const data = pad ? Uint8Array.from([...part, ...new Array(pad).fill(0xFF)]) : part;
-        await this.ack(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + offset), ...data]);
+        const isWindowTail = (index + 1) % WINDOW === 0 || offset + part.length >= size;
+        if (isWindowTail) {
+          // 窗口尾包：flag=1 等待 ACK，确认本窗口（含之前流式包）已顺序落盘
+          let f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + offset), ...data], 5000);
+          if (f.payload[0] === 0x03) {
+            // 流式丢包：Boot 地址锁拒绝。查真实进度，断点 ACK 补写后继续（对齐 unified-tool 断点恢复）
+            const st = await this.status();
+            this.log("WARN", `窗口校验失败（流式丢包），Boot 进度 ${st.written}/${size}B，断点补写`);
+            if (st.status !== 0 || st.written % 4 !== 0 || st.written > offset + part.length) throw new Error(`无法断点恢复: 状态${st.status} written=${st.written}`);
+            const from = st.written;
+            for (let ro = from; ro <= offset; ro += CHUNK) {
+              checkAbort(this.controller.signal);
+              const rpart = image.bytes.slice(ro, Math.min(size, ro + CHUNK));
+              const rpad = (4 - (rpart.length % 4)) % 4;
+              const rdata = rpad ? Uint8Array.from([...rpart, ...new Array(rpad).fill(0xFF)]) : rpart;
+              f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + ro), ...rdata], 5000);
+              if (f.payload[0] !== 0) throw new Error(`断点补写 ACK 异常: ${f.payload[0]} @0x${(N32_APP_BASE + ro).toString(16)}`);
+            }
+            this.log("SYS", `断点补写完成，继续流式`);
+          } else if (f.payload[0] !== 0) throw new Error(`窗口尾包 ACK 异常: status=${f.payload[0]}（包${index + 1}/${total} addr=${hex(N32_APP_BASE + offset)}）`);
+        } else {
+          // 流式包：flag=0 静默写入，不等待回包
+          await this.sendOnly(N32_CMD.WRITE, [ ...u32be(N32_APP_BASE + offset), ...data]);
+        }
         const written = offset + part.length;
-        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: "整帧GATT / ACK40" });
-        await this.pause(6, this.controller.signal);
+        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `流式${CHUNK}B / 窗口ACK×${WINDOW}` });
       }
       this.stage("verify", "0x35 CRC32 校验");
-      const vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 30000);
-      if (vf.payload[0] !== 0) throw new Error(`副板校验失败: 状态${vf.payload[0]}（06=CRC不符）`);
+      let vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 30000);
+      if (vf.payload[0] !== 0) {
+        // 流式丢包兜底：查 Boot 真实进度，从断点 ACK 补写后重校验（对齐 unified-tool :5866-5890）
+        this.log("WARN", `校验失败(状态${vf.payload[0]})，查询 Boot 进度尝试断点补写`);
+        const st = await this.status();
+        if (st.status === 0 && st.written % 4 === 0 && st.written < size) {
+          const from = st.written;
+          this.log("SYS", `Boot 已写 ${st.written}/${size}B，从 0x${(N32_APP_BASE + from).toString(16)} ACK 补写剩余部分`);
+          for (let offset = from; offset < size; offset += CHUNK) {
+            checkAbort(this.controller.signal);
+            const part = image.bytes.slice(offset, Math.min(size, offset + CHUNK));
+            const pad = (4 - (part.length % 4)) % 4;
+            const data = pad ? Uint8Array.from([...part, ...new Array(pad).fill(0xFF)]) : part;
+            const f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + offset), ...data], 5000);
+            if (f.payload[0] !== 0) throw new Error(`补写 ACK 异常: ${f.payload[0]} @0x${(N32_APP_BASE + offset).toString(16)}`);
+          }
+          vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 30000);
+          if (vf.payload[0] === 0) this.log("SYS", "断点补写后校验通过");
+        }
+        if (vf.payload[0] !== 0) throw new Error(`副板校验失败: 状态${vf.payload[0]}（06=CRC不符；written=${st.written}）`);
+      }
       const dv = new DataView(vf.payload.buffer, vf.payload.byteOffset, vf.payload.byteLength);
       if (vf.payload.length >= 17) {
         const vAddr = dv.getUint32(1, false), vSize = dv.getUint32(5, false), expected = dv.getUint32(9, false), actual = dv.getUint32(13, false);

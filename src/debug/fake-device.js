@@ -1,7 +1,7 @@
 // 固件仿真器（管理员闭环测试专用，不进正常用户路径）。
 // 严格按源码提取协议仿真：W515 APP/Boot 状态机、GLPX 代理会话、N32 APP/Boot 顺序锁。
 // 帧/状态码/CRC 行为依据 docs/OTA_PROTOCOL_SPEC.md；仿真目的=闭环验证网页全链路，不替代真机。
-import { WireChannel, checkAbort } from "../upgrade/ota-channel.js?v=status-first-1";
+import { WireChannel, checkAbort } from "../upgrade/ota-channel.js?v=fast-path-1";
 import { buildOtaFrame, buildProxyFrame, crc16Modbus, crc32, crc32MetaCompatible } from "../upgrade/ota-protocol.js?v=status-first-1";
 
 const W515 = {
@@ -68,11 +68,15 @@ class VirtualW515 {
         return [W515.ERR.NONE];
       }
       case 0x05: {
-        if (payload.length < 5) return [W515.ERR.LEN];
-        const flag = payload[0], addr = be32(payload, 1), data = payload.slice(5);
-        if (addr !== W515.APP_BASE + this.written || data.length % 4) return [W515.ERR.LEN];
+        // 双形态（SPEC §1.6）：[flag:1][addr:4][data] 带ACK / [addr:4][data] 流式静默
+        if (payload.length < 4) return [W515.ERR.LEN];
+        let flag = 0, addr, data;
+        if (payload.length >= 5 && be32(payload, 1) === W515.APP_BASE + this.written) { flag = payload[0]; addr = be32(payload, 1); data = payload.slice(5); }
+        else if (be32(payload, 0) === W515.APP_BASE + this.written) { addr = be32(payload, 0); data = payload.slice(4); }
+        else return [W515.ERR.LEN]; // 乱序/地址错
+        if (data.length % 4) return [W515.ERR.LEN];
         this.flash.set(data, this.written); this.written += data.length; this.state = 0x12;
-        return flag & 1 ? [W515.ERR.NONE] : null;
+        return flag & 1 ? [W515.ERR.NONE] : null; // 流式(flag=0)静默（WB 双形态）
       }
       case 0x06: {
         if (payload.length < 12) return [W515.ERR.LEN];
@@ -178,14 +182,13 @@ class VirtualN32 {
         return { status: 0 };
       }
       case 0x34: {
-        if (payload.length < 5) return { status: 0x02 };
-        const flag = payload[0], addr = be32(payload, 1), data = payload.slice(5);
+        // 双形态：[flag:1][addr:4][data] 带ACK / [addr:4][data] 流式静默（NB:1238-1305）
+        if (payload.length < 4) return { status: 0x02 };
+        let flag = 0, addr, data;
+        if (payload.length >= 5 && be32(payload, 1) === N32.APP_BASE + this.written) { flag = payload[0]; addr = be32(payload, 1); data = payload.slice(5); }
+        else if (be32(payload, 0) === N32.APP_BASE + this.written) { addr = be32(payload, 0); data = payload.slice(4); }
+        else return { status: 0x03 }; // 乱序地址
         if (data.length % 4) return { status: 0x02 };
-        if (addr !== N32.APP_BASE + this.written) {
-          // 重复写（内容一致）静默；其余乱序 03（NB:1257-1283 近似）
-          return { status: 0x03 };
-        }
-        if (data.some((b, i) => this.flash[this.written + i] !== 0xFF && this.flash[this.written + i] !== b)) return { status: 0x05 };
         this.flash.set(data, this.written); this.written += data.length;
         return { status: flag & 1 ? 0 : null }; // 无 ACK 位成功不回帧（NB:1303-1305）
       }
@@ -201,6 +204,12 @@ class VirtualN32 {
       case 0x37: {
         if (!this.appValid()) return { status: 0x03 };
         this.mode = "APP"; this.written = 0; return { status: 0 };
+      }
+      case 0x39: { // 状态：status@0, written be32@1, lastAddr be32@5（NB 62B 诊断前段）；status由 handleN32 统一前置
+        const b = new Uint8Array(8);
+        b.set(u32be(this.written), 0);
+        b.set(u32be(N32.APP_BASE + Math.max(0, this.written - 4)), 4);
+        return { status: 0, data: b };
       }
       default: return { status: 0x01 };
     }

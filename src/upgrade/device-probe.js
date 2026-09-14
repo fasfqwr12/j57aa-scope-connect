@@ -1,5 +1,5 @@
 import { buildF7Query, buildOtaFrame, buildProxyFrame, OTA_CMD, N32_CMD, PROXY_MODE, PROXY_STATUS, parseBootInfo, parseW515Mode, parseN32Info, validateW515Window } from "./ota-protocol.js?v=status-first-1";
-import { checkAbort } from "./ota-channel.js?v=status-first-1";
+import { checkAbort } from "./ota-channel.js?v=fast-path-1";
 
 export function snapshotIsFresh(snapshot, adapter, now = Date.now()) {
   return !!snapshot && snapshot.deviceId === adapter.device?.id && snapshot.generation === adapter.generation &&

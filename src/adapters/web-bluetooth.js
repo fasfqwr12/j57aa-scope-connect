@@ -1,5 +1,5 @@
 import { buildBallisticQuery, buildSensorQuery, bytesToHex, findFrames, parseBallisticReply, parseMeasurement, parseSensorReply } from "../protocol/scope-protocol.js?v=20260616_closure1";
-import { WireChannel, checkAbort } from "../upgrade/ota-channel.js?v=status-first-1";
+import { WireChannel, checkAbort } from "../upgrade/ota-channel.js?v=fast-path-1";
 
 export class WebBluetoothAdapter {
   constructor(config, log = () => {}) {

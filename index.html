@@ -349,9 +349,9 @@
               <div class="ota-online-list" id="ota-online-list"><span class="ota-online-empty">加载中…</span></div>
             </div>
             <details class="transfer-details" id="ota-transfer-details">
-              <summary>传输与校验参数<span>保守 ACK</span></summary>
+              <summary>传输与校验参数<span>流式窗口核对</span></summary>
               <div class="form-grid small-grid">
-                <label><span>传输档位</span><select id="ota-preset"><option value="safe">保守 ACK · GATT20B / 数据40B</option></select></label>
+                <label><span>传输档位</span><select id="ota-preset"><option value="safe">流式窗口 · GATT20B / 数据180B</option></select></label>
                 <label><span>写入校验</span><input type="text" value="逐包 ACK + CRC + APP 回应确认" disabled></label>
               </div>
             </details>

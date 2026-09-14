@@ -2,10 +2,11 @@
 import { OTA_CMD, buildOtaFrame, parseBootInfo, parseOtaStatus, parseW515Mode, u32be } from "./ota-protocol.js?v=status-first-1";
 import { DeviceProbe, w515Gate } from "./device-probe.js?v=status-first-1";
 import { inspectFirmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
-import { checkAbort, delay } from "./ota-channel.js?v=status-first-1";
+import { checkAbort, delay } from "./ota-channel.js?v=fast-path-1";
 
 // No automatic MTU inference, streaming retries, or unverified fast profiles.
-export const OTA_PRESETS = Object.freeze({ safe: { label: "保守 ACK", gattChunk: 20, chunk: 40, window: 1, delayMs: 6 } });
+// 传输档位对齐 unified-tool 快速路径：BLE 大块流式 + 窗口状态核对（debug_api.py:6820 default_window=6）
+export const OTA_PRESETS = Object.freeze({ safe: { label: "流式窗口核对", gattChunk: 20, chunk: 180, window: 6, delayMs: 4 } });
 export class W515OtaSession {
   constructor(adapter, hooks = {}) {
     this.adapter = adapter; this.hooks = hooks; this.controller = new AbortController();
@@ -18,6 +19,11 @@ export class W515OtaSession {
   async send(cmd, payload = [], timeoutMs = 4000) {
     checkAbort(this.controller.signal);
     return this.adapter.requestWire(buildOtaFrame(cmd, payload), { protocol: "w515", cmd: cmd | 0x80, timeoutMs, signal: this.controller.signal, chunkSize: 20 });
+  }
+  // 流式写：W515 Boot 0x05 payload 首字节 flag=0 时静默写入不回帧；只发不等
+  async sendStream(cmd, payload = []) {
+    checkAbort(this.controller.signal);
+    return this.adapter.requestWire(buildOtaFrame(cmd, payload), { protocol: "w515", cmd: null, timeoutMs: 10, signal: this.controller.signal, chunkSize: 20, noWait: true });
   }
   async ack(cmd, payload, timeoutMs) {
     const f = await this.send(cmd, payload, timeoutMs);
@@ -78,20 +84,24 @@ export class W515OtaSession {
       this.mutatingStarted = true;
       await this.ack(OTA_CMD.ERASE, [...u32be(appStart), ...u32be(eraseSize), 0], 120000);
       if ((await this.status()).written_size !== 0) throw new Error("擦除后写入计数不为0");
-      this.stage("write", "逐包写入并确认 ACK");
+      this.stage("write", "流式写入 + 窗口状态核对");
+      const preset = OTA_PRESETS.safe;
       const started = this.now();
-      const total = Math.ceil(size / 40);
-      for (let offset = 0, index = 0; offset < size; offset += 40, index++) {
+      const total = Math.ceil(size / preset.chunk);
+      const WINDOW = preset.window; // 每 6 包 GET_STATUS 核对 Boot 计数（unified-tool default_window=6）
+      for (let offset = 0, index = 0; offset < size; offset += preset.chunk, index++) {
         checkAbort(this.controller.signal);
-        const data = fw.bytes.slice(offset, Math.min(size, offset + 40));
-        await this.ack(OTA_CMD.WRITE, [1, ...u32be(appStart + offset), ...data]);
+        const data = fw.bytes.slice(offset, Math.min(size, offset + preset.chunk));
+        // flag=0 流式静默写：payload = addr + data（无前导 0x01）
+        await this.sendStream(OTA_CMD.WRITE, [...u32be(appStart + offset), ...data]);
         const written = offset + data.length;
-        if ((index + 1) % 16 === 0 || written === size) {
+        const needStatus = (index + 1) % WINDOW === 0 || written === size;
+        if (needStatus) {
           const s = await this.status();
-          if (s.written_size !== written) throw new Error(`写入计数不一致：设备${s.written_size}，已确认${written}；停止，不盲目续写`);
+          if (s.written_size !== written) throw new Error(`窗口计数不一致：设备${s.written_size}，已发${written}；停止，不盲目续写`);
         }
-        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: "20B / ACK40" });
-        await this.pause(6, this.controller.signal);
+        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `流式${preset.chunk}B / 窗口×${WINDOW}` });
+        await this.pause(preset.delayMs, this.controller.signal);
       }
       this.stage("verify", "核对 CRC 与固件元数据");
       await this.ack(OTA_CMD.VERIFY, [...u32be(appStart), ...u32be(size), ...u32be(fw.meta.appCrc), ...u32be(fw.meta.version)], 30000);

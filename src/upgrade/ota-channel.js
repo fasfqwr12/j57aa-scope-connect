@@ -26,7 +26,7 @@ export class WireChannel {
   disconnect() {
     this.active?.fail(new Error("BLE 已断开，状态快照已失效")); this.decoder.reset();
   }
-  async request(bytes, { protocol, cmd, timeoutMs = 1800, signal, chunkSize = 20 } = {}) {
+  async request(bytes, { protocol, cmd, timeoutMs = 1800, signal, chunkSize = 20, noWait = false } = {}) {
     checkAbort(signal);
     if (this.active || this.pending) throw new Error("协议通道忙，禁止并发请求");
     if (protocol === "proxy" && this.proxyUncertain) throw new Error("GLPX 前次交互未确认，需重连后重新检测；不接受可能迟到的无序号回包");
@@ -51,17 +51,18 @@ export class WireChannel {
     };
     this.active = this.pending = p;
     const cancel = () => p.fail(abortError());
-    const timer = setTimeout(() => p.fail(new Error(`等待 ${protocol} 回复超时`)), timeoutMs);
+    const timer = noWait ? null : setTimeout(() => p.fail(new Error(`等待 ${protocol} 回复超时`)), timeoutMs);
     signal?.addEventListener("abort", cancel, { once: true });
     reply.catch(() => {});
     try {
       await this.write(bytes, { chunkSize, withResponse: true, signal: io.signal });
       if (failure) throw failure;
+      if (noWait) { this.pending = null; this.active = null; return null; } // 流式：已发即确认，不等回包
       return await reply;
     } catch (error) {
       p.fail(error); throw failure;
     } finally {
-      clearTimeout(timer); signal?.removeEventListener("abort", cancel);
+      if (timer) clearTimeout(timer); signal?.removeEventListener("abort", cancel);
       if (this.pending === p) this.pending = null;
       if (this.active === p) this.active = null;
     }
