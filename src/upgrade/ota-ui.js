@@ -1,10 +1,13 @@
 import { W515OtaSession } from "./w515-ota.js?v=status-first-1";
+import { N32OtaSession, n32Gate } from "./n32-ota.js?v=status-first-1";
 import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=status-first-1";
-import { inspectFirmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
+import { inspectFirmware, inspectN32Firmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
 import { firmwareDirectory, firmwareUrl, verifyDownload } from "./firmware-library.js?v=status-first-1";
 
 const STAGES = ["probe", "enterboot", "info", "erase", "write", "verify", "reset", "done"];
 const LABELS = ["检测双板", "进入 Boot", "核对窗口", "擦除", "ACK写入", "CRC校验", "确认 APP", "完成"];
+const N32_STAGES = ["probe", "proxy", "enterboot", "erase", "write", "verify", "enterapp", "done"];
+const N32_LABELS = ["检测双板", "启动代理", "副板进Boot", "擦除", "ACK写入", "CRC校验", "进APP确认", "完成"];
 const MODE = { APP: "APP 运行", BOOT: "Boot 运行", UNKNOWN: "未确认", UNREACHABLE: "通路不可达" };
 const ROUTE = { UNKNOWN: "未确认", INACTIVE: "未占用", BUSY: "已有会话占用", OWNED_NORMAL: "检测会话占用", RELEASED: "已确认释放", CLEANUP_UNCONFIRMED: "释放未确认", NOT_AVAILABLE_IN_BOOT: "当前 Boot 无代理" };
 const $ = s => document.querySelector(s);
@@ -12,6 +15,14 @@ const hex = v => v == null ? "—" : "0x" + (v >>> 0).toString(16).toUpperCase()
 const version = v => v == null ? "—" : `${v >>> 8}.${v & 255}`;
 let ctx, firmware = null, snapshot = null, busy = false, session = null, probeAbort = null, wakeLock = null;
 let onlineSelection = null;
+let target = "w515"; // 升级目标：w515 主控 / n32 副板
+function selectTarget(value) {
+  target = value;
+  $("#ota-target-w515")?.classList.toggle("selected", value === "w515");
+  $("#ota-target-n32")?.classList.toggle("selected", value === "n32");
+  document.querySelector('input[name="ota-target"][value="' + (value === "n32" ? "n32" : "w515") + '"]')?.click();
+  renderGate();
+}
 
 export function initOtaUpgrade(context) {
   ctx = context;
@@ -26,12 +37,19 @@ export function initOtaUpgrade(context) {
     setBusy(true);
     try {
       if (file.size > 6 * 1024 * 1024) throw new Error("文件过大，不是支持的 APP 镜像");
-      firmware = inspectFirmware(new Uint8Array(await file.arrayBuffer()), file.name);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      // 目标自动识别：文件名含 N32 → 副板；否则按 W515 主控严格校验
+      const isN32 = /N32|n32/.test(file.name) || (/_slave|slave_/i.test(file.name));
+      firmware = isN32 ? inspectN32Firmware(bytes, file.name) : inspectFirmware(bytes, file.name);
+      selectTarget(firmware.target === "n32-app" ? "n32" : "w515");
       renderFirmware();
     } catch (error) { firmware = null; renderFirmware(); otaLog("ERR", error.message); }
     finally { setBusy(false); }
   });
   $("#ota-main-only").addEventListener("change", renderGate);
+  document.querySelectorAll('input[name="ota-target"]').forEach(radio => radio.addEventListener("change", () => {
+    if (radio.checked) selectTarget(radio.value);
+  }));
   $("#ota-online-refresh").addEventListener("click", () => { if (!busy) loadOnlineFirmware(); });
   window.addEventListener("beforeunload", event => { if (busy) { event.preventDefault(); event.returnValue = ""; } });
   document.addEventListener("visibilitychange", () => {
@@ -44,6 +62,15 @@ export function initOtaUpgrade(context) {
     renderGate();
   }, 1000);
   renderSnapshot(); renderGate(); loadOnlineFirmware();
+  // 管理员测试 API：升级页内部状态只读快照（配合 window.__ota）
+  if (new URLSearchParams(location.search).get("admin") === "1") {
+    window.__otaOtaState = () => ({
+      target, busy, hasFirmware: !!firmware,
+      firmwareName: firmware?.name || null, firmwareTarget: firmware?.target || null,
+      firmwareBytes: firmware?.bytes?.length || 0,
+      snapshot: snapshot && { mainMode: snapshot.main.mode, slaveMode: snapshot.slave.mode, proxy: snapshot.proxy.state, routeClear: snapshot.routeClear, deviceId: snapshot.deviceId }
+    });
+  }
 }
 function otaLog(type, text) {
   const row = document.createElement("div"); row.className = "log-row"; row.dataset.level = type;
@@ -144,7 +171,11 @@ function renderSnapshot() {
   renderGate();
 }
 function renderFirmware() {
-  $("#ota-file-meta").textContent = firmware ? `${firmware.name} · ${firmware.bytes.length}B · ${firmware.meta.model} · CRC已核对` : "未选择有效固件";
+  $("#ota-file-meta").textContent = firmware
+    ? (firmware.target === "n32-app"
+      ? `${firmware.name} · 副板 N32 APP · ${firmware.bytes.length}B @0x08002000 · CRC32 ${firmware.crc.toString(16).toUpperCase()}`
+      : `${firmware.name} · ${firmware.bytes.length}B · ${firmware.meta.model} · CRC已核对`)
+    : "未选择有效固件";
   $("#ota-main-only").checked = false; renderGate();
   renderOnlineSelection();
 }
@@ -158,25 +189,35 @@ function renderOnlineSelection() {
 function gateReason() {
   const adapter = ctx?.getAdapter();
   if (!snapshot || !adapter || !snapshotIsFresh(snapshot, adapter)) return "第一步：检测主控与副板状态";
+  if (target === "n32") {
+    const gate = n32Gate(snapshot); if (gate) return gate;
+    if (!firmware || firmware.target !== "n32-app") return "第二步：选择 N32 副板固件（.hex，基址 0x08002000）";
+    return null;
+  }
   const gate = w515Gate(snapshot); if (gate) return gate;
-  if (!firmware) return "第二步：选择匹配的 W515 APP 固件";
+  if (!firmware || firmware.target !== "w515-app") return "第二步：选择匹配的 W515 APP 固件";
   try { validateFirmwareForDevice(firmware, snapshot.main.info); } catch (e) { return e.message; }
   if (!["APP", "BOOT"].includes(snapshot.slave.mode) && !$("#ota-main-only").checked) return "副板状态未确认；仅恢复主控须明确勾选";
   return null;
 }
 function renderGate() {
   const reason = gateReason();
+  const n32Mode = target === "n32";
   $("#ota-start").disabled = busy || !!reason;
+  $("#ota-start").textContent = n32Mode ? "确认并升级副板" : "确认并升级主控";
   $("#ota-gate-reason").dataset.state = busy ? "busy" : reason ? "blocked" : "ready";
-  $("#ota-gate-reason").textContent = busy ? "正在操作，蓝牙通道独占中" : reason || "可确认升级；执行前会再次检测双板，仍需真机验证";
+  $("#ota-gate-reason").textContent = busy ? "正在操作，蓝牙通道独占中"
+    : reason || (n32Mode ? "可确认升级副板；执行前会再次检测，仍需真机验证" : "可确认升级；执行前会再次检测双板，仍需真机验证");
 }
 function onStage(stage, label) {
   $("#ota-progress-band").style.display = "";
   $("#ota-stage-label").textContent = label;
-  $("#ota-stage-list").replaceChildren(...STAGES.map((s, i) => {
+  const n32Mode = target === "n32" || ["proxy", "enterapp"].includes(stage);
+  const stages = n32Mode ? N32_STAGES : STAGES, labels = n32Mode ? N32_LABELS : LABELS;
+  $("#ota-stage-list").replaceChildren(...stages.map((s, i) => {
     const el = document.createElement("span");
-    el.className = "ota-stage" + (s === stage ? " active" : i < STAGES.indexOf(stage) ? " done" : "");
-    el.textContent = LABELS[i]; return el;
+    el.className = "ota-stage" + (s === stage ? " active" : i < stages.indexOf(stage) ? " done" : "");
+    el.textContent = labels[i]; return el;
   }));
 }
 function onProgress(p) {
@@ -190,6 +231,18 @@ async function startUpgrade() {
   if (busy) return;
   const reason = gateReason(); if (reason) { otaLog("WARN", reason); return; }
   const image = firmware, adapter = ctx.getAdapter(), deviceId = snapshot.deviceId;
+  if (target === "n32") {
+    if (!(await uiConfirm(`升级 N32 副板 APP：${image.name}\n经主控代理擦除并写入 0x08002000 的副板 APP 区（${image.bytes.length}B，CRC32 ${image.crc.toString(16).toUpperCase()}）。\n主控 W515 不会被刷写；N32 Boot 不受影响（失败可重试）。\n此路径尚未真机验证。确认执行？`))) return;
+    setBusy(true);
+    try {
+      await keepAwake();
+      session = new N32OtaSession(adapter, { onLog: otaLog, onStage, onProgress, onSnapshot: value => { snapshot = value; renderSnapshot(); } });
+      const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId });
+      otaLog("SYS", result.success ? `副板升级完成：${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}；建议重新检测确认` : "未完成");
+    } catch (error) { onStage("error", "已停止 / 未完成"); otaLog("ERR", error.message); }
+    finally { session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }
+    return;
+  }
   const mainOnly = $("#ota-main-only").checked;
   if (!(await uiConfirm(`仅升级 W515 APP：${image.name}\n将擦除并写入 ${hex(snapshot.main.info.app_start)} 的 APP 区。N32 不会被刷写。\n此浏览器实现尚未真机验证，请保持稳定供电、亮屏和前台；失败可能需要 Boot 恢复。确认执行？`))) return;
   setBusy(true);
@@ -207,17 +260,17 @@ async function loadOnlineFirmware() {
     const response = await fetch(new URL("versions.json", firmwareDirectory()), { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    const files = (Array.isArray(data.files) ? data.files : []).filter(f => f.target === "w515-app");
+    const files = (Array.isArray(data.files) ? data.files : []).filter(f => ["w515-app", "n32-app"].includes(f.target));
     files.sort((a, b) => Number(!!b.recommended) - Number(!!a.recommended) || String(b.date).localeCompare(String(a.date)));
     list.replaceChildren();
-    if (!files.length) { list.textContent = "未发布 W515 APP 固件"; return; }
+    if (!files.length) { list.textContent = "未发布固件"; return; }
     for (const entry of files) {
       const item = document.createElement("button"); item.type = "button"; item.className = "ota-online-item"; item.disabled = busy;
       item.dataset.fileName = entry.name;
       item.setAttribute("aria-pressed", "false");
-      const icon = document.createElement("span"); icon.className = "fw-icon"; icon.textContent = "APP"; icon.setAttribute("aria-hidden", "true");
+      const icon = document.createElement("span"); icon.className = "fw-icon"; icon.textContent = entry.target === "n32-app" ? "N32" : "APP"; icon.setAttribute("aria-hidden", "true");
       const copy = document.createElement("span"); copy.className = "fw-copy";
-      const name = document.createElement("strong"); name.textContent = entry.name;
+      const name = document.createElement("strong"); name.textContent = `${entry.target === "n32-app" ? "副板 " : "主控 "}${entry.name}`;
       const notes = document.createElement("small"); notes.textContent = `${entry.size}B · ${entry.notes || "待验证版本"}`;
       copy.append(name, notes);
       const action = document.createElement("span"); action.className = "fw-action"; action.textContent = "选择";
@@ -230,9 +283,11 @@ async function loadOnlineFirmware() {
           const response = await fetch(firmwareUrl(entry), { cache: "no-store" });
           if (!response.ok) throw new Error(`下载失败 HTTP ${response.status}`);
           const bytes = new Uint8Array(await response.arrayBuffer()); await verifyDownload(bytes, entry);
-          const image = inspectFirmware(bytes, entry.name, entry.target);
-          if (entry.metaCrc32 && image.meta.appCrc !== parseInt(entry.metaCrc32, 16)) throw new Error("元数据 CRC 与清单不符");
-          firmware = image; onlineSelection = entry.name; renderFirmware(); otaLog("SYS", "在线固件长度、SHA-256 和元数据 CRC 已核对（不代表真机验收）");
+          const image = entry.target === "n32-app" ? inspectN32Firmware(bytes, entry.name) : inspectFirmware(bytes, entry.name, entry.target);
+          if (entry.metaCrc32 && image.meta && image.meta.appCrc !== parseInt(entry.metaCrc32, 16)) throw new Error("元数据 CRC 与清单不符");
+          firmware = image; onlineSelection = entry.name;
+          selectTarget(entry.target === "n32-app" ? "n32" : "w515");
+          renderFirmware(); otaLog("SYS", "在线固件长度与 SHA-256 已核对（不代表真机验收）");
         } catch (error) { firmware = null; renderFirmware(); otaLog("ERR", error.message); }
         finally { setBusy(false); }
       });

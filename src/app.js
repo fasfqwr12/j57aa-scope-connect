@@ -4,6 +4,7 @@ import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, sol
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
 import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-05";
 import { initAdminLog } from "./ui/admin-log.js?v=admin-log-1";
+import { initTestApi } from "./debug/test-api.js?v=admin-log-2";
 import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=inpage-confirm-1";
 
 const steps = [
@@ -61,6 +62,13 @@ function init() {
   renderZoneToggles();
   mobileScreens = initMobileScreens();
   adminTap = initAdminLog();
+  initTestApi({
+    getAdapter: () => adapter,
+    setAdapter: value => { adapter = value; },
+    setStatus: (kind, label) => setConnectionState(kind, label),
+    getTap: () => adminTap,
+    getOtaState: () => window.__otaOtaState?.()
+  });
   bindForms();
   bindActions();
   buildReticle();

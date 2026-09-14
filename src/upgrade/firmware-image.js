@@ -1,7 +1,8 @@
-import { readFirmwareMeta, crc32MetaCompatible, W515_LAYOUT, validateW515Window } from "./ota-protocol.js?v=status-first-1";
+import { readFirmwareMeta, crc32MetaCompatible, crc32, W515_LAYOUT, validateW515Window } from "./ota-protocol.js?v=status-first-1";
+import { N32_LAYOUT } from "./n32-ota.js?v=status-first-1";
 
 // Intel HEX addresses are preserved and validated, never flashed as ASCII text.
-export function parseIntelHex(text) {
+export function parseIntelHex(text, { min = W515_LAYOUT.appMin, max = W515_LAYOUT.flashEnd } = {}) {
   let upper = 0, ended = false, startAddress = null;
   const segments = [];
   for (const raw of text.replace(/^\uFEFF/, "").split(/\r?\n/)) {
@@ -20,7 +21,7 @@ export function parseIntelHex(text) {
   if (!ended || !segments.length) throw new Error("HEX 缺失数据或 EOF");
   segments.sort((a, b) => a.address - b.address);
   const base = segments[0].address, end = Math.max(...segments.map(s => s.address + s.bytes.length));
-  if (base < W515_LAYOUT.appMin || end > W515_LAYOUT.flashEnd || end <= base) throw new Error("HEX 含 Boot/副板/越界地址，禁止当 W515 APP 升级");
+  if (base < min || end > max || end <= base) throw new Error(`HEX 地址越界（允许 ${"0x" + min.toString(16)}~${"0x" + max.toString(16)}），禁止误刷其它区域`);
   const data = new Uint8Array(end - base); data.fill(255);
   let last = base;
   for (const s of segments) { if (s.address < last) throw new Error("HEX 地址重叠"); data.set(s.bytes, s.address - base); last = s.address + s.bytes.length; }
@@ -52,4 +53,20 @@ export function validateFirmwareForDevice(firmware, info) {
   const eraseSize = Math.ceil(size / W515_LAYOUT.page) * W515_LAYOUT.page;
   if (eraseSize > info.app_max_size) throw new Error("固件或擦除区超过 APP 窗口");
   return { appStart: start, size, eraseSize };
+}
+// N32 副板 APP 镜像：Intel HEX，基址必须 0x08002000，无 FIRM 元数据，CRC32 现算。
+// 向量合理性：SP 落在 N32G430 RAM（0x20000000~0x20008000），复位向量落在 APP 窗口。
+export function inspectN32Firmware(value, name) {
+  if (!/\.hex$/i.test(name)) throw new Error("N32 镜像仅接受 Intel HEX（bin 无基址无法校验）");
+  const raw = Uint8Array.from(value);
+  if (!raw.length || raw.length > 1024 * 1024) throw new Error("固件文件为空或过大");
+  const parsed = parseIntelHex(new TextDecoder().decode(raw), { min: N32_LAYOUT.appBase, max: N32_LAYOUT.appEnd + 1 });
+  if (parsed.base !== N32_LAYOUT.appBase) throw new Error(`N32 HEX 基址须为 0x08002000，实际 ${"0x" + parsed.base.toString(16).toUpperCase()}`);
+  const size = parsed.bytes.length;
+  if (size < 0x40 || parsed.base + size - 1 > N32_LAYOUT.appEnd) throw new Error("N32 镜像长度为 0 或超出 APP 窗口（0x08002000~0x0800F7FF）");
+  const dv = new DataView(parsed.bytes.buffer, parsed.bytes.byteOffset, parsed.bytes.byteLength);
+  const sp = dv.getUint32(0, true), reset = dv.getUint32(4, true);
+  if (sp <= 0x20000000 || sp > 0x20008000 || sp % 4) throw new Error("N32 向量表 SP 非法（不在 RAM 范围）");
+  if (!(reset & 1) || reset - 1 < N32_LAYOUT.appBase || reset - 1 > N32_LAYOUT.appEnd) throw new Error("N32 复位向量不在 APP 窗口");
+  return { ...parsed, name, target: "n32-app", crc: crc32(parsed.bytes), sp, reset, size };
 }

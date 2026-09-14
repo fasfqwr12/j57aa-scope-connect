@@ -13,6 +13,17 @@
       "metaCrc32": "E4503DFD",
       "notes": "现有 Keil 产物 · 校验可核对 · 浏览器OTA尚未真机验收",
       "recommended": false
+    },
+    {
+      "name": "N32-APP-v01p2-20260728.hex",
+      "target": "n32-app",
+      "version": "0.1.2",
+      "date": "2026-07-28",
+      "size": 97460,
+      "sha256": "c9dc003f9a32af06388479a2a6864467a02985a1796fb00c47236e6bd9f0706c",
+      "fileCrc32": "ECCD603E",
+      "notes": "副板 N32G430 APP · 数据34632B@0x08002000 · 代理通道升级路径未真机验收",
+      "recommended": false
     }
   ]
 }
