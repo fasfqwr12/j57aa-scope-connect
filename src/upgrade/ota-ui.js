@@ -88,9 +88,37 @@ async function releaseAwake() {
   catch { otaLog("WARN", "亮屏锁已失效，请保持页面前台"); }
   finally { wakeLock = null; }
 }
+// 页内确认（替代 window.confirm）：不受自动化浏览器自动关闭弹窗影响，也不阻塞页面
+function uiConfirm(message) {
+  return new Promise(resolve => {
+    const prev = document.querySelector("#ota-confirm-overlay");
+    if (prev) { prev.remove(); resolve(false); return; }
+    const box = document.createElement("div");
+    box.id = "ota-confirm-overlay";
+    Object.assign(box.style, { position: "fixed", inset: "0", zIndex: "9500", background: "rgba(10,12,8,.45)", display: "flex", alignItems: "center", justifyContent: "center" });
+    const card = document.createElement("div");
+    Object.assign(card.style, { background: "#fbfbf7", color: "#33362a", borderRadius: "10px", padding: "18px 20px", maxWidth: "min(480px, 90vw)", boxShadow: "0 12px 40px rgba(0,0,0,.35)", fontFamily: "inherit" });
+    const p = document.createElement("p");
+    p.textContent = message;
+    Object.assign(p.style, { fontSize: "13px", lineHeight: "1.6", whiteSpace: "pre-line", margin: "0 0 14px" });
+    const actions = document.createElement("div");
+    Object.assign(actions.style, { display: "flex", gap: "10px", justifyContent: "flex-end" });
+    for (const [label, val, primary] of [["确定", true, true], ["取消", false, false]]) {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = label; b.dataset.r = val ? "1" : "0";
+      Object.assign(b.style, { border: primary ? "none" : "1px solid #9aa084", background: primary ? "#4a5240" : "transparent", color: primary ? "#f4f6e8" : "#4a5240", borderRadius: "8px", padding: "7px 18px", fontSize: "13px", cursor: "pointer" });
+      actions.appendChild(b);
+    }
+    actions.addEventListener("click", ev => {
+      const b = ev.target.closest("button[data-r]"); if (!b) return;
+      box.remove(); resolve(b.dataset.r === "1");
+    });
+    card.append(p, actions); box.appendChild(card); document.body.appendChild(box);
+  });
+}
 async function detect() {
   if (busy) return;
-  if (!window.confirm("检测会暂时占用测距 UART，不发送进 Boot 或擦写命令。若副板已在 Boot 启动窗口，查询会使其停留在 Boot。请停止测距并保持页面前台。继续检测？")) return;
+  if (!(await uiConfirm("检测会暂时占用测距 UART，不发送进 Boot 或擦写命令。\n若副板已在 Boot 启动窗口，查询会使其停留在 Boot。\n请停止测距并保持页面前台。继续检测？"))) return;
   snapshot = null; $("#ota-main-only").checked = false; renderSnapshot();
   setBusy(true); probeAbort = new AbortController();
   try {
@@ -163,7 +191,7 @@ async function startUpgrade() {
   const reason = gateReason(); if (reason) { otaLog("WARN", reason); return; }
   const image = firmware, adapter = ctx.getAdapter(), deviceId = snapshot.deviceId;
   const mainOnly = $("#ota-main-only").checked;
-  if (!window.confirm(`仅升级 W515 APP：${image.name}\n将擦除并写入 ${hex(snapshot.main.info.app_start)} 的 APP 区。N32 不会被刷写。\n此浏览器实现尚未真机验证，请保持稳定供电、亮屏和前台；失败可能需要 Boot 恢复。确认执行？`)) return;
+  if (!(await uiConfirm(`仅升级 W515 APP：${image.name}\n将擦除并写入 ${hex(snapshot.main.info.app_start)} 的 APP 区。N32 不会被刷写。\n此浏览器实现尚未真机验证，请保持稳定供电、亮屏和前台；失败可能需要 Boot 恢复。确认执行？`))) return;
   setBusy(true);
   try {
     await keepAwake();

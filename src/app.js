@@ -4,7 +4,7 @@ import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, sol
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
 import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-05";
 import { initAdminLog } from "./ui/admin-log.js?v=admin-log-1";
-import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=quiet-olive-03";
+import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=inpage-confirm-1";
 
 const steps = [
   { id: "device", label: "设备", title: "设备连接", kicker: "DEVICE" },
