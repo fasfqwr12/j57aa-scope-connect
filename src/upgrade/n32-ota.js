@@ -27,7 +27,7 @@ export class N32OtaSession {
     this.adapter = adapter; this.hooks = hooks; this.controller = new AbortController();
     this.pause = hooks.delay || delay; this.now = hooks.now || (() => Date.now());
     this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) || 1);
-    this.mutatingStarted = false; this.proxyActive = false;
+    this.mutatingStarted = false; this.proxyActive = false; this.rawActive = false;
   }
   abort() { this.controller.abort(); }
   log(type, text) { this.hooks.onLog?.(type, text); }
@@ -56,9 +56,9 @@ export class N32OtaSession {
     if (f.payload.length < 1 || f.payload[0] !== 0) throw new Error(`N32 0x${cmd.toString(16)} 应答异常：${Array.from(f.payload.slice(0, 4)).join(",")}`);
     return f;
   }
-  async proxy(mode, timeoutMs = 1800) {
+  async proxy(mode, timeoutMs = 1800, opts = {}) {
     checkAbort(this.controller.signal);
-    const frame = buildProxyFrame(mode, { session: this.sessionId, baud: 115200, idleMs: 5000, totalMs: 0, flags: 0 });
+    const frame = buildProxyFrame(mode, { session: this.sessionId, baud: 115200, idleMs: opts.idleMs ?? 5000, totalMs: opts.totalMs ?? 0, flags: opts.flags ?? 0 });
     const f = await this.adapter.requestWire(frame, { protocol: "proxy", cmd: null, timeoutMs, signal: this.controller.signal, chunkSize: frame.length });
     return f.payload[4];
   }
@@ -89,8 +89,8 @@ export class N32OtaSession {
       const gate = n32Gate(snapshot);
       if (gate) throw new Error(gate);
       if (expectedDeviceId && snapshot.deviceId !== expectedDeviceId) throw new Error("设备已更换，请重新检测并确认");
-      // 代理启动：总超时 0=不限（升级耗时不可预估；页大小擦除+顺序写需分钟级）
-      this.stage("proxy", "启动 GLPX 代理（NORMAL）");
+      // NORMAL 代理仅用于探测/进 Boot（小帧）；擦写走 RAW 透传（对齐 unified-tool：NORMAL 逐帧解析扛不住大包流式）
+      this.stage("proxy", "启动 GLPX 代理（NORMAL·探测）");
       const st = await this.proxy(PROXY_MODE.START);
       if (st !== PROXY_STATUS.OK) throw new Error(`代理启动被拒绝: ${st}`);
       this.proxyActive = true;
@@ -104,47 +104,63 @@ export class N32OtaSession {
         slave = await this.waitSlaveMode("BOOT");
       }
       if (slave.appValid) this.log("SYS", `副板 Boot 上报 APP 有效（升级将覆盖）`);
+      // 切 RAW 透传：STOP NORMAL → START flags=02（idle=2000 对齐 PC；写包间隔须<2s）
+      const stopSt = await this.proxy(PROXY_MODE.STOP);
+      this.proxyActive = false;
+      this.stage("proxy", `启动 GLPX RAW 透传（NORMAL STOP=${stopSt}）`);
+      this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 1);
+      const rawSt = await this.proxy(PROXY_MODE.START, 1800, { flags: 2, idleMs: 2000, totalMs: 300000 });
+      if (rawSt !== PROXY_STATUS.OK) throw new Error(`RAW 代理启动被拒绝: ${rawSt}`);
+      this.rawActive = true;
       this.stage("erase", `0x33 擦除 APP ${eraseSize}B（页${N32_PAGE}）`);
       this.mutatingStarted = true;
       await this.ack(N32_CMD.ERASE, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(eraseSize), 0x08, 0x00], 30000);
-      this.stage("write", "0x34 流式写入（180B/包，窗口ACK）");
-      // 对齐 unified-tool 快速路径：大块 + flag=0 流式（不等待），窗口尾包 flag=1 收 ACK 兜底
+      this.stage("write", `0x34 RAW 流式写入（${CHUNK}B/包）`);
+      // 对齐 unified-tool 快速路径：大块流式（flag=0 不等回包）+ 3ms 节奏 + 每 8 包 0x39 核对 Boot 计数
       const started = this.now(), total = Math.ceil(size / CHUNK);
-      const WINDOW = 8; // 每窗口包数：窗口尾包带 ACK 确认整窗落盘
+      const WINDOW = 8, GAP_MS = 3;
       for (let offset = 0, index = 0; offset < size; offset += CHUNK, index++) {
         checkAbort(this.controller.signal);
         const part = image.bytes.slice(offset, Math.min(size, offset + CHUNK));
         const pad = (4 - (part.length % 4)) % 4;
         const data = pad ? Uint8Array.from([...part, ...new Array(pad).fill(0xFF)]) : part;
-        const isWindowTail = (index + 1) % WINDOW === 0 || offset + part.length >= size;
-        if (isWindowTail) {
-          // 窗口尾包：flag=1 等待 ACK，确认本窗口（含之前流式包）已顺序落盘
-          let f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + offset), ...data], 5000);
-          if (f.payload[0] === 0x03) {
-            // 流式丢包：Boot 地址锁拒绝。查真实进度，断点 ACK 补写后继续（对齐 unified-tool 断点恢复）
-            const st = await this.status();
-            this.log("WARN", `窗口校验失败（流式丢包），Boot 进度 ${st.written}/${size}B，断点补写`);
-            if (st.status !== 0 || st.written % 4 !== 0 || st.written > offset + part.length) throw new Error(`无法断点恢复: 状态${st.status} written=${st.written}`);
-            const from = st.written;
-            for (let ro = from; ro <= offset; ro += CHUNK) {
+        // 流式包：flag=0 静默写入（无前导 0x01），整帧单次 GATT 写
+        await this.sendOnly(N32_CMD.WRITE, [...u32be(N32_APP_BASE + offset), ...data]);
+        const written = offset + part.length;
+        const atWindowEnd = (index + 1) % WINDOW === 0 || written === size;
+        if (atWindowEnd) {
+          // 窗口核对：0x39 立即回包（Boot 只读计数器，不等 flash），确认流式包已顺序落盘
+          const st = await this.status();
+          if (st.written !== written) {
+            this.log("WARN", `窗口计数不一致（流式丢包）：Boot ${st.written}B / 已发 ${written}B，断点 ACK 补写`);
+            if (st.status !== 0 || st.written % 4 !== 0 || st.written > written) throw new Error(`无法断点恢复: 状态${st.status} written=${st.written}`);
+            for (let ro = st.written; ro <= offset; ro += CHUNK) {
               checkAbort(this.controller.signal);
               const rpart = image.bytes.slice(ro, Math.min(size, ro + CHUNK));
               const rpad = (4 - (rpart.length % 4)) % 4;
               const rdata = rpad ? Uint8Array.from([...rpart, ...new Array(rpad).fill(0xFF)]) : rpart;
-              f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + ro), ...rdata], 5000);
+              const f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + ro), ...rdata], 5000);
               if (f.payload[0] !== 0) throw new Error(`断点补写 ACK 异常: ${f.payload[0]} @0x${(N32_APP_BASE + ro).toString(16)}`);
             }
             this.log("SYS", `断点补写完成，继续流式`);
-          } else if (f.payload[0] !== 0) throw new Error(`窗口尾包 ACK 异常: status=${f.payload[0]}（包${index + 1}/${total} addr=${hex(N32_APP_BASE + offset)}）`);
-        } else {
-          // 流式包：flag=0 静默写入，不等待回包
-          await this.sendOnly(N32_CMD.WRITE, [ ...u32be(N32_APP_BASE + offset), ...data]);
+          }
         }
-        const written = offset + part.length;
-        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `流式${CHUNK}B / 窗口ACK×${WINDOW}` });
+        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `RAW流式${CHUNK}B / 0x39核对×${WINDOW}` });
+        await this.pause(GAP_MS, this.controller.signal);
       }
       this.stage("verify", "0x35 CRC32 校验");
-      let vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 30000);
+      let vf;
+      try {
+        vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 8000);
+      } catch (e) {
+        // RAW idle=2s：校验计算期间无流量，代理可能已自动退出 → 重开 RAW 再查
+        this.log("WARN", `校验等待超时（${e.message}）；等 RAW 空闲恢复后重开代理重试`);
+        await this.pause(2400, this.controller.signal);
+        this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 2);
+        const re = await this.proxy(PROXY_MODE.START, 1800, { flags: 2, idleMs: 2000, totalMs: 300000 });
+        if (re !== PROXY_STATUS.OK) throw new Error(`重开 RAW 代理失败: ${re}`);
+        vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 8000);
+      }
       if (vf.payload[0] !== 0) {
         // 流式丢包兜底：查 Boot 真实进度，从断点 ACK 补写后重校验（对齐 unified-tool :5866-5890）
         this.log("WARN", `校验失败(状态${vf.payload[0]})，查询 Boot 进度尝试断点补写`);
@@ -172,6 +188,14 @@ export class N32OtaSession {
       } else this.log("WARN", "0x35 应答短于17B，仅确认状态码");
       this.stage("enterapp", "0x37 命令副板进入 APP");
       await this.ack(N32_CMD.ENTER_APP, [], 3000);
+      // RAW 已无后续流量：等 idle 自动恢复 → 重开 NORMAL 代理确认副板 APP（对齐 PC 升级后流程）
+      this.rawActive = false;
+      this.log("SYS", "等待主控 RAW 空闲自动恢复（约 2.4s）…");
+      await this.pause(2400, this.controller.signal);
+      this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 3);
+      const reSt = await this.proxy(PROXY_MODE.START);
+      if (reSt !== PROXY_STATUS.OK) throw new Error(`确认阶段重开代理失败: ${reSt}`);
+      this.proxyActive = true;
       await this.waitSlaveMode("APP");
       this.stage("done", "副板 APP 已确认");
       return { success: true, slaveConfirmed: true, verify: { size, crc } };
@@ -179,7 +203,11 @@ export class N32OtaSession {
       this.log("WARN", this.mutatingStarted ? "操作已停止；N32 Boot 不受影响，可重新检测后再试完整升级。" : "前置检查未通过，未擦写副板。");
       throw error;
     } finally {
-      if (this.proxyActive && this.adapter.isGattConnected()) {
+      if (this.rawActive) {
+        // RAW 透传下 GLPX STOP 会被透传给 N32 成垃圾帧：不发，靠 idle(2s) 自动恢复正常协议
+        this.rawActive = false;
+        this.log("SYS", "RAW 代理已交还：主控将在约 2 秒空闲后自动恢复正常协议；期间请勿操作");
+      } else if (this.proxyActive && this.adapter.isGattConnected()) {
         try {
           const stop = await this.proxy(PROXY_MODE.STOP);
           const after = await this.proxy(PROXY_MODE.STATUS);

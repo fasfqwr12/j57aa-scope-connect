@@ -273,7 +273,17 @@ export class FakeAdapter {
     }
   }
   dispatch(bytes) {
+    // RAW 空闲自动恢复：超过 idle 无字节则主控退出代理（PX 语义）
+    if (this.proxy.active && this.proxy.raw && Date.now() - (this.proxy.lastTraffic || 0) > (this.proxy.idleMs || 2000)) {
+      this.proxy = { active: false, session: 0 };
+    }
+    if (this.proxy.active) this.proxy.lastTraffic = Date.now();
     const out = [];
+    // RAW 透传：所有字节（含 GLPX 控制帧）直接转发 N32，主控不解析（PX:1203-1205）
+    if (this.proxy.active && this.proxy.raw) {
+      if (bytes[0] === 0xAA && bytes[1] >= 0x31 && bytes[1] <= 0x39) { out.push(this.handleN32(bytes)); return out; }
+      return out; // RAW 下 GLPX/其他帧透传给 N32 当垃圾丢弃（无回应）
+    }
     if (bytes.length >= 10 && bytes[0] === 0xAA && bytes[1] === 0xEE && bytes[2] === 0xF7) {
       if (bytes[7] === 0xF7 || bytes[7] === 0x00) out.push(this.w515.f7Response());
       return out;
@@ -314,7 +324,13 @@ export class FakeAdapter {
     if (mode === 1) { // START：固件要求整帧≥27B（payload≥21）；payload=22 时含 flags
       if (len < 21) status = PROXY_ST.BAD;
       else if (this.proxy.active) status = PROXY_ST.BUSY;
-      else { this.proxy = { active: true, session, flags: len >= 22 ? p[21] : 0 }; status = PROXY_ST.OK; }
+      else {
+        const flags = len >= 22 ? p[21] : 0;
+        if (flags & 2) { // RAW 透传：记 idle 供自动恢复语义
+          this.proxy = { active: true, session, flags, raw: true, idleMs: be32(p, 13), lastTraffic: Date.now() };
+        } else this.proxy = { active: true, session, flags };
+        status = PROXY_ST.OK;
+      }
     } else if (mode === 2 || mode === 4) { // STOP / KEEPALIVE
       if (!this.proxy.active) status = PROXY_ST.INACT;
       else if (session !== 0 && session !== this.proxy.session) status = PROXY_ST.SESS;
