@@ -351,8 +351,18 @@
             <details class="transfer-details" id="ota-transfer-details">
               <summary>传输与校验参数<span>流式窗口核对</span></summary>
               <div class="form-grid small-grid">
-                <label><span>传输档位</span><select id="ota-preset"><option value="safe">流式窗口 · GATT20B / 数据180B</option></select></label>
-                <label><span>写入校验</span><input type="text" value="逐包 ACK + CRC + APP 回应确认" disabled></label>
+                <label><span>传输档位</span><select id="ota-preset">
+                  <option value="steady">稳 · 180B / 间隔25ms（默认）</option>
+                  <option value="fast">快 · 180B / 间隔4ms（真机验证后用）</option>
+                  <option value="custom">自定义</option>
+                </select></label>
+                <label><span>写入校验</span><input type="text" value="窗口核对 + CRC + APP 回应确认" disabled></label>
+              </div>
+              <div class="form-grid small-grid" id="ota-tuning-custom" style="display:none">
+                <label><span>数据块(40-224B)</span><input type="number" id="ota-tuning-chunk" min="40" max="224" step="4" value="180"></label>
+                <label><span>窗口(1-64包)</span><input type="number" id="ota-tuning-window" min="1" max="64" step="1" value="16"></label>
+                <label><span>包间隔(0-200ms)</span><input type="number" id="ota-tuning-gap" min="0" max="200" step="1" value="25"></label>
+                <label><span>GATT分片(20-244B)</span><input type="number" id="ota-tuning-gatt" min="20" max="244" step="1" value="244"></label>
               </div>
             </details>
             <label class="ota-check" id="ota-main-only-row" hidden><input type="checkbox" id="ota-main-only">副板状态未确认；我已查看原因，仅恢复 W515 主控 APP</label>
@@ -516,6 +526,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/app.js?v=raw-path-2"></script>
+  <script type="module" src="./src/app.js?v=tuning-1"></script>
 </body>
 </html>

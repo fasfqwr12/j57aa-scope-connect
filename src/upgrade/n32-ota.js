@@ -12,6 +12,7 @@ const N32_PAGE = 2048;                    // NB 页大小
 const N32_MAGIC_BOOT = [0x4E, 0x33, 0x32, 0x42]; // "N32B"
 const N32_MAGIC_APP = [0x4E, 0x33, 0x32, 0x41];  // "N32A"
 const CHUNK = 180;                        // 帧 192B < 244 GATT 单帧上限；对齐 unified-tool 224B 上限留余量
+const DEFAULT_TUNING = Object.freeze({ chunk: CHUNK, window: 16, gapMs: 25 });
 
 export const N32_LAYOUT = Object.freeze({ appBase: N32_APP_BASE, appEnd: N32_APP_END, page: N32_PAGE });
 
@@ -75,9 +76,13 @@ export class N32OtaSession {
     }
     throw new Error(`副板未确认进入 ${expected}；停止，不盲目擦写`);
   }
-  async run(image, { confirmed = false, expectedDeviceId } = {}) {
+  async run(image, { confirmed = false, expectedDeviceId, tuning } = {}) {
     if (!confirmed) throw new Error("需要明确确认后才允许升级副板");
     if (image.target !== "n32-app" || image.base !== N32_APP_BASE) throw new Error("镜像不是 N32 APP（基址须 0x08002000）");
+    const t = { ...DEFAULT_TUNING, ...(tuning || {}) };
+    if (!(t.chunk >= 40 && t.chunk <= 224 && t.chunk % 4 === 0)) throw new Error(`N32 数据块须为 40-224 且 4 对齐（当前 ${t.chunk}）`);
+    if (!(t.window >= 1 && t.window <= 64)) throw new Error(`N32 窗口须为 1-64（当前 ${t.window}）`);
+    if (!(t.gapMs >= 0 && t.gapMs <= 200)) throw new Error(`N32 包间隔须为 0-200ms（当前 ${t.gapMs}）`);
     const size = image.bytes.length, eraseSize = Math.ceil(size / N32_PAGE) * N32_PAGE;
     if (eraseSize > N32_APP_END - N32_APP_BASE + 1) throw new Error("固件或擦除区超过 N32 APP 窗口");
     const crc = crc32(image.bytes);
@@ -115,31 +120,30 @@ export class N32OtaSession {
       this.stage("erase", `0x33 擦除 APP ${eraseSize}B（页${N32_PAGE}）`);
       this.mutatingStarted = true;
       await this.ack(N32_CMD.ERASE, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(eraseSize), 0x08, 0x00], 30000);
-      this.stage("write", `0x34 RAW 流式写入（${CHUNK}B/包）`);
+      this.stage("write", `0x34 RAW 流式写入（${t.chunk}B/包）`);
       // 对齐 unified-tool 快速路径，但受主控 APP 限制降速：
       // APP_BLE_RX_DISPATCH_IN_MAIN=1（product_config.h:121）——BLE 字节先进 768B proxy_frame_buf，
-      // 主循环快照后逐字节阻塞转发 UART1（193B×87µs≈17ms/包），溢出即静默丢（gd32w51x_it.c:507）。
-      // 故包间隔须 ≥ 主循环排空时间（转发+其它事务≈35ms），否则 buffer 积压→丢包→BLE 链路断。
-      const started = this.now(), total = Math.ceil(size / CHUNK);
-      const WINDOW = 16, GAP_MS = 25;
-      for (let offset = 0, index = 0; offset < size; offset += CHUNK, index++) {
+      // 主循环快照后逐字节阻塞转发 UART1（帧×87µs），溢出即静默丢（gd32w51x_it.c:507）。
+      // 故包间隔须 ≥ 主循环排空时间，否则 buffer 积压→丢包→BLE 链路断。
+      const started = this.now(), total = Math.ceil(size / t.chunk);
+      for (let offset = 0, index = 0; offset < size; offset += t.chunk, index++) {
         checkAbort(this.controller.signal);
-        const part = image.bytes.slice(offset, Math.min(size, offset + CHUNK));
+        const part = image.bytes.slice(offset, Math.min(size, offset + t.chunk));
         const pad = (4 - (part.length % 4)) % 4;
         const data = pad ? Uint8Array.from([...part, ...new Array(pad).fill(0xFF)]) : part;
         // 流式包：flag=0 静默写入（无前导 0x01），整帧单次 GATT 写
         await this.sendOnly(N32_CMD.WRITE, [...u32be(N32_APP_BASE + offset), ...data]);
         const written = offset + part.length;
-        const atWindowEnd = (index + 1) % WINDOW === 0 || written === size;
+        const atWindowEnd = (index + 1) % t.window === 0 || written === size;
         if (atWindowEnd) {
           // 窗口核对：0x39 立即回包（Boot 只读计数器，不等 flash），确认流式包已顺序落盘
           const st = await this.status();
           if (st.written !== written) {
             this.log("WARN", `窗口计数不一致（流式丢包）：Boot ${st.written}B / 已发 ${written}B，断点 ACK 补写`);
             if (st.status !== 0 || st.written % 4 !== 0 || st.written > written) throw new Error(`无法断点恢复: 状态${st.status} written=${st.written}`);
-            for (let ro = st.written; ro <= offset; ro += CHUNK) {
+            for (let ro = st.written; ro <= offset; ro += t.chunk) {
               checkAbort(this.controller.signal);
-              const rpart = image.bytes.slice(ro, Math.min(size, ro + CHUNK));
+              const rpart = image.bytes.slice(ro, Math.min(size, ro + t.chunk));
               const rpad = (4 - (rpart.length % 4)) % 4;
               const rdata = rpad ? Uint8Array.from([...rpart, ...new Array(rpad).fill(0xFF)]) : rpart;
               const f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + ro), ...rdata], 5000);
@@ -148,8 +152,8 @@ export class N32OtaSession {
             this.log("SYS", `断点补写完成，继续流式`);
           }
         }
-        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `RAW流式${CHUNK}B / 0x39核对×${WINDOW}` });
-        await this.pause(GAP_MS, this.controller.signal);
+        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `RAW流式${t.chunk}B / 0x39核对×${t.window}` });
+        await this.pause(t.gapMs, this.controller.signal);
       }
       this.stage("verify", "0x35 CRC32 校验");
       let vf;

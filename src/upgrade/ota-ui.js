@@ -1,5 +1,5 @@
-import { W515OtaSession } from "./w515-ota.js?v=fast-path-1";
-import { N32OtaSession, n32Gate } from "./n32-ota.js?v=raw-path-2";
+import { W515OtaSession } from "./w515-ota.js?v=tuning-1";
+import { N32OtaSession, n32Gate } from "./n32-ota.js?v=tuning-1";
 import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=status-first-1";
 import { inspectFirmware, inspectN32Firmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
 import { firmwareDirectory, firmwareUrl, verifyDownload } from "./firmware-library.js?v=status-first-1";
@@ -51,6 +51,19 @@ export function initOtaUpgrade(context) {
     if (radio.checked) selectTarget(radio.value);
   }));
   $("#ota-online-refresh").addEventListener("click", () => { if (!busy) loadOnlineFirmware(); });
+  // 传输档位：切换自定义显隐 + 记忆选择
+  const presetSelect = $("#ota-preset");
+  if (presetSelect) {
+    presetSelect.addEventListener("change", () => {
+      const custom = $("#ota-tuning-custom");
+      if (custom) custom.style.display = presetSelect.value === "custom" ? "" : "none";
+      saveTuningChoice();
+    });
+    restoreTuningChoice();
+    const custom = $("#ota-tuning-custom");
+    if (custom) custom.style.display = presetSelect.value === "custom" ? "" : "none";
+    document.querySelectorAll("#ota-tuning-custom input").forEach(input => input.addEventListener("change", saveTuningChoice));
+  }
   window.addEventListener("beforeunload", event => { if (busy) { event.preventDefault(); event.returnValue = ""; } });
   document.addEventListener("visibilitychange", () => {
     if (busy && document.hidden) { session?.abort(); probeAbort?.abort(); otaLog("WARN", "页面进入后台，已请求停止；返回后重新检测，不自动续写"); }
@@ -209,6 +222,54 @@ function renderGate() {
   $("#ota-gate-reason").textContent = busy ? "正在操作，蓝牙通道独占中"
     : reason || (n32Mode ? "可确认升级副板；执行前会再次检测，仍需真机验证" : "可确认升级；执行前会再次检测双板，仍需真机验证");
 }
+// 传输档位：稳(25ms) / 快(4ms) / 自定义（对齐 unified-tool 调试助手可调参数）
+const TUNING_STORAGE_KEY = "ota.tuning.v1";
+function readTuning() {
+  const select = $("#ota-preset"), custom = select?.value === "custom";
+  const num = (id, fallback) => {
+    const v = Number.parseInt($(id)?.value ?? "", 10);
+    return Number.isFinite(v) ? v : fallback;
+  };
+  if (!select) return { chunk: 180, window: 16, gapMs: 25 };
+  if (custom) {
+    return {
+      chunk: num("#ota-tuning-chunk", 180),
+      window: num("#ota-tuning-window", 16),
+      gapMs: num("#ota-tuning-gap", 25),
+      delayMs: num("#ota-tuning-gap", 25),
+      gattChunk: num("#ota-tuning-gatt", 244)
+    };
+  }
+  if (select.value === "fast") return { chunk: 180, window: 16, gapMs: 4, delayMs: 4, gattChunk: 244 };
+  return { chunk: 180, window: 16, gapMs: 25, delayMs: 25, gattChunk: 244 }; // steady 默认
+}
+function saveTuningChoice() {
+  try {
+    const payload = { preset: $("#ota-preset")?.value };
+    if (payload.preset === "custom") {
+      payload.chunk = $("#ota-tuning-chunk")?.value;
+      payload.window = $("#ota-tuning-window")?.value;
+      payload.gap = $("#ota-tuning-gap")?.value;
+      payload.gatt = $("#ota-tuning-gatt")?.value;
+    }
+    localStorage.setItem(TUNING_STORAGE_KEY, JSON.stringify(payload));
+  } catch { /* localStorage 不可用时忽略 */ }
+}
+function restoreTuningChoice() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TUNING_STORAGE_KEY) || "null");
+    if (!saved?.preset) return;
+    const select = $("#ota-preset"); if (!select) return;
+    if (![...select.options].some(o => o.value === saved.preset)) return;
+    select.value = saved.preset;
+    if (saved.preset === "custom") {
+      if (saved.chunk) $("#ota-tuning-chunk").value = saved.chunk;
+      if (saved.window) $("#ota-tuning-window").value = saved.window;
+      if (saved.gap) $("#ota-tuning-gap").value = saved.gap;
+      if (saved.gatt) $("#ota-tuning-gatt").value = saved.gatt;
+    }
+  } catch { /* 忽略损坏的存储 */ }
+}
 function onStage(stage, label) {
   $("#ota-progress-band").style.display = "";
   $("#ota-stage-label").textContent = label;
@@ -237,7 +298,7 @@ async function startUpgrade() {
     try {
       await keepAwake();
       session = new N32OtaSession(adapter, { onLog: otaLog, onStage, onProgress, onSnapshot: value => { snapshot = value; renderSnapshot(); } });
-      const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId });
+      const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId, tuning: readTuning() });
       otaLog("SYS", result.success ? `副板升级完成：${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}；建议重新检测确认` : "未完成");
     } catch (error) { onStage("error", "已停止 / 未完成"); otaLog("ERR", error.message); }
     finally { session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }
@@ -249,7 +310,7 @@ async function startUpgrade() {
   try {
     await keepAwake();
     session = new W515OtaSession(adapter, { onLog: otaLog, onStage, onProgress, onSnapshot: value => { snapshot = value; renderSnapshot(); } });
-    const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId, acknowledgeSlaveUnknown: mainOnly });
+    const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId, acknowledgeSlaveUnknown: mainOnly, tuning: readTuning() });
     otaLog("SYS", result.success ? "主控 APP 回应与固件信息已确认；副板状态须重新检测" : "未完成");
   } catch (error) { onStage("error", "已停止 / 未完成"); otaLog("ERR", error.message); }
   finally { session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }

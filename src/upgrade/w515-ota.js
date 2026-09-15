@@ -4,9 +4,12 @@ import { DeviceProbe, w515Gate } from "./device-probe.js?v=status-first-1";
 import { inspectFirmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
 import { checkAbort, delay } from "./ota-channel.js?v=fast-path-1";
 
-// No automatic MTU inference, streaming retries, or unverified fast profiles.
 // 传输档位对齐 unified-tool 快速路径：BLE 大块流式 + 窗口状态核对（debug_api.py:6820 default_window=6）
-export const OTA_PRESETS = Object.freeze({ safe: { label: "流式窗口核对", gattChunk: 20, chunk: 180, window: 6, delayMs: 4 } });
+// 稳档 gapMs=25 对齐 N32 降速结论；快档 4ms 接近 PC delayMs=3，需真机验证。
+export const OTA_PRESETS = Object.freeze({
+  steady: { label: "流式·稳", chunk: 180, window: 6, delayMs: 25, gattChunk: 244 },
+  fast: { label: "流式·快", chunk: 180, window: 6, delayMs: 4, gattChunk: 244 }
+});
 export class W515OtaSession {
   constructor(adapter, hooks = {}) {
     this.adapter = adapter; this.hooks = hooks; this.controller = new AbortController();
@@ -18,12 +21,12 @@ export class W515OtaSession {
   stage(id, label) { this.hooks.onStage?.(id, label); }
   async send(cmd, payload = [], timeoutMs = 4000) {
     checkAbort(this.controller.signal);
-    return this.adapter.requestWire(buildOtaFrame(cmd, payload), { protocol: "w515", cmd: cmd | 0x80, timeoutMs, signal: this.controller.signal, chunkSize: 20 });
+    return this.adapter.requestWire(buildOtaFrame(cmd, payload), { protocol: "w515", cmd: cmd | 0x80, timeoutMs, signal: this.controller.signal, chunkSize: Math.min(this.tuning?.gattChunk ?? 244, 244) });
   }
   // 流式写：W515 Boot 0x05 payload 首字节 flag=0 时静默写入不回帧；只发不等
   async sendStream(cmd, payload = []) {
     checkAbort(this.controller.signal);
-    return this.adapter.requestWire(buildOtaFrame(cmd, payload), { protocol: "w515", cmd: null, timeoutMs: 10, signal: this.controller.signal, chunkSize: 20, noWait: true });
+    return this.adapter.requestWire(buildOtaFrame(cmd, payload), { protocol: "w515", cmd: null, timeoutMs: 10, signal: this.controller.signal, chunkSize: Math.min(this.tuning?.gattChunk ?? 244, 244), noWait: true });
   }
   async ack(cmd, payload, timeoutMs) {
     const f = await this.send(cmd, payload, timeoutMs);
@@ -52,9 +55,14 @@ export class W515OtaSession {
     }
     throw new Error(`${expected} 运行模式未确认；不能判定升级成功`);
   }
-  async run(image, { preset = "safe", confirmed = false, expectedDeviceId, acknowledgeSlaveUnknown = false } = {}) {
+  async run(image, { preset = "steady", tuning, confirmed = false, expectedDeviceId, acknowledgeSlaveUnknown = false } = {}) {
     if (!confirmed) throw new Error("需要明确确认后才允许升级");
-    if (preset !== "safe") throw new Error("仅开放保守 ACK 模式，快速模式未经真机验证");
+    const base = OTA_PRESETS[preset] || OTA_PRESETS.steady;
+    this.tuning = { ...base, ...(tuning || {}) };
+    const t = this.tuning;
+    if (!(t.chunk >= 40 && t.chunk <= 224)) throw new Error(`W515 数据块须为 40-224（当前 ${t.chunk}）`);
+    if (!(t.window >= 1 && t.window <= 64)) throw new Error(`W515 窗口须为 1-64（当前 ${t.window}）`);
+    if (!(t.delayMs >= 0 && t.delayMs <= 200)) throw new Error(`W515 包间隔须为 0-200ms（当前 ${t.delayMs}）`);
     // Reparse a private copy so caller edits cannot change the image during writes.
     const fw = inspectFirmware(image.bytes, image.name.replace(/\.hex$/i, ".bin"), image.target);
     fw.base = image.base;
@@ -85,13 +93,12 @@ export class W515OtaSession {
       await this.ack(OTA_CMD.ERASE, [...u32be(appStart), ...u32be(eraseSize), 0], 120000);
       if ((await this.status()).written_size !== 0) throw new Error("擦除后写入计数不为0");
       this.stage("write", "流式写入 + 窗口状态核对");
-      const preset = OTA_PRESETS.safe;
       const started = this.now();
-      const total = Math.ceil(size / preset.chunk);
-      const WINDOW = preset.window; // 每 6 包 GET_STATUS 核对 Boot 计数（unified-tool default_window=6）
-      for (let offset = 0, index = 0; offset < size; offset += preset.chunk, index++) {
+      const total = Math.ceil(size / t.chunk);
+      const WINDOW = t.window; // 每 N 包 GET_STATUS 核对 Boot 计数（unified-tool default_window=6）
+      for (let offset = 0, index = 0; offset < size; offset += t.chunk, index++) {
         checkAbort(this.controller.signal);
-        const data = fw.bytes.slice(offset, Math.min(size, offset + preset.chunk));
+        const data = fw.bytes.slice(offset, Math.min(size, offset + t.chunk));
         // flag=0 流式静默写：payload = addr + data（无前导 0x01）
         await this.sendStream(OTA_CMD.WRITE, [...u32be(appStart + offset), ...data]);
         const written = offset + data.length;
@@ -100,8 +107,8 @@ export class W515OtaSession {
           const s = await this.status();
           if (s.written_size !== written) throw new Error(`窗口计数不一致：设备${s.written_size}，已发${written}；停止，不盲目续写`);
         }
-        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `流式${preset.chunk}B / 窗口×${WINDOW}` });
-        await this.pause(preset.delayMs, this.controller.signal);
+        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `流式${t.chunk}B / 窗口×${WINDOW}` });
+        await this.pause(t.delayMs, this.controller.signal);
       }
       this.stage("verify", "核对 CRC 与固件元数据");
       await this.ack(OTA_CMD.VERIFY, [...u32be(appStart), ...u32be(size), ...u32be(fw.meta.appCrc), ...u32be(fw.meta.version)], 30000);
