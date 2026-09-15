@@ -116,9 +116,12 @@ export class N32OtaSession {
       this.mutatingStarted = true;
       await this.ack(N32_CMD.ERASE, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(eraseSize), 0x08, 0x00], 30000);
       this.stage("write", `0x34 RAW 流式写入（${CHUNK}B/包）`);
-      // 对齐 unified-tool 快速路径：大块流式（flag=0 不等回包）+ 3ms 节奏 + 每 8 包 0x39 核对 Boot 计数
+      // 对齐 unified-tool 快速路径，但受主控 APP 限制降速：
+      // APP_BLE_RX_DISPATCH_IN_MAIN=1（product_config.h:121）——BLE 字节先进 768B proxy_frame_buf，
+      // 主循环快照后逐字节阻塞转发 UART1（193B×87µs≈17ms/包），溢出即静默丢（gd32w51x_it.c:507）。
+      // 故包间隔须 ≥ 主循环排空时间（转发+其它事务≈35ms），否则 buffer 积压→丢包→BLE 链路断。
       const started = this.now(), total = Math.ceil(size / CHUNK);
-      const WINDOW = 8, GAP_MS = 3;
+      const WINDOW = 16, GAP_MS = 25;
       for (let offset = 0, index = 0; offset < size; offset += CHUNK, index++) {
         checkAbort(this.controller.signal);
         const part = image.bytes.slice(offset, Math.min(size, offset + CHUNK));
