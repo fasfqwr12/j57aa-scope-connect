@@ -208,6 +208,61 @@ flowchart TD
 | KEEPALIVE | 可选，仅NORMAL模式 | 长思考间隙保活（PX:1633-1644） |
 | 超时退出表现 | **静默**（无GLPX/GLPE回帧） | BLE侧=等不到任何响应（PX:1006-1010） |
 
+### 5.4 网页现行流程：RAW 透传流式 + 窗口核对 + 断点续传（真机已跑通）
+
+> §5.1⑤ 是逐包 ACK 形态（对齐旧固件路径）；网页 `src/upgrade/n32-ota.js` 现行实现走 **RAW 透传**（对齐 unified-tool `debug_api.py` `openRangeUpgradeRawProxy`），更快且带三层兜底。差异表：
+
+| 维度 | §5.1⑤ 逐包ACK | §5.4 RAW流式（现行） |
+|---|---|---|
+| 代理模式 | **NORMAL**（flags=0） | **RAW**（flags=02，PX:1203-1205 逐字节直转） |
+| 写入形态 | 0x34 带 ACK 位，逐包等回帧 | 0x34 **flag=0 静默**，连发不等（NB:1303-1305） |
+| 完整性核对 | 每包 ACK | 每 **window 包** 0x39 查 `written` 计数 |
+| 丢包处理 | 无（ACK 即确认） | 计数不一致→断点 **ACK 补写**窗口内缺包 |
+| 链路断链 | 直接失败 | **断点续传**：重连→0x39 查进度→重开 RAW→续写（≤3次） |
+| 速度 | ~1.7KB/s | ~8KB/s（快档4ms）/ ~4KB/s（稳档25ms） |
+
+**完整交互序列**（步骤①-④⑧⑨同 §5.1）：
+
+```text
+前置：主控=APP，代理释放，副板模式已确认（§5.1①②③）
+
+④a GLPX STOP（交还NORMAL）→ 期 status=00
+④b GLPX START flags=02 idle=2000 total=300000 → 期 status=00
+    （RAW 透传：主控不再解析GLPX/N32帧，BLE字节直转UART1）
+⑤' 0x33 擦除（同§5.1④，经RAW转发，等ACK 30s）
+⑤a 0x34 流式连发（flag=0 无前导01）：
+    发 AA 34 00 BE [addr:4BE] [data:180B] CRC 55   ← 整帧单次GATT写
+    （间隔=档位gapMs；每发完一包立即发下一包，不等回帧）
+⑤b 每 window 包核对一次：
+    发 AA 39 00 00 CD A1 55
+    期 AA B9 00 09 [status] [written:4BE] [lastAddr:4BE] CRC 55
+    written == 已发字节 → 继续；否则窗口内 ACK 补写：
+      发 AA 34 00 xx 01 [addr:4BE] [data] CRC 55 → 期 AA B4 … 00
+⑥ 0x35 校验（同§5.1⑥；RAW idle=2s，校验计算期无流量可能使代理
+    自动退出——若超时按断链恢复处理，见下）
+⑦ 0x37 进APP → 等 2.4s RAW 空闲自恢复 → GLPX START（NORMAL）
+⑧ 0x31 确认回APP（magic="N32A"）→ ⑨ GLPX STOP+STATUS（同§5.1）
+
+断链恢复（⑤'/⑥ 任一步 GATT 断链或超时时自动执行，≤3次）：
+  R1 等 2400ms（RAW idle=2s 自动退出，恢复正常协议）
+  R2 BLE 重连（Web Bluetooth 复用已授权 device，静默）
+  R3 GLPX START（NORMAL）→ 0x31 确认副板仍在Boot（BKP10R 永久停留）
+  R4 0x39 查真实进度 written → GLPX STOP → GLPX START flags=02
+  R5 written>0 跳过擦除，从 written 断点续写 ⑤a
+  R6 written==0 重新擦除（幂等），从头流写
+```
+
+**帧级约束（同 §5.1，全部适用）**：addr 必须=`0x08002000+written`（NB:1257）；数据 4 字节对齐（末包 0xFF 填充）；N32 帧经 GATT 必须**整帧单次写**（RT 分发表序4要求完整帧，RT:313）；RAW 模式下**绝不发 GLPX STOP**（会被透传成 N32 垃圾帧，只能等 idle 自恢复）。
+
+**档位参数**（网页「传输档位」可调，localStorage 记忆）：
+
+| 档位 | 数据块 | 窗口 | 包间隔 |
+|---|---|---|---|
+| 快（默认） | 180B | 16 | 4ms |
+| 稳 | 180B | 16 | 25ms |
+| 自定义 | 40-224B | 1-64 | 0-200ms |
+
+
 ## 6. 场景：目标=副板但主控在Boot
 
 ```text
