@@ -1,6 +1,6 @@
 // 管理员测试 API（仅 ?admin=1）：闭环测试注入点。window.__ota。
 // 能力：注入仿真设备（全协议固件模拟）、免弹窗重连已授权真机(getDevices)、读取内部状态。
-import { FakeAdapter } from "./fake-device.js?v=raw-path-1";
+import { FakeAdapter } from "./fake-device.js?v=f7target-1";
 
 export function initTestApi({ getAdapter, setAdapter, setStatus, getTap, getOtaState }) {
   if (new URLSearchParams(location.search).get("admin") !== "1") return null;

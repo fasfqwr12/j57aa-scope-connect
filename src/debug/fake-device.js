@@ -134,7 +134,9 @@ class VirtualW515 {
 
 class VirtualN32 {
   constructor() { this.reset(); }
-  reset() { this.mode = "APP"; this.flash = new Uint8Array(N32.APP_END - N32.APP_BASE + 1).fill(0xFF); this.written = 0; this.stayBoot = true; }
+  reset() { this.mode = "APP"; this.flash = new Uint8Array(N32.APP_END - N32.APP_BASE + 1).fill(0xFF); this.written = 0; this.stayBoot = true;
+    // 0x3A/F7 代理信息字段（模拟已烧录固件的编译期 size/CRC；升级成功后更新）
+    this.infoSize = 0; this.infoCrc = 0; this.infoSw = 0x0001; this.infoBoot = 0x0102; }
   appValid() {
     const dv = new DataView(this.flash.buffer);
     const sp = dv.getUint32(0, true), pc = dv.getUint32(4, true);
@@ -198,6 +200,8 @@ class VirtualN32 {
         const addr = be32(payload, 4), size = be32(payload, 8), crc = be32(payload, 12);
         if (addr !== N32.APP_BASE || size > this.written) return { status: 0x03 };
         const calc = crc32(this.flash.slice(0, size));
+        // Boot 记录最近一次校验值（0x3A 统一信息上报口径）
+        this.infoSize = size; this.infoCrc = calc;
         return { status: calc === crc ? 0 : 0x06, data: [...u32be(addr), ...u32be(size), ...u32be(crc), ...u32be(calc)] };
       }
       case 0x36: { this.written = 0; return { status: 0 }; } // 复位不清 magic → 仍回 Boot
@@ -285,7 +289,13 @@ export class FakeAdapter {
       return out; // RAW 下 GLPX/其他帧透传给 N32 当垃圾丢弃（无回应）
     }
     if (bytes.length >= 10 && bytes[0] === 0xAA && bytes[1] === 0xEE && bytes[2] === 0xF7) {
-      if (bytes[7] === 0xF7 || bytes[7] === 0x00) out.push(this.w515.f7Response());
+      if (bytes[7] === 0xF7 || bytes[7] === 0x00) {
+        // 目标字节 byte[4]：0=主控（旧固件整帧匹配）；1=副板（新固件代理转发 N32 0x3A）
+        if (bytes[4] === 1) {
+          if (this.w515.mode === "APP" && this.f7RelaySupported !== false) out.push(this.n32F7Response());
+          // 主控在 Boot 或旧固件：静默（网页超时降级）
+        } else out.push(this.w515.f7Response());
+      }
       return out;
     }
     if (bytes.length >= 9 && bytes[0] === 0xAA && bytes[1] === 0x7E) { out.push(this.handleProxy(bytes)); return out; }
@@ -302,6 +312,25 @@ export class FakeAdapter {
       return out;
     }
     return out; // 业务帧等：不回应
+  }
+  // F7 目标=1 应答：主控代理转发 N32 0x3A 的结果，填进 48B 统一布局（型号 J57AA-N32）
+  n32F7Response() {
+    const n = this.n32, b = new Uint8Array(48), dv = new DataView(b.buffer);
+    const size = n.infoSize ?? 0, crc = n.infoCrc ?? 0, sw = n.infoSw ?? 0x0001, boot = n.infoBoot ?? 0x0102;
+    dv.setUint32(0, 0x4E333200, true);      // N32 设备标识
+    dv.setUint16(4, 0x0100, true);          // hw 1.0
+    dv.setUint16(6, sw, true);              // APP 版本（major<<8|minor）
+    dv.setUint16(8, boot, true);            // Boot 版本
+    b.set(ascii("J57AA-N32"), 12);
+    dv.setUint32(28, 128 * 1024, true);     // flash 128KB
+    dv.setUint32(32, N32.APP_BASE, true);
+    dv.setUint32(36, N32.APP_END - N32.APP_BASE + 1, true);
+    dv.setUint32(40, size, true);
+    dv.setUint32(44, crc, true);
+    const frame = [0xAA, 0xFE, 0xF7, 48, ...b];
+    let x = 0; for (let k = 2; k < 52; k++) x ^= frame[k];
+    frame.push(x, 0xBB, 0xFF);
+    return frame;
   }
   frameOk(bytes) { // CRC + 帧尾校验（失败静默，同固件）
     return bytes[bytes.length - 1] === 0x55 &&

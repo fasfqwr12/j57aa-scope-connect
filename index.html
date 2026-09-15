@@ -313,7 +313,14 @@
           <div class="field-band ota-preflight">
             <div class="band-head"><div class="numbered-heading"><span class="step-number">01</span><div><h3>检测主控与副板</h3><p>先识别设备，再选择更新</p></div></div><span class="source-pill pending">状态优先</span></div>
             <p class="ota-notice">不发送进 Boot 或擦写命令。检测会暂占测距通道；若 N32 已在 Boot 启动窗口，查询可能让它停留在 Boot。请先停止测距。</p>
-            <button class="btn primary" id="ota-query-status" type="button"><svg aria-hidden="true"><use href="#i-sync"/></svg>检测双板状态</button>
+            <div class="ota-probe-row">
+              <button class="btn primary" id="ota-query-status" type="button"><svg aria-hidden="true"><use href="#i-sync"/></svg>检测双板状态</button>
+              <label class="ota-scope"><span>对象</span><select id="ota-probe-scope">
+                <option value="both" selected>双板</option>
+                <option value="main">仅主控</option>
+                <option value="slave">仅副板(信息)</option>
+              </select></label>
+            </div>
             <div class="ota-board-grid" aria-live="polite">
               <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>W515 主控</h4><strong id="ota-main-mode">未检测</strong><div class="ota-ver-badges" id="ota-main-vers" hidden></div><p id="ota-main-info">等待主控身份与地址信息</p></section>
               <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>N32 副板</h4><strong id="ota-slave-mode">未检测</strong><div class="ota-ver-badges" id="ota-slave-vers" hidden></div><p id="ota-slave-info">等待副板自身应答</p></section>
@@ -529,6 +536,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/app.js?v=ver-2"></script>
+  <script type="module" src="./src/app.js?v=f7target-1"></script>
 </body>
 </html>

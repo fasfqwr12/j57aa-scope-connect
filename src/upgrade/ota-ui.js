@@ -1,6 +1,6 @@
 import { W515OtaSession } from "./w515-ota.js?v=tuning-1";
 import { N32OtaSession, n32Gate } from "./n32-ota.js?v=ver-1";
-import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=status-first-1";
+import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=f7target-1";
 import { inspectFirmware, inspectN32Firmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
 import { firmwareDirectory, firmwareUrl, verifyDownload } from "./firmware-library.js?v=status-first-1";
 
@@ -163,7 +163,8 @@ async function detect() {
   setBusy(true); probeAbort = new AbortController();
   try {
     const adapter = await adapterForProbe(); await keepAwake();
-    snapshot = await new DeviceProbe(adapter, { signal: probeAbort.signal, onLog: otaLog }).run();
+    const scope = $("#ota-probe-scope")?.value || "both";
+    snapshot = await new DeviceProbe(adapter, { signal: probeAbort.signal, onLog: otaLog }).run({ scope });
     renderSnapshot();
   } catch (error) { otaLog("ERR", error.message); }
   finally { probeAbort = null; await releaseAwake(); setBusy(false); }
@@ -179,13 +180,19 @@ function pill(key, value, { dim = false, note = "" } = {}) {
 function renderSnapshot() {
   const main = snapshot?.main, slave = snapshot?.slave, info = main?.info;
   $("#ota-main-mode").textContent = MODE[main?.mode] || "未检测";
-  $("#ota-slave-mode").textContent = MODE[slave?.mode] || "未检测";
+  $("#ota-slave-mode").textContent = slave?.mode === "INFO_ONLY" ? "已识别" : MODE[slave?.mode] || "未检测";
   $("#ota-main-mode").dataset.mode = main?.mode || "UNKNOWN";
   $("#ota-slave-mode").dataset.mode = slave?.mode || "UNKNOWN";
   // Boot 版本可信度：主控=Boot 时 0x02 上报为真实值；APP 模式下 F7 上报在固件升级前是编译期常量
   const bootTag = main?.mode === "BOOT" ? "Boot" : (info?.boot_ver ?? 0) > 0x0100 ? "Boot" : "Boot(编译期)";
   $("#ota-main-info").textContent = info ? `${info.model} · 硬件 ${version(info.hw_ver)} · APP ${version(info.sw_ver)} · ${bootTag} ${version(info.boot_ver)}\nAPP ${hex(info.app_start)} · ${info.app_size}B · CRC ${hex(info.app_crc)}` : "等待主控身份与地址信息";
-  const details = slave?.mode === "APP" ? `APP v${version(slave.appVersion)} · 入口 ${hex(slave.appStart)} · 运行阶段 ${slave.runtimeStage} · 心跳计数 ${slave.heartbeat}` : slave?.mode === "BOOT" ? `Boot v${slave.bootVersion} · 入口 ${hex(slave.appStart)} · APP 向量检查${slave.appValid ? "通过（非整包CRC）" : "未通过（不能区分空白/损坏）"}` : slave?.reason;
+  const details = slave?.mode === "APP" ? (slave.info
+    ? `APP v${version(slave.info.sw_ver)} · Boot v${version(slave.info.boot_ver)} · ${slave.info.model}\nAPP ${hex(slave.info.app_start)} · ${slave.info.app_size}B · CRC ${hex(slave.info.app_crc)}`
+    : `APP v${version(slave.appVersion)} · 入口 ${hex(slave.appStart)} · 运行阶段 ${slave.runtimeStage} · 心跳计数 ${slave.heartbeat}`)
+    : slave?.mode === "BOOT" ? (slave.info
+      ? `Boot v${version(slave.info.boot_ver)} · APP v${version(slave.info.sw_ver)} · ${slave.info.model}\nAPP ${hex(slave.info.app_start)} · ${slave.info.app_size}B · CRC ${hex(slave.info.app_crc)} · 向量检查${slave.appValid ? "通过" : "未通过"}`
+      : `Boot v${slave.bootVersion} · 入口 ${hex(slave.appStart)} · APP 向量检查${slave.appValid ? "通过（非整包CRC）" : "未通过（不能区分空白/损坏）"}`)
+    : slave?.reason;
   $("#ota-slave-info").textContent = details || "必须收到副板自身应答；代理正常不等于副板在线";
   if (main?.reason) $("#ota-main-info").textContent += `\n检测异常：${main.reason}`;
   // 版本徽章：主控 APP 大徽章 + Boot 小徽章（Boot 模式下 0x02 为真实值；APP 模式 1.0=编译期常量）
@@ -202,11 +209,16 @@ function renderSnapshot() {
   }
   const slaveVers = $("#ota-slave-vers");
   if (slaveVers) {
-    if (slave?.mode === "APP" || slave?.mode === "BOOT") {
+    if (slave?.mode === "APP" || slave?.mode === "BOOT" || slave?.mode === "INFO_ONLY") {
+      const si = slave.info;
       slaveVers.hidden = false;
-      slaveVers.replaceChildren(
-        slave.mode === "APP" ? pill("当前 APP", `v${version(slave.appVersion)}`) : pill("Boot", `v${slave.bootVersion}`, { dim: true })
+      if (si) slaveVers.replaceChildren(
+        pill("当前 APP", `v${version(si.sw_ver)}`),
+        pill("Boot", `v${version(si.boot_ver)}`, { dim: true })
       );
+      else if (slave.mode === "APP") slaveVers.replaceChildren(pill("当前 APP", `v${version(slave.appVersion)}`));
+      else if (slave.mode === "BOOT") slaveVers.replaceChildren(pill("Boot", `v${slave.bootVersion}`, { dim: true }));
+      else slaveVers.replaceChildren();
     } else { slaveVers.hidden = true; slaveVers.replaceChildren(); }
   }
   $("#ota-proxy-state").textContent = (ROUTE[snapshot?.proxy.state] || "未检测") + (snapshot?.proxy.reason ? `：${snapshot.proxy.reason}` : "");

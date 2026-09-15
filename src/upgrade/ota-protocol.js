@@ -37,7 +37,11 @@ export function buildOtaFrame(cmd, payload = []) {
   return bytes([0xAA, ...body, crc >>> 8, crc & 255, 0x55]);
 }
 export const buildN32Frame = buildOtaFrame;
-export const buildF7Query = () => bytes([0xAA, 0xEE, 0xF7, 0, 0, 0, 0, 0xF7, 0xBB, 0xFF]);
+export function buildF7Query(target = 0) {
+  // target: 0=主控自身（旧固件整帧匹配兼容）；1=副板（新固件代理转发 N32 0x3A，旧固件静默丢弃→超时降级）
+  if (target !== 0 && target !== 1) throw new Error("F7 目标只支持 0=主控 / 1=副板");
+  return bytes([0xAA, 0xEE, 0xF7, 0, target, 0, 0, 0xF7, 0xBB, 0xFF]);
+}
 // All four requests retain the full 16-byte parameter block (minimum wire length 27).
 // Firmware fixes target=RANGE at upgrade_proxy.c:1590; target is NOT a wire field.
 export function buildProxyFrame(mode, { session = 0, baud = 115200, idleMs = 5000, totalMs = 12000, flags = 0 } = {}) {

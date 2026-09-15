@@ -146,6 +146,9 @@ body[data-page="upgrade"] .preview-rail { display: none; }
 .ota-ver-badges .ver-pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 3px 11px; font: 600 13px/1.4 var(--mono); border: 1px solid var(--line2); background: var(--card2); color: var(--text); }
 .ota-ver-badges .ver-pill .k { font: 500 10px/1 var(--ui-font); color: var(--muted); letter-spacing: .5px; }
 .ota-ver-badges .ver-pill.dim { font-size: 11px; padding: 2px 9px; color: var(--muted); }
+.ota-probe-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ota-scope { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.ota-scope select { min-width: 110px; }
 .ota-route-summary { margin: 16px 0 0; font-size: 12px; color: var(--muted); }
 .ota-route-summary strong { color: var(--text); font-weight: 500; margin-left: 8px; }
 .ota-route-summary > span { display: block; font-size: 11px; margin-top: 4px; }

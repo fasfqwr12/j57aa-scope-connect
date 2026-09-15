@@ -1,4 +1,4 @@
-import { buildF7Query, buildOtaFrame, buildProxyFrame, OTA_CMD, N32_CMD, PROXY_MODE, PROXY_STATUS, parseBootInfo, parseW515Mode, parseN32Info, validateW515Window } from "./ota-protocol.js?v=status-first-1";
+import { buildF7Query, buildOtaFrame, buildProxyFrame, OTA_CMD, N32_CMD, PROXY_MODE, PROXY_STATUS, parseBootInfo, parseW515Mode, parseN32Info, validateW515Window } from "./ota-protocol.js?v=f7target-1";
 import { checkAbort } from "./ota-channel.js?v=fast-path-1";
 
 export function snapshotIsFresh(snapshot, adapter, now = Date.now()) {
@@ -30,12 +30,24 @@ export class DeviceProbe {
     const f = await this.query(buildProxyFrame(mode, { session, baud: 115200, idleMs: 5000, totalMs: 12000, flags: 0 }), "proxy", null, signal);
     return f.payload[4]; // GLPX + status, NO request mode echo.
   }
-  async run({ alreadyExclusive = false } = {}) {
+  async run({ alreadyExclusive = false, scope = "both" } = {}) {
     const release = alreadyExclusive ? () => {} : this.adapter.beginExclusive("probe");
     const result = { deviceId: this.adapter.device?.id, generation: this.adapter.generation, checkedAt: 0,
       main: { mode: "UNKNOWN", info: null }, slave: { mode: "UNKNOWN", reason: "尚未探测" },
       proxy: { state: "UNKNOWN" }, routeClear: false };
     let started = false;
+    if (scope === "slave") {
+      // 仅副板：单条 F7 目标=1（主控代理转发 N32 0x3A），不占用代理通道
+      try {
+        const f = await this.query(buildF7Query(1), "f7");
+        const info = parseBootInfo(f.payload);
+        if (info && /N32/i.test(info.model)) { result.slave = { mode: "INFO_ONLY", info }; result.proxy.state = "SKIPPED"; result.routeClear = false; }
+        else result.slave.reason = "副板信息应答型号不符";
+      } catch (error) { checkAbort(this.signal); result.slave.reason = `副板信息查询失败（需主控固件支持 F7 目标=1）：${error.message}`; }
+      result.checkedAt = this.now(); result.generation = this.adapter.generation;
+      this.log("SYS", `副板信息查询结束: ${result.slave.info ? `v${result.slave.info.sw_ver >>> 8}.${result.slave.info.sw_ver & 255} ${result.slave.info.app_size}B` : result.slave.reason}`);
+      release(); return result;
+    }
     try {
       this.log("SYS", "先查双板，不进 Boot、不擦写；查询可能延长已在运行的 Boot 停留时间");
       try {
@@ -62,6 +74,16 @@ export class DeviceProbe {
       if (result.main.mode !== "APP") {
         result.slave.reason = "主控模式未知，无法确认副板通路"; return result;
       }
+      // 副板信息：F7 目标=1 经主控代理转发（新固件；不占代理通道）；超时=旧固件不支持，降级走 0x31
+      try {
+        const sf = await this.query(buildF7Query(1), "f7");
+        const sinfo = parseBootInfo(sf.payload);
+        if (sinfo && /N32/i.test(sinfo.model)) result.slave.info = sinfo;
+      } catch (error) { checkAbort(this.signal); this.log("SYS", "副板 F7 信息查询无响应（主控固件较旧）；继续用 0x31 握手探测"); }
+      if (scope === "main") { // 仅主控：到此为止，不碰代理
+        result.slave.reason = "仅检测主控（未探测副板）"; result.proxy.state = "SKIPPED";
+        result.routeClear = true; return result;
+      }
       const before = await this.proxy(PROXY_MODE.STATUS, 0);
       if (before !== PROXY_STATUS.INACTIVE) {
         result.proxy.state = before === PROXY_STATUS.OK ? "BUSY" : "UNKNOWN";
@@ -76,7 +98,9 @@ export class DeviceProbe {
       }
       result.proxy.state = "OWNED_NORMAL";
       const response = await this.query(buildOtaFrame(N32_CMD.HANDSHAKE, [0x4E, 0x33, 0x32, 0x42]), "n32", 0xB1);
-      result.slave = parseN32Info(response.payload);
+      const slave = parseN32Info(response.payload);
+      if (result.slave.info) slave.info = result.slave.info; // F7 代理信息（版本/CRC/大小）叠加
+      result.slave = slave;
       if (result.slave.mode === "UNKNOWN") result.slave.reason = "副板应答格式/状态未确认";
       return result;
     } catch (error) {

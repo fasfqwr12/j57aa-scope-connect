@@ -1,6 +1,6 @@
 // Current firmware path: explicit preflight -> Boot -> ACK writes -> VERIFY -> RESET.
 import { OTA_CMD, buildOtaFrame, parseBootInfo, parseOtaStatus, parseW515Mode, u32be } from "./ota-protocol.js?v=status-first-1";
-import { DeviceProbe, w515Gate } from "./device-probe.js?v=status-first-1";
+import { DeviceProbe, w515Gate } from "./device-probe.js?v=f7target-1";
 import { inspectFirmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
 import { checkAbort, delay } from "./ota-channel.js?v=fast-path-1";
 
