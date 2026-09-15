@@ -1,5 +1,5 @@
 import { W515OtaSession } from "./w515-ota.js?v=tuning-1";
-import { N32OtaSession, n32Gate } from "./n32-ota.js?v=resume-1";
+import { N32OtaSession, n32Gate } from "./n32-ota.js?v=ver-1";
 import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=status-first-1";
 import { inspectFirmware, inspectN32Firmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
 import { firmwareDirectory, firmwareUrl, verifyDownload } from "./firmware-library.js?v=status-first-1";
@@ -168,26 +168,91 @@ async function detect() {
   } catch (error) { otaLog("ERR", error.message); }
   finally { probeAbort = null; await releaseAwake(); setBusy(false); }
 }
+// 版本徽章元素：pill("当前 APP", "v0.1") → <span class="ver-pill"><span class="k">当前 APP</span>v0.1</span>
+function pill(key, value, { dim = false, note = "" } = {}) {
+  const el = document.createElement("span");
+  el.className = "ver-pill" + (dim ? " dim" : "");
+  const k = document.createElement("span"); k.className = "k"; k.textContent = key;
+  el.append(k, document.createTextNode(value + (note ? ` (${note})` : "")));
+  return el;
+}
 function renderSnapshot() {
   const main = snapshot?.main, slave = snapshot?.slave, info = main?.info;
   $("#ota-main-mode").textContent = MODE[main?.mode] || "未检测";
   $("#ota-slave-mode").textContent = MODE[slave?.mode] || "未检测";
   $("#ota-main-mode").dataset.mode = main?.mode || "UNKNOWN";
   $("#ota-slave-mode").dataset.mode = slave?.mode || "UNKNOWN";
-  $("#ota-main-info").textContent = info ? `${info.model} · 硬件 ${version(info.hw_ver)} · APP ${version(info.sw_ver)} · 上报Boot ${version(info.boot_ver)}\nAPP ${hex(info.app_start)} · ${info.app_size}B · CRC ${hex(info.app_crc)}` : "等待主控身份与地址信息";
+  // Boot 版本可信度：主控=Boot 时 0x02 上报为真实值；APP 模式下 F7 上报在固件升级前是编译期常量
+  const bootTag = main?.mode === "BOOT" ? "Boot" : (info?.boot_ver ?? 0) > 0x0100 ? "Boot" : "Boot(编译期)";
+  $("#ota-main-info").textContent = info ? `${info.model} · 硬件 ${version(info.hw_ver)} · APP ${version(info.sw_ver)} · ${bootTag} ${version(info.boot_ver)}\nAPP ${hex(info.app_start)} · ${info.app_size}B · CRC ${hex(info.app_crc)}` : "等待主控身份与地址信息";
   const details = slave?.mode === "APP" ? `APP v${version(slave.appVersion)} · 入口 ${hex(slave.appStart)} · 运行阶段 ${slave.runtimeStage} · 心跳计数 ${slave.heartbeat}` : slave?.mode === "BOOT" ? `Boot v${slave.bootVersion} · 入口 ${hex(slave.appStart)} · APP 向量检查${slave.appValid ? "通过（非整包CRC）" : "未通过（不能区分空白/损坏）"}` : slave?.reason;
   $("#ota-slave-info").textContent = details || "必须收到副板自身应答；代理正常不等于副板在线";
   if (main?.reason) $("#ota-main-info").textContent += `\n检测异常：${main.reason}`;
+  // 版本徽章：主控 APP 大徽章 + Boot 小徽章（Boot 模式下 0x02 为真实值；APP 模式 1.0=编译期常量）
+  const mainVers = $("#ota-main-vers");
+  if (mainVers) {
+    if (info) {
+      const bootReal = main?.mode === "BOOT" || (info.boot_ver ?? 0) > 0x0100;
+      mainVers.hidden = false;
+      mainVers.replaceChildren(
+        pill("当前 APP", `v${version(info.sw_ver)}`),
+        pill("Boot", `v${version(info.boot_ver)}`, { dim: true, note: bootReal ? "" : "编译期" })
+      );
+    } else { mainVers.hidden = true; mainVers.replaceChildren(); }
+  }
+  const slaveVers = $("#ota-slave-vers");
+  if (slaveVers) {
+    if (slave?.mode === "APP" || slave?.mode === "BOOT") {
+      slaveVers.hidden = false;
+      slaveVers.replaceChildren(
+        slave.mode === "APP" ? pill("当前 APP", `v${version(slave.appVersion)}`) : pill("Boot", `v${slave.bootVersion}`, { dim: true })
+      );
+    } else { slaveVers.hidden = true; slaveVers.replaceChildren(); }
+  }
   $("#ota-proxy-state").textContent = (ROUTE[snapshot?.proxy.state] || "未检测") + (snapshot?.proxy.reason ? `：${snapshot.proxy.reason}` : "");
   $("#ota-state-time").textContent = snapshot ? `检测于 ${new Date(snapshot.checkedAt).toLocaleTimeString()} · 60秒内有效` : "尚无有效状态；断连或过期后需重查";
   $("#ota-main-only-row").hidden = !snapshot || ["APP", "BOOT"].includes(slave?.mode);
   renderGate();
 }
+// 目标固件版本：W515 读 bin 内嵌元数据 meta.version；N32 hex 无内嵌版本，从文件名提取（v0p1 / v01p2 / v1.2 等）
+function firmwareVersionText() {
+  if (!firmware) return null;
+  if (firmware.target === "n32-app") {
+    // 文件名约定 v01p2 = v0.1 patch2（NNpN: 前两位=major.minor，p后=patch）；v0.1.2/v1.2 直接三段
+    const m3 = firmware.name.match(/v(\d+)\.(\d+)\.(\d+)/i);
+    if (m3) return `${Number(m3[1])}.${Number(m3[2])}.${Number(m3[3])}`;
+    const m = firmware.name.match(/v(\d)(\d)[p.](\d+)/i);
+    return m ? `${Number(m[1])}.${Number(m[2])}.${Number(m[3])}` : null;
+  }
+  const v = firmware.meta?.version;
+  // FW_VERSION_PACK: (major<<24)|(minor<<16)|(patch<<8)|build —— 显示 major.minor 对齐 F7 sw_ver 口径
+  return v == null || v === 0 ? null : `${v >>> 24}.${(v >>> 16) & 255}`;
+}
+// 设备当前版本（检测快照）：W515 用 F7 sw_ver；N32 用副板 appVersion（0x31）
+function deviceVersionText() {
+  if (!snapshot) return null;
+  if (target === "n32") return snapshot.slave?.mode === "APP" ? version(snapshot.slave.appVersion) : null;
+  const sw = snapshot.main?.info?.sw_ver;
+  return sw == null || sw === 0 ? null : version(sw);
+}
+// 版本对照：null=未知；1=升级；0=同版本(重刷)；-1=降级（分段数不同按缺段=0 比较）
+function compareVersion(cur, next) {
+  if (!cur || !next) return null;
+  const p = s => String(s).split(".").map(Number);
+  const a = p(cur), b = p(next), n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const d = (b[i] || 0) - (a[i] || 0);
+    if (d > 0) return 1;
+    if (d < 0) return -1;
+  }
+  return 0;
+}
 function renderFirmware() {
+  const fv = firmwareVersionText();
   $("#ota-file-meta").textContent = firmware
     ? (firmware.target === "n32-app"
-      ? `${firmware.name} · 副板 N32 APP · ${firmware.bytes.length}B @0x08002000 · CRC32 ${firmware.crc.toString(16).toUpperCase()}`
-      : `${firmware.name} · ${firmware.bytes.length}B · ${firmware.meta.model} · CRC已核对`)
+      ? `${firmware.name} · 副板 N32 APP${fv ? ` · 新版本 v${fv}` : ""} · ${firmware.bytes.length}B @0x08002000 · CRC32 ${firmware.crc.toString(16).toUpperCase()}`
+      : `${firmware.name} · ${firmware.bytes.length}B · ${firmware.meta.model}${fv ? ` · 新版本 v${fv}` : "（meta 无版本）"} · CRC已核对`)
     : "未选择有效固件";
   $("#ota-main-only").checked = false; renderGate();
   renderOnlineSelection();
@@ -218,6 +283,28 @@ function renderGate() {
   const n32Mode = target === "n32";
   $("#ota-start").disabled = busy || !!reason;
   $("#ota-start").textContent = n32Mode ? "确认并升级副板" : "确认并升级主控";
+  // 版本对照行：检测+选好固件后显示 当前→新；升降级给醒目标签
+  const verRow = $("#ota-version-compare");
+  if (verRow) {
+    const cur = deviceVersionText(), next = firmwareVersionText(), cmp = compareVersion(cur, next);
+    if (!reason && firmware && (cur || next)) {
+      verRow.hidden = false;
+      verRow.dataset.cmp = cmp == null ? "unknown" : String(cmp);
+      const tag = cmp === 1 ? "升级" : cmp === 0 ? "同版本重刷" : cmp === -1 ? "降级 ⚠️" : "版本未知";
+      const mk = (cls, key, val) => {
+        const s = document.createElement("span"); s.className = cls;
+        if (key) { const k = document.createElement("span"); k.className = "k"; k.textContent = key; s.append(k); }
+        s.append(document.createTextNode(val));
+        return s;
+      };
+      verRow.replaceChildren(
+        mk("vc-pill", "当前", cur ?? "未知"),
+        mk("vc-arrow", null, "→"),
+        mk("vc-pill", "新", next ?? "未知"),
+        mk("vc-tag", null, tag)
+      );
+    } else { verRow.hidden = true; verRow.replaceChildren(); }
+  }
   $("#ota-gate-reason").dataset.state = busy ? "busy" : reason ? "blocked" : "ready";
   $("#ota-gate-reason").textContent = busy ? "正在操作，蓝牙通道独占中"
     : reason || (n32Mode ? "可确认升级副板；执行前会再次检测，仍需真机验证" : "可确认升级；执行前会再次检测双板，仍需真机验证");
@@ -237,7 +324,10 @@ function readTuning() {
       window: num("#ota-tuning-window", 16),
       gapMs: num("#ota-tuning-gap", 4),
       delayMs: num("#ota-tuning-gap", 4),
-      gattChunk: num("#ota-tuning-gatt", 244)
+      gattChunk: num("#ota-tuning-gatt", 244),
+      rawIdleMs: num("#ota-tuning-rawidle", 2000),
+      totalMs: num("#ota-tuning-total", 300000),
+      proxyIdleMs: num("#ota-tuning-proxyidle", 5000)
     };
   }
   if (select.value === "steady") return { chunk: 180, window: 16, gapMs: 25, delayMs: 25, gattChunk: 244 };

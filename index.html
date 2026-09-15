@@ -315,8 +315,8 @@
             <p class="ota-notice">不发送进 Boot 或擦写命令。检测会暂占测距通道；若 N32 已在 Boot 启动窗口，查询可能让它停留在 Boot。请先停止测距。</p>
             <button class="btn primary" id="ota-query-status" type="button"><svg aria-hidden="true"><use href="#i-sync"/></svg>检测双板状态</button>
             <div class="ota-board-grid" aria-live="polite">
-              <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>W515 主控</h4><strong id="ota-main-mode">未检测</strong><p id="ota-main-info">等待主控身份与地址信息</p></section>
-              <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>N32 副板</h4><strong id="ota-slave-mode">未检测</strong><p id="ota-slave-info">等待副板自身应答</p></section>
+              <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>W515 主控</h4><strong id="ota-main-mode">未检测</strong><div class="ota-ver-badges" id="ota-main-vers" hidden></div><p id="ota-main-info">等待主控身份与地址信息</p></section>
+              <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>N32 副板</h4><strong id="ota-slave-mode">未检测</strong><div class="ota-ver-badges" id="ota-slave-vers" hidden></div><p id="ota-slave-info">等待副板自身应答</p></section>
             </div>
             <p class="ota-route-summary">代理通道 <strong id="ota-proxy-state">未检测</strong><span id="ota-state-time">尚无有效状态</span></p>
           </div>
@@ -363,6 +363,9 @@
                 <label><span>窗口(1-64包)</span><input type="number" id="ota-tuning-window" min="1" max="64" step="1" value="16"></label>
                 <label><span>包间隔(0-200ms)</span><input type="number" id="ota-tuning-gap" min="0" max="200" step="1" value="25"></label>
                 <label><span>GATT分片(20-244B)</span><input type="number" id="ota-tuning-gatt" min="20" max="244" step="1" value="244"></label>
+                <label><span>RAW空闲(500-30000ms)</span><input type="number" id="ota-tuning-rawidle" min="500" max="30000" step="100" value="2000"></label>
+                <label><span>代理总时长(10-900s)</span><input type="number" id="ota-tuning-total" min="10000" max="900000" step="1000" value="300000"></label>
+                <label><span>代理空闲(1-300s)</span><input type="number" id="ota-tuning-proxyidle" min="1000" max="300000" step="100" value="5000"></label>
               </div>
             </details>
             <label class="ota-check" id="ota-main-only-row" hidden><input type="checkbox" id="ota-main-only">副板状态未确认；我已查看原因，仅恢复 W515 主控 APP</label>
@@ -386,7 +389,7 @@
           </div>
 
           <section class="ota-dock" aria-label="升级确认区">
-            <div class="dock-heading"><span class="step-number" aria-hidden="true">03</span><div><h3>确认与执行</h3><p class="ota-notice" id="ota-gate-reason" role="status">第一步：检测主控与副板状态</p></div></div>
+            <div class="dock-heading"><span class="step-number" aria-hidden="true">03</span><div><h3>确认与执行</h3><p class="ota-notice" id="ota-gate-reason" role="status">第一步：检测主控与副板状态</p><div class="ota-version-compare" id="ota-version-compare" hidden></div></div></div>
             <div class="action-row">
               <button class="btn primary" id="ota-start" type="button" disabled>确认并升级主控</button>
               <button class="btn" id="ota-abort" type="button" disabled>中止</button>
@@ -526,6 +529,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/app.js?v=resume-1"></script>
+  <script type="module" src="./src/app.js?v=ver-2"></script>
 </body>
 </html>

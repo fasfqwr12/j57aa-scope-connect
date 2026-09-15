@@ -142,6 +142,10 @@ body[data-page="upgrade"] .preview-rail { display: none; }
 .ota-board > strong[data-mode="APP"] { color: var(--ok); }
 .ota-board > strong[data-mode="BOOT"] { color: var(--warn); }
 .ota-board p { grid-column: 1 / -1; font-size: 12px; line-height: 1.8; margin: 2px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+.ota-ver-badges { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; }
+.ota-ver-badges .ver-pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 3px 11px; font: 600 13px/1.4 var(--mono); border: 1px solid var(--line2); background: var(--card2); color: var(--text); }
+.ota-ver-badges .ver-pill .k { font: 500 10px/1 var(--ui-font); color: var(--muted); letter-spacing: .5px; }
+.ota-ver-badges .ver-pill.dim { font-size: 11px; padding: 2px 9px; color: var(--muted); }
 .ota-route-summary { margin: 16px 0 0; font-size: 12px; color: var(--muted); }
 .ota-route-summary strong { color: var(--text); font-weight: 500; margin-left: 8px; }
 .ota-route-summary > span { display: block; font-size: 11px; margin-top: 4px; }
@@ -170,6 +174,15 @@ body[data-page="upgrade"] .preview-rail { display: none; }
 .dock-heading h3 { font-size: 13px; font-weight: 600; }
 #ota-gate-reason { padding: 0; margin: 3px 0 0; color: var(--muted); font-size: 12px; line-height: 1.75; }
 #ota-gate-reason[data-state="ready"] { color: var(--ok); }
+.ota-version-compare { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 0; }
+.ota-version-compare[hidden] { display: none; }
+.ota-version-compare .vc-pill { display: inline-flex; align-items: baseline; gap: 5px; border-radius: 8px; padding: 4px 12px; font: 600 14px/1.3 var(--mono); border: 1px solid var(--line2); background: var(--card2); }
+.ota-version-compare .vc-pill .k { font: 500 10px/1 var(--ui-font); color: var(--muted); }
+.ota-version-compare .vc-arrow { font-size: 16px; color: var(--muted); }
+.ota-version-compare .vc-tag { border-radius: 999px; padding: 3px 11px; font: 600 12px/1.3 var(--ui-font); color: var(--status-ok); background: color-mix(in srgb, var(--status-ok) 12%, transparent); }
+.ota-version-compare[data-cmp="0"] .vc-tag { color: var(--status-warn); background: color-mix(in srgb, var(--status-warn) 14%, transparent); }
+.ota-version-compare[data-cmp="-1"] .vc-tag { color: var(--status-error); background: color-mix(in srgb, var(--status-error) 14%, transparent); }
+.ota-version-compare[data-cmp="unknown"] .vc-tag { color: var(--muted); background: var(--card2); }
 .ota-dock .action-row { margin: 0; }
 #ota-start { min-height: 42px; }
 .ota-log-panel { padding: 4px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }

@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "note": "候选固件库；文件时间不等于验收版本。SHA-256与fileCrc32为整文件校验，metaCrc32为W515元数据兼容校验。",
+  "note": "候选固件库；文件时间不等于验收版本。SHA-256与fileCrc32为整文件校验，metaCrc32为W515元数据兼容校验。条目可用 make-release.mjs 自动生成。",
   "files": [
     {
       "name": "W515_APP_v0.1.0_0810.bin",
@@ -11,8 +11,8 @@
       "sha256": "a0d446c18a04b52ab4b954af6e12cc25534b121d64fd3e30a81cf2f939f14b36",
       "fileCrc32": "8D78A553",
       "metaCrc32": "E4503DFD",
-      "notes": "现有 Keil 产物 · 校验可核对 · 浏览器OTA尚未真机验收",
-      "recommended": false
+      "notes": "主控 W515 APP · 已真机验收（2026-08-28 网页 Boot 直连流式升级成功）",
+      "recommended": true
     },
     {
       "name": "N32-APP-v01p2-20260728.hex",
@@ -22,8 +22,8 @@
       "size": 97460,
       "sha256": "c9dc003f9a32af06388479a2a6864467a02985a1796fb00c47236e6bd9f0706c",
       "fileCrc32": "ECCD603E",
-      "notes": "副板 N32G430 APP · 数据34632B@0x08002000 · 代理通道升级路径未真机验收",
-      "recommended": false
+      "notes": "副板 N32G430 APP · 数据34632B@0x08002000 · 已真机验收（2026-08-28 RAW流式+断点续传成功）",
+      "recommended": true
     }
   ]
 }

@@ -12,7 +12,7 @@ const N32_PAGE = 2048;                    // NB 页大小
 const N32_MAGIC_BOOT = [0x4E, 0x33, 0x32, 0x42]; // "N32B"
 const N32_MAGIC_APP = [0x4E, 0x33, 0x32, 0x41];  // "N32A"
 const CHUNK = 180;                        // 帧 192B < 244 GATT 单帧上限；对齐 unified-tool 224B 上限留余量
-const DEFAULT_TUNING = Object.freeze({ chunk: CHUNK, window: 16, gapMs: 25 });
+const DEFAULT_TUNING = Object.freeze({ chunk: CHUNK, window: 16, gapMs: 25, rawIdleMs: 2000, totalMs: 300000, proxyIdleMs: 5000 });
 
 export const N32_LAYOUT = Object.freeze({ appBase: N32_APP_BASE, appEnd: N32_APP_END, page: N32_PAGE });
 
@@ -124,7 +124,7 @@ export class N32OtaSession {
       await this.adapter.reconnect();
     }
     this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 7);
-    const st = await this.proxy(PROXY_MODE.START);
+    const st = await this.proxy(PROXY_MODE.START, 1800, { idleMs: this.tuning?.proxyIdleMs ?? 5000 });
     if (st !== PROXY_STATUS.OK) throw new Error(`恢复阶段重开代理失败: ${st}`);
     this.proxyActive = true;
     await this.waitSlaveMode("BOOT"); // BKP10R="N32B"：N32 永久停留 Boot，链路断开不影响
@@ -132,7 +132,7 @@ export class N32OtaSession {
     const stopSt = await this.proxy(PROXY_MODE.STOP);
     this.proxyActive = false;
     this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 8);
-    const rawSt = await this.proxy(PROXY_MODE.START, 1800, { flags: 2, idleMs: 2000, totalMs: 300000 });
+    const rawSt = await this.proxy(PROXY_MODE.START, 1800, { flags: 2, idleMs: this.tuning?.rawIdleMs ?? 2000, totalMs: this.tuning?.totalMs ?? 300000 });
     if (rawSt !== PROXY_STATUS.OK) throw new Error(`恢复阶段重开 RAW 失败: ${rawSt}`);
     this.rawActive = true;
     this.log("SYS", `RAW 已重开（NORMAL STOP=${stopSt}），Boot 进度 ${prog.written}B`);
@@ -145,9 +145,15 @@ export class N32OtaSession {
     if (!(t.chunk >= 40 && t.chunk <= 224 && t.chunk % 4 === 0)) throw new Error(`N32 数据块须为 40-224 且 4 对齐（当前 ${t.chunk}）`);
     if (!(t.window >= 1 && t.window <= 64)) throw new Error(`N32 窗口须为 1-64（当前 ${t.window}）`);
     if (!(t.gapMs >= 0 && t.gapMs <= 200)) throw new Error(`N32 包间隔须为 0-200ms（当前 ${t.gapMs}）`);
+    if (!(t.rawIdleMs >= 500 && t.rawIdleMs <= 30000)) throw new Error(`RAW 空闲须为 500-30000ms（当前 ${t.rawIdleMs}）`);
+    if (!(t.totalMs >= 10000 && t.totalMs <= 900000)) throw new Error(`代理总时长须为 10000-900000ms（当前 ${t.totalMs}）`);
+    if (!(t.proxyIdleMs >= 1000 && t.proxyIdleMs <= 300000)) throw new Error(`代理空闲须为 1000-300000ms（当前 ${t.proxyIdleMs}）`);
+    // RAW idle 必须 > 断链恢复等待时间（2.4s）+ 一定余量，否则恢复期间代理自退出
+    if (t.rawIdleMs < 2600) this.log("WARN", `RAW idle ${t.rawIdleMs}ms < 2600ms：断链恢复等待期间代理会提前退出，可能需要更久恢复`);
     const size = image.bytes.length, eraseSize = Math.ceil(size / N32_PAGE) * N32_PAGE;
     if (eraseSize > N32_APP_END - N32_APP_BASE + 1) throw new Error("固件或擦除区超过 N32 APP 窗口");
     const crc = crc32(image.bytes);
+    this.tuning = t; // 供 recoverForResume 使用同一组参数
     const release = this.adapter.beginExclusive("n32-upgrade");
     try {
       this.stage("probe", "重新检测双板状态");
@@ -158,7 +164,7 @@ export class N32OtaSession {
       if (expectedDeviceId && snapshot.deviceId !== expectedDeviceId) throw new Error("设备已更换，请重新检测并确认");
       // NORMAL 代理仅用于探测/进 Boot（小帧）；擦写走 RAW 透传（对齐 unified-tool：NORMAL 逐帧解析扛不住大包流式）
       this.stage("proxy", "启动 GLPX 代理（NORMAL·探测）");
-      const st = await this.proxy(PROXY_MODE.START);
+      const st = await this.proxy(PROXY_MODE.START, 1800, { idleMs: t.proxyIdleMs });
       if (st !== PROXY_STATUS.OK) throw new Error(`代理启动被拒绝: ${st}`);
       this.proxyActive = true;
       let slave = await this.waitSlaveMode(snapshot.slave.mode === "BOOT" ? "BOOT" : "APP");
@@ -176,7 +182,7 @@ export class N32OtaSession {
       this.proxyActive = false;
       this.stage("proxy", `启动 GLPX RAW 透传（NORMAL STOP=${stopSt}）`);
       this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 1);
-      const rawSt = await this.proxy(PROXY_MODE.START, 1800, { flags: 2, idleMs: 2000, totalMs: 300000 });
+      const rawSt = await this.proxy(PROXY_MODE.START, 1800, { flags: 2, idleMs: t.rawIdleMs, totalMs: t.totalMs });
       if (rawSt !== PROXY_STATUS.OK) throw new Error(`RAW 代理启动被拒绝: ${rawSt}`);
       this.rawActive = true;
       this.mutatingStarted = true;
