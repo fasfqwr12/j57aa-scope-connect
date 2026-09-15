@@ -1,5 +1,5 @@
 import { W515OtaSession } from "./w515-ota.js?v=tuning-1";
-import { N32OtaSession, n32Gate } from "./n32-ota.js?v=tuning-1";
+import { N32OtaSession, n32Gate } from "./n32-ota.js?v=resume-1";
 import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=status-first-1";
 import { inspectFirmware, inspectN32Firmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
 import { firmwareDirectory, firmwareUrl, verifyDownload } from "./firmware-library.js?v=status-first-1";
@@ -230,18 +230,18 @@ function readTuning() {
     const v = Number.parseInt($(id)?.value ?? "", 10);
     return Number.isFinite(v) ? v : fallback;
   };
-  if (!select) return { chunk: 180, window: 16, gapMs: 25 };
+  if (!select) return { chunk: 180, window: 16, gapMs: 4, delayMs: 4, gattChunk: 244 };
   if (custom) {
     return {
       chunk: num("#ota-tuning-chunk", 180),
       window: num("#ota-tuning-window", 16),
-      gapMs: num("#ota-tuning-gap", 25),
-      delayMs: num("#ota-tuning-gap", 25),
+      gapMs: num("#ota-tuning-gap", 4),
+      delayMs: num("#ota-tuning-gap", 4),
       gattChunk: num("#ota-tuning-gatt", 244)
     };
   }
-  if (select.value === "fast") return { chunk: 180, window: 16, gapMs: 4, delayMs: 4, gattChunk: 244 };
-  return { chunk: 180, window: 16, gapMs: 25, delayMs: 25, gattChunk: 244 }; // steady 默认
+  if (select.value === "steady") return { chunk: 180, window: 16, gapMs: 25, delayMs: 25, gattChunk: 244 };
+  return { chunk: 180, window: 16, gapMs: 4, delayMs: 4, gattChunk: 244 }; // fast 默认
 }
 function saveTuningChoice() {
   try {

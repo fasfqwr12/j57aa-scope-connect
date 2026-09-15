@@ -76,6 +76,68 @@ export class N32OtaSession {
     }
     throw new Error(`副板未确认进入 ${expected}；停止，不盲目擦写`);
   }
+  // RAW 流式写入：从 startFrom 续写（Boot 顺序计数器为权威），窗口 0x39 核对 + 丢包断点 ACK 补写
+  async streamWrite(image, size, t, startFrom) {
+    this.stage("write", `0x34 RAW 流式写入（${t.chunk}B/包${startFrom ? `，从 ${startFrom}B 续写` : ""}）`);
+    // 主控 APP_BLE_RX_DISPATCH_IN_MAIN=1：BLE 字节先进 768B buffer 由主循环转发 UART1（帧×87µs），
+    // 溢出即静默丢；包间隔须 ≥ 主循环排空时间，否则丢流式包。
+    const started = this.now(), total = Math.ceil(size / t.chunk);
+    let index = Math.floor(startFrom / t.chunk);
+    for (let offset = startFrom; offset < size; offset += t.chunk, index++) {
+      checkAbort(this.controller.signal);
+      const part = image.bytes.slice(offset, Math.min(size, offset + t.chunk));
+      const pad = (4 - (part.length % 4)) % 4;
+      const data = pad ? Uint8Array.from([...part, ...new Array(pad).fill(0xFF)]) : part;
+      // 流式包：flag=0 静默写入（无前导 0x01），整帧单次 GATT 写
+      await this.sendOnly(N32_CMD.WRITE, [...u32be(N32_APP_BASE + offset), ...data]);
+      const written = offset + part.length;
+      const atWindowEnd = (index + 1) % t.window === 0 || written === size;
+      if (atWindowEnd) {
+        // 窗口核对：0x39 立即回包（Boot 只读计数器，不等 flash），确认流式包已顺序落盘
+        const st = await this.status();
+        if (st.written !== written) {
+          this.log("WARN", `窗口计数不一致（流式丢包）：Boot ${st.written}B / 已发 ${written}B，断点 ACK 补写`);
+          if (st.status !== 0 || st.written % 4 !== 0 || st.written > written) throw new Error(`无法断点恢复: 状态${st.status} written=${st.written}`);
+          for (let ro = st.written; ro <= offset; ro += t.chunk) {
+            checkAbort(this.controller.signal);
+            const rpart = image.bytes.slice(ro, Math.min(size, ro + t.chunk));
+            const rpad = (4 - (rpart.length % 4)) % 4;
+            const rdata = rpad ? Uint8Array.from([...rpart, ...new Array(rpad).fill(0xFF)]) : rpart;
+            const f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + ro), ...rdata], 5000);
+            if (f.payload[0] !== 0) throw new Error(`断点补写 ACK 异常: ${f.payload[0]} @0x${(N32_APP_BASE + ro).toString(16)}`);
+          }
+          this.log("SYS", `断点补写完成，继续流式`);
+        }
+      }
+      this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `RAW流式${t.chunk}B / 0x39核对×${t.window}` });
+      await this.pause(t.gapMs, this.controller.signal);
+    }
+  }
+  // 链路中断恢复：等 RAW 空闲自恢复 → 必要时 BLE 重连 → NORMAL 代理查 0x39 真实进度 → 重开 RAW
+  async recoverForResume() {
+    this.rawActive = false; this.proxyActive = false;
+    this.stage("write", "链路中断，断点恢复中…");
+    this.log("SYS", "等待主控 RAW 空闲自动恢复（约 2.4s）…");
+    await this.pause(2400, this.controller.signal);
+    if (!this.adapter.isGattConnected()) {
+      this.log("SYS", "BLE 已断开，尝试重连…");
+      await this.adapter.reconnect();
+    }
+    this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 7);
+    const st = await this.proxy(PROXY_MODE.START);
+    if (st !== PROXY_STATUS.OK) throw new Error(`恢复阶段重开代理失败: ${st}`);
+    this.proxyActive = true;
+    await this.waitSlaveMode("BOOT"); // BKP10R="N32B"：N32 永久停留 Boot，链路断开不影响
+    const prog = await this.status(); // 0x39：Boot 真实写入进度（RAM 计数器，断链不丢）
+    const stopSt = await this.proxy(PROXY_MODE.STOP);
+    this.proxyActive = false;
+    this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 8);
+    const rawSt = await this.proxy(PROXY_MODE.START, 1800, { flags: 2, idleMs: 2000, totalMs: 300000 });
+    if (rawSt !== PROXY_STATUS.OK) throw new Error(`恢复阶段重开 RAW 失败: ${rawSt}`);
+    this.rawActive = true;
+    this.log("SYS", `RAW 已重开（NORMAL STOP=${stopSt}），Boot 进度 ${prog.written}B`);
+    return prog;
+  }
   async run(image, { confirmed = false, expectedDeviceId, tuning } = {}) {
     if (!confirmed) throw new Error("需要明确确认后才允许升级副板");
     if (image.target !== "n32-app" || image.base !== N32_APP_BASE) throw new Error("镜像不是 N32 APP（基址须 0x08002000）");
@@ -117,82 +179,54 @@ export class N32OtaSession {
       const rawSt = await this.proxy(PROXY_MODE.START, 1800, { flags: 2, idleMs: 2000, totalMs: 300000 });
       if (rawSt !== PROXY_STATUS.OK) throw new Error(`RAW 代理启动被拒绝: ${rawSt}`);
       this.rawActive = true;
-      this.stage("erase", `0x33 擦除 APP ${eraseSize}B（页${N32_PAGE}）`);
       this.mutatingStarted = true;
-      await this.ack(N32_CMD.ERASE, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(eraseSize), 0x08, 0x00], 30000);
-      this.stage("write", `0x34 RAW 流式写入（${t.chunk}B/包）`);
-      // 对齐 unified-tool 快速路径，但受主控 APP 限制降速：
-      // APP_BLE_RX_DISPATCH_IN_MAIN=1（product_config.h:121）——BLE 字节先进 768B proxy_frame_buf，
-      // 主循环快照后逐字节阻塞转发 UART1（帧×87µs），溢出即静默丢（gd32w51x_it.c:507）。
-      // 故包间隔须 ≥ 主循环排空时间，否则 buffer 积压→丢包→BLE 链路断。
-      const started = this.now(), total = Math.ceil(size / t.chunk);
-      for (let offset = 0, index = 0; offset < size; offset += t.chunk, index++) {
-        checkAbort(this.controller.signal);
-        const part = image.bytes.slice(offset, Math.min(size, offset + t.chunk));
-        const pad = (4 - (part.length % 4)) % 4;
-        const data = pad ? Uint8Array.from([...part, ...new Array(pad).fill(0xFF)]) : part;
-        // 流式包：flag=0 静默写入（无前导 0x01），整帧单次 GATT 写
-        await this.sendOnly(N32_CMD.WRITE, [...u32be(N32_APP_BASE + offset), ...data]);
-        const written = offset + part.length;
-        const atWindowEnd = (index + 1) % t.window === 0 || written === size;
-        if (atWindowEnd) {
-          // 窗口核对：0x39 立即回包（Boot 只读计数器，不等 flash），确认流式包已顺序落盘
-          const st = await this.status();
-          if (st.written !== written) {
-            this.log("WARN", `窗口计数不一致（流式丢包）：Boot ${st.written}B / 已发 ${written}B，断点 ACK 补写`);
-            if (st.status !== 0 || st.written % 4 !== 0 || st.written > written) throw new Error(`无法断点恢复: 状态${st.status} written=${st.written}`);
-            for (let ro = st.written; ro <= offset; ro += t.chunk) {
-              checkAbort(this.controller.signal);
-              const rpart = image.bytes.slice(ro, Math.min(size, ro + t.chunk));
-              const rpad = (4 - (rpart.length % 4)) % 4;
-              const rdata = rpad ? Uint8Array.from([...rpart, ...new Array(rpad).fill(0xFF)]) : rpart;
-              const f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + ro), ...rdata], 5000);
-              if (f.payload[0] !== 0) throw new Error(`断点补写 ACK 异常: ${f.payload[0]} @0x${(N32_APP_BASE + ro).toString(16)}`);
+      // —— 擦写主流程（可断点恢复）：链路闪断/丢包时重连续传，最多 3 次（对齐 PC _recover_raw_proxy_for_fallback）——
+      let resumeWritten = 0;
+      for (let attempt = 1; ; attempt++) {
+        try {
+          if (resumeWritten === 0) {
+            this.stage("erase", `0x33 擦除 APP ${eraseSize}B（页${N32_PAGE}）`);
+            await this.ack(N32_CMD.ERASE, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(eraseSize), 0x08, 0x00], 30000);
+          } else this.log("SYS", `从 ${resumeWritten}B 断点续写（已擦除，跳过擦除）`);
+          await this.streamWrite(image, size, t, resumeWritten);
+          // 校验
+          this.stage("verify", "0x35 CRC32 校验");
+          let vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 8000);
+          if (vf.payload[0] !== 0) {
+            // 流式丢包兜底：查 Boot 真实进度，ACK 补写剩余后重校验（对齐 unified-tool :5866-5890）
+            this.log("WARN", `校验失败(状态${vf.payload[0]})，查询 Boot 进度尝试断点补写`);
+            const st = await this.status();
+            if (st.status === 0 && st.written % 4 === 0 && st.written < size) {
+              this.log("SYS", `Boot 已写 ${st.written}/${size}B，从 0x${(N32_APP_BASE + st.written).toString(16)} ACK 补写剩余部分`);
+              for (let offset = st.written; offset < size; offset += t.chunk) {
+                checkAbort(this.controller.signal);
+                const part = image.bytes.slice(offset, Math.min(size, offset + t.chunk));
+                const pad = (4 - (part.length % 4)) % 4;
+                const data = pad ? Uint8Array.from([...part, ...new Array(pad).fill(0xFF)]) : part;
+                const f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + offset), ...data], 5000);
+                if (f.payload[0] !== 0) throw new Error(`补写 ACK 异常: ${f.payload[0]} @0x${(N32_APP_BASE + offset).toString(16)}`);
+              }
+              vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 30000);
+              if (vf.payload[0] === 0) this.log("SYS", "断点补写后校验通过");
             }
-            this.log("SYS", `断点补写完成，继续流式`);
+            if (vf.payload[0] !== 0) throw new Error(`副板校验失败: 状态${vf.payload[0]}（06=CRC不符）`);
           }
+          const dv = new DataView(vf.payload.buffer, vf.payload.byteOffset, vf.payload.byteLength);
+          if (vf.payload.length >= 17) {
+            const vAddr = dv.getUint32(1, false), vSize = dv.getUint32(5, false), expected = dv.getUint32(9, false), actual = dv.getUint32(13, false);
+            if (vAddr !== N32_APP_BASE || vSize !== size || expected !== crc || actual !== crc) throw new Error(`校验诊断不一致：addr=${hex(vAddr)} size=${vSize} 期望=${hex(expected)} 实算=${hex(actual)}；不进APP`);
+          } else this.log("WARN", "0x35 应答短于17B，仅确认状态码");
+          break; // 擦写+校验全部成功
+        } catch (error) {
+          checkAbort(this.controller.signal);
+          if (attempt >= 3) throw error;
+          this.log("WARN", `第${attempt}次中断：${error.message}；开始断点恢复（重连/重开代理/查进度）`);
+          const prog = await this.recoverForResume();
+          if (prog.status !== 0 || prog.written % 4 !== 0 || prog.written > size) throw new Error(`恢复失败：Boot 状态${prog.status} written=${prog.written}`);
+          resumeWritten = prog.written;
+          this.log("SYS", `断点恢复就绪，从 ${resumeWritten}/${size}B 续写`);
         }
-        this.hooks.onProgress?.({ percent: written / size * 100, written, size, packets: index + 1, totalPackets: total, speed: written / Math.max(0.001, (this.now() - started) / 1000), mode: `RAW流式${t.chunk}B / 0x39核对×${t.window}` });
-        await this.pause(t.gapMs, this.controller.signal);
       }
-      this.stage("verify", "0x35 CRC32 校验");
-      let vf;
-      try {
-        vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 8000);
-      } catch (e) {
-        // RAW idle=2s：校验计算期间无流量，代理可能已自动退出 → 重开 RAW 再查
-        this.log("WARN", `校验等待超时（${e.message}）；等 RAW 空闲恢复后重开代理重试`);
-        await this.pause(2400, this.controller.signal);
-        this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 2);
-        const re = await this.proxy(PROXY_MODE.START, 1800, { flags: 2, idleMs: 2000, totalMs: 300000 });
-        if (re !== PROXY_STATUS.OK) throw new Error(`重开 RAW 代理失败: ${re}`);
-        vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 8000);
-      }
-      if (vf.payload[0] !== 0) {
-        // 流式丢包兜底：查 Boot 真实进度，从断点 ACK 补写后重校验（对齐 unified-tool :5866-5890）
-        this.log("WARN", `校验失败(状态${vf.payload[0]})，查询 Boot 进度尝试断点补写`);
-        const st = await this.status();
-        if (st.status === 0 && st.written % 4 === 0 && st.written < size) {
-          const from = st.written;
-          this.log("SYS", `Boot 已写 ${st.written}/${size}B，从 0x${(N32_APP_BASE + from).toString(16)} ACK 补写剩余部分`);
-          for (let offset = from; offset < size; offset += CHUNK) {
-            checkAbort(this.controller.signal);
-            const part = image.bytes.slice(offset, Math.min(size, offset + CHUNK));
-            const pad = (4 - (part.length % 4)) % 4;
-            const data = pad ? Uint8Array.from([...part, ...new Array(pad).fill(0xFF)]) : part;
-            const f = await this.send(N32_CMD.WRITE, [0x01, ...u32be(N32_APP_BASE + offset), ...data], 5000);
-            if (f.payload[0] !== 0) throw new Error(`补写 ACK 异常: ${f.payload[0]} @0x${(N32_APP_BASE + offset).toString(16)}`);
-          }
-          vf = await this.send(N32_CMD.VERIFY, [...N32_MAGIC_BOOT, ...u32be(N32_APP_BASE), ...u32be(size), ...u32be(crc)], 30000);
-          if (vf.payload[0] === 0) this.log("SYS", "断点补写后校验通过");
-        }
-        if (vf.payload[0] !== 0) throw new Error(`副板校验失败: 状态${vf.payload[0]}（06=CRC不符；written=${st.written}）`);
-      }
-      const dv = new DataView(vf.payload.buffer, vf.payload.byteOffset, vf.payload.byteLength);
-      if (vf.payload.length >= 17) {
-        const vAddr = dv.getUint32(1, false), vSize = dv.getUint32(5, false), expected = dv.getUint32(9, false), actual = dv.getUint32(13, false);
-        if (vAddr !== N32_APP_BASE || vSize !== size || expected !== crc || actual !== crc) throw new Error(`校验诊断不一致：addr=${hex(vAddr)} size=${vSize} 期望=${hex(expected)} 实算=${hex(actual)}；不进APP`);
-      } else this.log("WARN", "0x35 应答短于17B，仅确认状态码");
       this.stage("enterapp", "0x37 命令副板进入 APP");
       await this.ack(N32_CMD.ENTER_APP, [], 3000);
       // RAW 已无后续流量：等 idle 自动恢复 → 重开 NORMAL 代理确认副板 APP（对齐 PC 升级后流程）
