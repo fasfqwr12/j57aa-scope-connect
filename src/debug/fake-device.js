@@ -135,8 +135,17 @@ class VirtualW515 {
 class VirtualN32 {
   constructor() { this.reset(); }
   reset() { this.mode = "APP"; this.flash = new Uint8Array(N32.APP_END - N32.APP_BASE + 1).fill(0xFF); this.written = 0; this.stayBoot = true;
-    // 0x3A/F7 代理信息字段（模拟已烧录固件的编译期 size/CRC；升级成功后更新）
-    this.infoSize = 0; this.infoCrc = 0; this.infoSw = 0x0001; this.infoBoot = 0x0102; }
+    // 模拟固件行为：APP 版本/size/CRC 读 flash meta 块（偏移 0x200，"N3MT"）；Boot 版本嵌入块 0x0102
+    this.infoBoot = 0x0102; }
+  // meta 块 @ APP+0x200（与固件 g_n32_app_meta 对齐；升级时由镜像自带）
+  readMeta() {
+    const dv = new DataView(this.flash.buffer);
+    if (dv.getUint32(0x200, true) !== 0x4E334D54) return null;  // "N3MT"
+    const size = dv.getUint32(0x200 + 8, true), crc = dv.getUint32(0x200 + 12, true);
+    if (size === 0xFFFFFFFF || crc === 0xFFFFFFFF) return { sw: dv.getUint16(0x200 + 4, true), size: 0, crc: 0 };
+    return { sw: dv.getUint16(0x200 + 4, true), size, crc };
+  }
+  infoSw() { return this.readMeta()?.sw ?? 0x0001; }
   appValid() {
     const dv = new DataView(this.flash.buffer);
     const sp = dv.getUint32(0, true), pc = dv.getUint32(4, true);
@@ -200,8 +209,6 @@ class VirtualN32 {
         const addr = be32(payload, 4), size = be32(payload, 8), crc = be32(payload, 12);
         if (addr !== N32.APP_BASE || size > this.written) return { status: 0x03 };
         const calc = crc32(this.flash.slice(0, size));
-        // Boot 记录最近一次校验值（0x3A 统一信息上报口径）
-        this.infoSize = size; this.infoCrc = calc;
         return { status: calc === crc ? 0 : 0x06, data: [...u32be(addr), ...u32be(size), ...u32be(crc), ...u32be(calc)] };
       }
       case 0x36: { this.written = 0; return { status: 0 }; } // 复位不清 magic → 仍回 Boot
@@ -316,11 +323,12 @@ export class FakeAdapter {
   // F7 目标=1 应答：主控代理转发 N32 0x3A 的结果，填进 48B 统一布局（型号 J57AA-N32）
   n32F7Response() {
     const n = this.n32, b = new Uint8Array(48), dv = new DataView(b.buffer);
-    const size = n.infoSize ?? 0, crc = n.infoCrc ?? 0, sw = n.infoSw ?? 0x0001, boot = n.infoBoot ?? 0x0102;
+    const meta = n.mode === "APP" ? n.readMeta() : n.readMeta(); // meta 在 flash：APP/Boot 模式都可读
+    const size = meta?.size ?? 0, crc = meta?.crc ?? 0, sw = meta?.sw ?? 0x0001, boot = n.infoBoot ?? 0x0102;
     dv.setUint32(0, 0x4E333200, true);      // N32 设备标识
     dv.setUint16(4, 0x0100, true);          // hw 1.0
-    dv.setUint16(6, sw, true);              // APP 版本（major<<8|minor）
-    dv.setUint16(8, boot, true);            // Boot 版本
+    dv.setUint16(6, sw, true);              // APP 版本（meta）
+    dv.setUint16(8, boot, true);            // Boot 版本（嵌入块）
     b.set(ascii("J57AA-N32"), 12);
     dv.setUint32(28, 128 * 1024, true);     // flash 128KB
     dv.setUint32(32, N32.APP_BASE, true);
