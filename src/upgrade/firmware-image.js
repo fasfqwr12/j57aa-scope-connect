@@ -1,5 +1,5 @@
 import { readFirmwareMeta, crc32MetaCompatible, crc32, W515_LAYOUT, validateW515Window } from "./ota-protocol.js?v=status-first-1";
-import { N32_LAYOUT } from "./n32-ota.js?v=raw-path-1";
+import { N32_LAYOUT } from "./n32-ota.js?v=raw-path-2";
 
 // Intel HEX addresses are preserved and validated, never flashed as ASCII text.
 export function parseIntelHex(text, { min = W515_LAYOUT.appMin, max = W515_LAYOUT.flashEnd } = {}) {
