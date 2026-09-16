@@ -1,7 +1,7 @@
 // Wire codecs from current W515/N32 firmware. No device I/O in this module.
 export const OTA_CMD = Object.freeze({ HANDSHAKE: 1, GET_INFO: 2, ENTER_UPGRADE: 3, ERASE: 4, WRITE: 5, VERIFY: 6, RESET: 7, GET_STATUS: 9 });
 export const OTA_MAGIC = Object.freeze({ BOOT: 0x87654321, APP: 0xAA55AA55 });
-export const N32_CMD = Object.freeze({ HANDSHAKE: 0x31, INFO: 0x32, ERASE: 0x33, WRITE: 0x34, VERIFY: 0x35, RESET: 0x36, ENTER_APP: 0x37, ENTER_BOOT: 0x38, STATUS: 0x39 });
+export const N32_CMD = Object.freeze({ HANDSHAKE: 0x31, INFO: 0x32, ERASE: 0x33, WRITE: 0x34, VERIFY: 0x35, RESET: 0x36, ENTER_APP: 0x37, ENTER_BOOT: 0x38, STATUS: 0x39, ECHO: 0x3A });
 export const N32_MAGIC = Object.freeze({ BOOT: "N32B", APP: "N32A" });
 export const PROXY_MODE = Object.freeze({ START: 1, STOP: 2, STATUS: 3, KEEPALIVE: 4 });
 export const PROXY_STATUS = Object.freeze({ OK: 0, BAD_FRAME: 1, BUSY: 3, SESSION_MISMATCH: 4, INACTIVE: 5, UNSUPPORTED: 7 });
@@ -164,6 +164,19 @@ export function parseN32Info(payload) {
     return { mode: "BOOT", magic, status: 0, bootVersion: data[4], appStart: dv.getUint32(5, false), appEnd: dv.getUint32(9, false), pageSize: dv.getUint16(13, false), appValid: (data[15] & 1) !== 0 };
   }
   return { mode: "UNKNOWN", reason: "unrecognized-info-layout", magic };
+}
+// v1.7+ 副板统一信息：0x3A + "INFO"（MiniModule_SystemConfig.c:9,299-304）。
+// 应答 0xBA = [status] + 48B，与 W515 BootInfo 同布局（device_id/hw/sw/boot/model/flash/app_start/窗口/size/crc）。
+// 旧固件无 0x3A → default 分支回 BAD_CMD（status≠0、空 payload），不会挂起。
+export function buildN32UnifiedInfoQuery() {
+  return buildOtaFrame(N32_CMD.ECHO, [0x49, 0x4E, 0x46, 0x4F]); // "INFO"
+}
+export function parseN32UnifiedResponse(payload) {
+  const p = bytes(payload);
+  if (!p.length) return null;
+  if (p[0] !== 0) return { ok: false, status: p[0] };
+  if (p.length < 49) return null;
+  return { ok: true, status: 0, info: parseBootInfo(p.slice(1)) };
 }
 export function parseOtaStatus(payload) {
   const p = bytes(payload);

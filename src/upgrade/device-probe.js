@@ -1,4 +1,4 @@
-import { buildF7Query, buildOtaFrame, buildProxyFrame, OTA_CMD, N32_CMD, PROXY_MODE, PROXY_STATUS, parseBootInfo, parseW515Mode, parseN32Info, validateW515Window } from "./ota-protocol.js?v=f7target-1";
+import { buildF7Query, buildOtaFrame, buildN32UnifiedInfoQuery, buildProxyFrame, OTA_CMD, N32_CMD, PROXY_MODE, PROXY_STATUS, parseBootInfo, parseW515Mode, parseN32Info, parseN32UnifiedResponse, validateW515Window } from "./ota-protocol.js?v=n32info-1";
 import { checkAbort } from "./ota-channel.js?v=resync-1";
 
 export function snapshotIsFresh(snapshot, adapter, now = Date.now()) {
@@ -99,6 +99,16 @@ export class DeviceProbe {
       result.proxy.state = "OWNED_NORMAL";
       const response = await this.query(buildOtaFrame(N32_CMD.HANDSHAKE, [0x4E, 0x33, 0x32, 0x42]), "n32", 0xB1);
       const slave = parseN32Info(response.payload);
+      // v1.7+ 副板统一信息：同一代理隧道直接问 0x3A "INFO"（不依赖主控 F7 target=1 转发）。
+      // 48B BootInfo 布局 → Boot/大小/CRC 字段；旧固件回 BAD_CMD 或超时 → 保留握手信息。
+      if (slave.mode === "APP") {
+        try {
+          const uf = await this.query(buildN32UnifiedInfoQuery(), "n32", 0xBA);
+          const uni = parseN32UnifiedResponse(uf.payload);
+          if (uni?.ok && uni.info && /N32/i.test(uni.info.model)) slave.info = uni.info;
+          else this.log("SYS", `副板统一信息不可用（status=${uni ? uni.status : "?"}）：副板固件较旧，无 0x3A`);
+        } catch (error) { checkAbort(this.signal); this.log("SYS", "副板统一信息查询超时（副板固件较旧，无 0x3A）；仅显示握手信息"); }
+      }
       if (result.slave.info) slave.info = result.slave.info; // F7 代理信息（版本/CRC/大小）叠加
       result.slave = slave;
       if (result.slave.mode === "UNKNOWN") result.slave.reason = "副板应答格式/状态未确认";

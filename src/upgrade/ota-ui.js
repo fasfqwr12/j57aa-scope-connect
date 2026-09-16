@@ -1,6 +1,6 @@
 import { W515OtaSession } from "./w515-ota.js?v=tuning-1";
 import { N32OtaSession, n32Gate } from "./n32-ota.js?v=confirmfix-4";
-import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=f7target-2";
+import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=n32info-1";
 import { inspectFirmware, inspectN32Firmware, validateFirmwareForDevice } from "./firmware-image.js?v=confirmfix-3";
 import { firmwareDirectory, firmwareUrl, verifyDownload } from "./firmware-library.js?v=status-first-1";
 
