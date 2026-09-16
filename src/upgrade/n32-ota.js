@@ -245,13 +245,22 @@ export class N32OtaSession {
           else { this.log("SYS", `0x37 第${i}次失败（${error.message}），${i * 1000}ms 后重试`); await this.pause(i * 1000, this.controller.signal); }
         }
       }
+      // 立即 GLPX STOP 关 RAW 代理：N32 跳 APP 后上电输出经 RAW 盲转 BLE 会灌爆蓝牙（断链根因）。
+      // 需 W515 固件带 RAW STOP 嗅探（upgrade_proxy.c）；旧固件无嗅探时 STOP 被透传给 N32 成垃圾帧、无害。
+      try {
+        this.log("SYS", "升级完毕：发 GLPX STOP 立即关闭 RAW 透传（封死跳 APP 输出洪流）");
+        const stopSt = await this.proxy(PROXY_MODE.STOP, 1500);
+        this.log("SYS", `RAW 代理已主动关闭（STOP=${stopSt}）`);
+      } catch (stopError) {
+        checkAbort(this.controller.signal);
+        this.log("SYS", `STOP 发送未成（${stopError.message}）：旧固件无嗅探或链路已断，靠 idle 自动恢复`);
+      }
+      this.rawActive = false;
       // 确认阶段（重开代理+握手）为非致命：固件已写入并校验通过，失败只提示重测确认
       // 断链自动重连重试：流式结束后 W515 BLE 栈可能断链；重连（无需用户手势）后重开代理确认
-      this.rawActive = false;
       try {
-        // RAW 已无后续流量：等 idle 自动恢复 → 重开 NORMAL 代理确认副板 APP（对齐 PC 升级后流程）
-        this.log("SYS", "等待主控 RAW 空闲自动恢复（约 2.4s）…");
-        await this.pause(2400, this.controller.signal);
+        // 代理已关：稍候重开 NORMAL 代理确认副板 APP（对齐 PC 升级后流程）
+        await this.pause(1200, this.controller.signal);
         this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 3);
         const reSt = await this.proxy(PROXY_MODE.START);
         if (reSt !== PROXY_STATUS.OK) throw new Error(`重开代理被拒: ${reSt}`);

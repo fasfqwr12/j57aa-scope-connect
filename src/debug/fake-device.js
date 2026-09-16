@@ -290,10 +290,18 @@ export class FakeAdapter {
     }
     if (this.proxy.active) this.proxy.lastTraffic = Date.now();
     const out = [];
-    // RAW 透传：所有字节（含 GLPX 控制帧）直接转发 N32，主控不解析（PX:1203-1205）
+    // RAW 透传：N32 命令直接转发；GLPX 帧走 STOP 嗅探（PX 新固件），其余透传当垃圾
     if (this.proxy.active && this.proxy.raw) {
       if (bytes[0] === 0xAA && bytes[1] >= 0x31 && bytes[1] <= 0x39) { out.push(this.handleN32(bytes)); return out; }
-      return out; // RAW 下 GLPX/其他帧透传给 N32 当垃圾丢弃（无回应）
+      // RAW STOP 嗅探（PX:1200-1293）：完整 GLPX STOP 帧+session 匹配→应答并关代理；其他 GLPX 透传丢弃
+      if (bytes.length === 27 && bytes[0] === 0xAA && bytes[1] === 0x7E && String.fromCharCode(...bytes.slice(4, 8)) === "GLPX" && bytes[8] === 0x02) {
+        const session = ((bytes[9] << 24) | (bytes[10] << 16) | (bytes[11] << 8) | bytes[12]) >>> 0;
+        if (session !== 0 && session !== this.proxy.session) { out.push([0xAA, 0x7E, 0x00, 0x05, ...ascii("GLPX"), 0x04, 0, 0]); return out; }
+        this.proxy = { active: false, session: 0 };
+        out.push([0xAA, 0x7E, 0x00, 0x05, ...ascii("GLPX"), 0x00, 0, 0]);
+        return out;
+      }
+      return out; // RAW 下其他 GLPX/杂帧透传给 N32 当垃圾丢弃（无回应）
     }
     if (bytes.length >= 10 && bytes[0] === 0xAA && bytes[1] === 0xEE && bytes[2] === 0xF7) {
       if (bytes[7] === 0xF7 || bytes[7] === 0x00) {
