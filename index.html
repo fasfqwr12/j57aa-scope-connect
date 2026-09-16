@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./src/app.css?v=status-first-1">
-  <link rel="stylesheet" href="./src/ui-refinement.css?v=quiet-olive-03">
+  <link rel="stylesheet" href="./src/ui-refinement.css?v=ota-modal-4">
   <link rel="stylesheet" href="./src/ui/mobile-screens.css?v=mobile-screen-05">
 </head>
 <body data-page="device">
@@ -309,7 +309,19 @@
         <!-- ============ 升级 ============ -->
         <div class="section-panel" data-panel="upgrade">
           <div class="ota-intro"><span class="ota-intro-badge"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>尚未真机验收</span><p>W515 主控与 N32 副板 APP 均可升级；副板经主控代理通道。</p></div>
-          <div class="ota-console">
+          <div class="ota-launch">
+            <button class="btn primary" id="ota-open-modal" type="button"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>打开固件升级浮窗</button>
+            <p class="ota-launch-summary" id="ota-launch-summary">打开后自动检测双板状态 · 本地或在线选择固件 · 升级计时</p>
+          </div>
+        </div>
+        <!-- ============ 升级浮窗 ============ -->
+        <div class="ota-modal-overlay" id="ota-modal" hidden>
+          <div class="ota-modal" role="dialog" aria-modal="true" aria-labelledby="ota-modal-title">
+            <header class="ota-modal-head">
+              <h3 id="ota-modal-title"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>固件升级</h3>
+              <button class="ota-modal-close" id="ota-close-modal" type="button" aria-label="关闭">&times;</button>
+            </header>
+            <div class="ota-console">
           <div class="field-band ota-preflight">
             <div class="band-head"><div class="numbered-heading"><span class="step-number">01</span><div><h3>检测主控与副板</h3><p>先识别设备，再选择更新</p></div></div><span class="source-pill pending">状态优先</span></div>
             <p class="ota-notice">不发送进 Boot 或擦写命令。检测会暂占测距通道；若 N32 已在 Boot 启动窗口，查询可能让它停留在 Boot。请先停止测距。</p>
@@ -392,6 +404,7 @@
               <div><span>速度</span><strong id="ota-stat-speed">-- B/s</strong></div>
               <div><span>包</span><strong id="ota-stat-packets">--/--</strong></div>
               <div><span>档位</span><strong id="ota-stat-mode">--</strong></div>
+              <div><span>耗时</span><strong id="ota-stat-elapsed">--</strong></div>
             </div>
           </div>
 
@@ -408,7 +421,9 @@
             <div class="ota-log-tools"><button class="btn compact" id="ota-clear-log" type="button">清空</button></div>
             <div class="log-box ota-log" id="ota-log-box"></div>
           </details>
-        </div>
+            </div><!-- /ota-console -->
+          </div><!-- /ota-modal -->
+        </div><!-- /ota-modal-overlay -->
       </section>
 
       <aside class="preview-rail" aria-label="瞄具预览" data-expanded="false">

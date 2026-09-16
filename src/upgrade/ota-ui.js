@@ -26,10 +26,14 @@ function selectTarget(value) {
 
 export function initOtaUpgrade(context) {
   ctx = context;
-  $("#ota-query-status").addEventListener("click", detect);
+  $("#ota-query-status").addEventListener("click", () => detect());
   $("#ota-start").addEventListener("click", startUpgrade);
   $("#ota-abort").addEventListener("click", () => { session?.abort(); probeAbort?.abort(); otaLog("WARN", "已请求停止，等待当前写入结束和本会话清理"); });
   $("#ota-clear-log").addEventListener("click", () => { $("#ota-log-box").replaceChildren(); clearFeedback(); });
+  // 升级浮窗：打开即自动预检（快照缺失/过期时）；升级中阻止关闭（对齐调试助手行为）
+  $("#ota-open-modal")?.addEventListener("click", openOtaModal);
+  $("#ota-close-modal")?.addEventListener("click", closeOtaModal);
+  $("#ota-modal")?.addEventListener("click", event => { if (event.target.id === "ota-modal") closeOtaModal(); });
   $("#ota-firmware-file").addEventListener("change", async event => {
     const file = event.target.files?.[0]; event.target.value = "";
     if (!file || busy) return;
@@ -123,6 +127,45 @@ async function adapterForProbe() {
   if (!adapter?.requestWire || !adapter.isGattConnected()) throw new Error("请先在设备页选择浏览器 BLE 并连接；Bridge 不提供此升级通道");
   return adapter;
 }
+// ===== 升级浮窗 =====
+function openOtaModal() {
+  const modal = $("#ota-modal"); if (!modal) return;
+  modal.hidden = false;
+  otaLog("SYS", "升级浮窗已打开");
+  // 自动预检：快照缺失/过期且空闲时直接跑（浮窗上下文不再弹确认；手动按钮仍走确认）
+  const adapter = ctx.getAdapter();
+  if (!busy && !(snapshot && adapter && snapshotIsFresh(snapshot, adapter))) {
+    if (ctx.isConnected()) detect({ auto: true });
+    else otaLog("SYS", "未连接设备：连接后点「检测双板状态」或重新打开浮窗自动检测");
+  }
+}
+function closeOtaModal() {
+  const modal = $("#ota-modal"); if (!modal) return;
+  if (busy) { otaLog("WARN", "升级进行中，已阻止关闭浮窗（避免打断 RAW 透传）；请等待完成或失败后再关闭"); return; }
+  modal.hidden = true;
+}
+// ===== 升级耗时统计 =====
+let elapsedTimer = null, elapsedStart = 0, elapsedFrozen = null;
+function elapsedText() {
+  const ms = elapsedFrozen ?? (elapsedStart ? Date.now() - elapsedStart : 0);
+  const s = Math.floor(ms / 1000);
+  return s >= 60 ? `${Math.floor(s / 60)}分${String(s % 60).padStart(2, "0")}秒` : `${s.toFixed(0)}秒`;
+}
+function startElapsed() {
+  stopElapsed(); elapsedStart = Date.now(); elapsedFrozen = null;
+  $("#ota-stat-elapsed").textContent = "0秒";
+  elapsedTimer = setInterval(() => { $("#ota-stat-elapsed").textContent = elapsedText(); }, 500);
+}
+function freezeElapsed() {
+  if (elapsedStart) elapsedFrozen = Date.now() - elapsedStart;
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+  if (elapsedStart || elapsedFrozen != null) $("#ota-stat-elapsed").textContent = elapsedText();
+}
+function stopElapsed() {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+  elapsedStart = 0; elapsedFrozen = null;
+  const el = $("#ota-stat-elapsed"); if (el) el.textContent = "--";
+}
 async function keepAwake() {
   try { if (navigator.wakeLock && !document.hidden) wakeLock = await navigator.wakeLock.request("screen"); }
   catch { otaLog("WARN", "无法保持亮屏，请手动保持页面前台"); }
@@ -160,9 +203,10 @@ function uiConfirm(message) {
     card.append(p, actions); box.appendChild(card); document.body.appendChild(box);
   });
 }
-async function detect() {
+async function detect(opts = {}) {
   if (busy) return;
-  if (!(await uiConfirm("检测会暂时占用测距 UART，不发送进 Boot 或擦写命令。\n若副板已在 Boot 启动窗口，查询会使其停留在 Boot。\n请停止测距并保持页面前台。继续检测？"))) return;
+  if (!opts.auto && !(await uiConfirm("检测会暂时占用测距 UART，不发送进 Boot 或擦写命令。\n若副板已在 Boot 启动窗口，查询会使其停留在 Boot。\n请停止测距并保持页面前台。继续检测？"))) return;
+  if (opts.auto) otaLog("SYS", "浮窗打开：自动检测双板状态（不进 Boot、不擦写）");
   snapshot = null; $("#ota-main-only").checked = false; renderSnapshot();
   setBusy(true); probeAbort = new AbortController();
   try {
@@ -401,27 +445,29 @@ async function startUpgrade() {
   if (target === "n32") {
     if (!(await uiConfirm(`升级 N32 副板 APP：${image.name}\n经主控代理擦除并写入 0x08002000 的副板 APP 区（${image.bytes.length}B，CRC32 ${image.crc.toString(16).toUpperCase()}）。\n主控 W515 不会被刷写；N32 Boot 不受影响；中断自动断点续传（最多3次）。\n建议选择稳档传输。确认执行？`))) return;
     setBusy(true);
+    startElapsed();
     try {
       await keepAwake();
       session = new N32OtaSession(adapter, { onLog: otaLog, onStage, onProgress, onSnapshot: value => { snapshot = value; renderSnapshot(); } });
       const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId, tuning: readTuning() });
-      if (result.success && result.slaveConfirmed) otaLog("SYS", `副板升级完成：${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}；建议重新检测确认`);
-      else if (result.success) otaLog("WARN", `副板固件已写入并校验通过（${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}）；确认阶段未完成：${result.confirmError || "未知"}——重新检测确认即可，无需重刷`);
+      if (result.success && result.slaveConfirmed) otaLog("SYS", `副板升级完成：${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}，耗时 ${elapsedText()}；建议重新检测确认`);
+      else if (result.success) otaLog("WARN", `副板固件已写入并校验通过（${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}，耗时 ${elapsedText()}）；确认阶段未完成：${result.confirmError || "未知"}——重新检测确认即可，无需重刷`);
       else otaLog("SYS", "未完成");
     } catch (error) { onStage("error", "已停止 / 未完成"); otaLog("ERR", error.message); }
-    finally { session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }
+    finally { freezeElapsed(); session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }
     return;
   }
   const mainOnly = $("#ota-main-only").checked;
   if (!(await uiConfirm(`仅升级 W515 APP：${image.name}\n将擦除并写入 ${hex(snapshot.main.info.app_start)} 的 APP 区。N32 不会被刷写。\n此浏览器实现尚未真机验证，请保持稳定供电、亮屏和前台；失败可能需要 Boot 恢复。确认执行？`))) return;
   setBusy(true);
+  startElapsed();
   try {
     await keepAwake();
     session = new W515OtaSession(adapter, { onLog: otaLog, onStage, onProgress, onSnapshot: value => { snapshot = value; renderSnapshot(); } });
     const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId, acknowledgeSlaveUnknown: mainOnly, tuning: readTuning() });
-    otaLog("SYS", result.success ? "主控 APP 回应与固件信息已确认；副板状态须重新检测" : "未完成");
+    otaLog("SYS", result.success ? `主控 APP 回应与固件信息已确认（耗时 ${elapsedText()}）；副板状态须重新检测` : "未完成");
   } catch (error) { onStage("error", "已停止 / 未完成"); otaLog("ERR", error.message); }
-  finally { session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }
+  finally { freezeElapsed(); session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }
 }
 async function loadOnlineFirmware() {
   const list = $("#ota-online-list"); list.textContent = "读取在线清单…";

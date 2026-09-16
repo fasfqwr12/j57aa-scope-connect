@@ -296,3 +296,69 @@ body[data-page="upgrade"] .preview-rail { display: none; }
   .ota-dock .action-row #ota-start { flex: 1; white-space: normal; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* ============ 升级浮窗（对齐 unified-tool debug_pro 升级弹窗） ============ */
+.ota-launch { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 2px 0; }
+.ota-launch-summary { margin: 0; font-size: 12px; color: var(--muted); }
+.ota-modal-overlay { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; background: rgba(10,12,8,.45); padding: 14px; }
+.ota-modal-overlay[hidden] { display: none; }
+.ota-modal { display: flex; flex-direction: column; width: min(1080px, 96vw); max-height: 92vh; background: var(--panel); border: 1px solid var(--line2); border-radius: 14px; box-shadow: 0 18px 60px rgba(0,0,0,.35); overflow: hidden; }
+.ota-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid var(--line); flex: none; }
+.ota-modal-head h3 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 14px; }
+.ota-modal-head h3 svg { width: 15px; height: 15px; }
+.ota-modal-close { border: 1px solid var(--line2); background: transparent; color: var(--text); width: 26px; height: 26px; border-radius: 7px; font-size: 16px; line-height: 1; cursor: pointer; }
+.ota-modal-close:hover { background: var(--card2); }
+/* 分区：左=当前设备(双板检测) 右=目标固件选择；下=进度/执行/日志整行 */
+.ota-modal .ota-console { display: grid; grid-template-columns: 0.92fr 1.08fr; overflow-y: auto; }
+.ota-modal .ota-console > * { grid-column: 1 / -1; }
+.ota-modal .ota-console > .ota-preflight { grid-column: 1; grid-row: 1; }
+.ota-modal .ota-console > .ota-selection { grid-column: 2; grid-row: 1; border-left: 1px solid var(--line); }
+.ota-modal .ota-console > .field-band { padding: 8px 14px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+/* 去步骤编号/胶囊/副标题，贴近原上位机密度 */
+.ota-modal .band-head { margin-bottom: 4px; }
+.ota-modal .numbered-heading .step-number, .ota-modal .band-head > .source-pill { display: none; }
+.ota-modal .numbered-heading h3 { font-size: 13px; margin: 0; }
+.ota-modal .numbered-heading p { display: none; }
+.ota-modal .ota-notice { margin: 6px 0; font-size: 11px; line-height: 1.55; }
+.ota-modal .ota-probe-row { margin-top: 4px; gap: 8px; }
+.ota-modal .ota-probe-row .btn { padding: 6px 12px; font-size: 12px; }
+.ota-modal .ota-board-grid { margin-top: 6px; gap: 6px; }
+.ota-modal .ota-board { padding: 7px 9px; border-radius: 10px; }
+.ota-modal .ota-board h4 { font-size: 11px; margin: 0 0 2px; }
+.ota-modal .ota-board h4 svg { width: 12px; height: 12px; }
+.ota-modal .ota-board strong { font-size: 14px; }
+.ota-modal .ota-board p { font-size: 11px; margin: 2px 0 0; }
+.ota-modal .ota-route-summary { margin: 4px 0 0; font-size: 11px; }
+/* 对象切换：segmented（原上位机 [主控板][测距板]） */
+.ota-modal .ota-target-row { display: inline-flex; border: 1px solid var(--line2); border-radius: 9px; overflow: hidden; width: fit-content; margin-top: 2px; }
+.ota-modal .ota-target-row .ota-target { border: 0; border-radius: 0; padding: 6px 12px; gap: 1px; }
+.ota-modal .ota-target-row .ota-target + .ota-target { border-left: 1px solid var(--line); }
+.ota-modal .ota-target-row .ota-target strong { font-size: 12px; }
+.ota-modal .ota-target-row .ota-target span { font-size: 10px; }
+.ota-modal .ota-target.selected { background: var(--card2); }
+/* 右卡：虚线 dropzone + 在线库滚动 */
+.ota-modal .ota-file-row { margin-top: 8px; }
+.ota-modal .ota-file-btn { border: 1.5px dashed var(--line2); border-radius: 10px; padding: 12px 14px; background: var(--card); }
+.ota-modal .ota-file-meta { font-size: 11px; }
+.ota-modal .ota-online-head { font-size: 12px; }
+.ota-modal .ota-online-list { max-height: 148px; overflow-y: auto; }
+.ota-modal .ota-online-item { font-size: 11px; padding: 6px 8px; }
+.ota-modal .transfer-details { margin: 8px 0 0; }
+.ota-modal .ota-check { font-size: 11px; }
+/* 进度/执行/日志 */
+.ota-modal #ota-progress-band { padding: 10px 14px; }
+.ota-modal .ota-stage-list { gap: 4px; }
+.ota-modal .ota-stats { gap: 6px 14px; margin-top: 6px; }
+.ota-modal .ota-dock { padding: 8px 14px; border-top: 1px solid var(--line); background: var(--card2); }
+.ota-modal .dock-heading .step-number { display: none; }
+.ota-modal .dock-heading h3 { display: none; }
+.ota-modal .ota-gate-reason, .ota-modal #ota-gate-reason { font-size: 11px; margin: 0; }
+.ota-modal .action-row { margin-top: 6px; gap: 8px; }
+.ota-modal .ota-log-panel summary { padding: 7px 14px; }
+.ota-modal .log-box.ota-log { max-height: 160px; }
+.ota-modal .ota-release, .ota-modal .release-panel { padding: 8px 14px; font-size: 12px; }
+@media (max-width: 760px) {
+  .ota-modal { max-height: 94vh; }
+  .ota-modal .ota-console { display: block; }
+  .ota-modal .ota-console > .ota-selection { border-left: 0; }
+}
