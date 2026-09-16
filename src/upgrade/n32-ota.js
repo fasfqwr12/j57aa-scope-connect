@@ -235,7 +235,16 @@ export class N32OtaSession {
         }
       }
       this.stage("enterapp", "0x37 命令副板进入 APP");
-      await this.ack(N32_CMD.ENTER_APP, [], 3000);
+      // 0x37 非致命重试：流式刚结束时 W515 BLE 栈拥塞，首写可能 GATT 失败；Boot 空闲也会自行跳 APP
+      let enterAppOk = false;
+      for (let i = 1; i <= 3 && !enterAppOk; i++) {
+        try { await this.ack(N32_CMD.ENTER_APP, [], 3000); enterAppOk = true; }
+        catch (error) {
+          checkAbort(this.controller.signal);
+          if (i === 3) this.log("WARN", `0x37 发送失败（${error.message}）；Boot 空闲后会自行跳转 APP，继续确认阶段`);
+          else { this.log("SYS", `0x37 第${i}次失败（${error.message}），${i * 1000}ms 后重试`); await this.pause(i * 1000, this.controller.signal); }
+        }
+      }
       // 确认阶段（重开代理+握手）为非致命：固件已写入并校验通过，失败只提示重测确认
       this.rawActive = false;
       try {
