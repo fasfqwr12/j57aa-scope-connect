@@ -83,6 +83,10 @@ export function initOtaUpgrade(context) {
       firmwareBytes: firmware?.bytes?.length || 0,
       snapshot: snapshot && { mainMode: snapshot.main.mode, slaveMode: snapshot.slave.mode, proxy: snapshot.proxy.state, routeClear: snapshot.routeClear, deviceId: snapshot.deviceId }
     });
+    // 固件库发布面板：上传新固件并更新在线清单
+    import("./release-panel.js?v=rel-1").then(({ initReleasePanel }) =>
+      initReleasePanel(() => { loadOnlineFirmware(); otaLog("SYS", "在线固件库已更新（GitHub Pages 部署约需 1-2 分钟）"); })
+    ).catch(() => {});
   }
 }
 function otaLog(type, text) {
