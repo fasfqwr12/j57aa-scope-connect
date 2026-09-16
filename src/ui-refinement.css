@@ -363,3 +363,18 @@ body[data-page="upgrade"] .preview-rail { display: none; }
 #ota-device-card[data-target="w515"] .ota-dev-fields[data-dev="n32"] { display: none; }
 #ota-device-card[data-target="n32"] .ota-dev-only[data-dev="w515"],
 #ota-device-card[data-target="n32"] .ota-dev-fields[data-dev="w515"] { display: none; }
+
+/* ============ 升级页视觉收口：宽度/层级/间距 ============ */
+.ota-console { max-width: 880px; margin-inline: auto; }
+.ota-cards { align-items: stretch; }
+.ota-card-vers .ver-pill { font-size: 24px; font-weight: bold; padding: 2px 0; }
+.ota-card-vers .ver-pill.dim { font-size: 13px; font-weight: 600; opacity: .85; }
+.ota-card-vers .ver-pill .k { margin-right: 6px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.ota-fw-card .ota-file-btn { min-height: 104px; font-weight: 600; }
+.ota-online-list { max-height: 116px; }
+.ota-dock .action-row { justify-content: flex-end; }
+@media (max-width: 900px) {
+  .ota-cards { flex-direction: column; }
+  .ota-card-arrow { transform: rotate(90deg); padding: 2px 0; }
+  .ota-upgrade-card, .ota-fw-card { min-width: 0; width: 100%; }
+}
