@@ -1,7 +1,7 @@
 // 固件仿真器（管理员闭环测试专用，不进正常用户路径）。
 // 严格按源码提取协议仿真：W515 APP/Boot 状态机、GLPX 代理会话、N32 APP/Boot 顺序锁。
 // 帧/状态码/CRC 行为依据 docs/OTA_PROTOCOL_SPEC.md；仿真目的=闭环验证网页全链路，不替代真机。
-import { WireChannel, checkAbort } from "../upgrade/ota-channel.js?v=fast-path-1";
+import { WireChannel, checkAbort } from "../upgrade/ota-channel.js?v=resync-1";
 import { buildOtaFrame, buildProxyFrame, crc16Modbus, crc32, crc32MetaCompatible } from "../upgrade/ota-protocol.js?v=status-first-1";
 
 const W515 = {

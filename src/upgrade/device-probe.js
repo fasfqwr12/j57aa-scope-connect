@@ -1,5 +1,5 @@
 import { buildF7Query, buildOtaFrame, buildProxyFrame, OTA_CMD, N32_CMD, PROXY_MODE, PROXY_STATUS, parseBootInfo, parseW515Mode, parseN32Info, validateW515Window } from "./ota-protocol.js?v=f7target-1";
-import { checkAbort } from "./ota-channel.js?v=fast-path-1";
+import { checkAbort } from "./ota-channel.js?v=resync-1";
 
 export function snapshotIsFresh(snapshot, adapter, now = Date.now()) {
   return !!snapshot && snapshot.deviceId === adapter.device?.id && snapshot.generation === adapter.generation &&
@@ -79,7 +79,7 @@ export class DeviceProbe {
         const sf = await this.query(buildF7Query(1), "f7");
         const sinfo = parseBootInfo(sf.payload);
         if (sinfo && /N32/i.test(sinfo.model)) result.slave.info = sinfo;
-      } catch (error) { checkAbort(this.signal); this.log("SYS", "副板 F7 信息查询无响应（主控固件较旧）；继续用 0x31 握手探测"); }
+      } catch (error) { checkAbort(this.signal); this.log("SYS", "副板 F7 信息查询无响应（主控或副板固件其一较旧）；降级用 0x31 握手探测"); }
       if (scope === "main") { // 仅主控：到此为止，不碰代理
         result.slave.reason = "仅检测主控（未探测副板）"; result.proxy.state = "SKIPPED";
         result.routeClear = true; return result;

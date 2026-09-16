@@ -1,8 +1,8 @@
 // Current firmware path: explicit preflight -> Boot -> ACK writes -> VERIFY -> RESET.
 import { OTA_CMD, buildOtaFrame, parseBootInfo, parseOtaStatus, parseW515Mode, u32be } from "./ota-protocol.js?v=status-first-1";
-import { DeviceProbe, w515Gate } from "./device-probe.js?v=f7target-1";
+import { DeviceProbe, w515Gate } from "./device-probe.js?v=f7target-2";
 import { inspectFirmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
-import { checkAbort, delay } from "./ota-channel.js?v=fast-path-1";
+import { checkAbort, delay } from "./ota-channel.js?v=resync-1";
 
 // 传输档位对齐 unified-tool 快速路径：BLE 大块流式 + 窗口状态核对（debug_api.py:6820 default_window=6）
 // 稳档 gapMs=25 对齐 N32 降速结论；快档 4ms 接近 PC delayMs=3，需真机验证。

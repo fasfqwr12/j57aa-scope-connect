@@ -3,8 +3,8 @@
 // 关键约束：N32 帧经代理必须单次 GATT 整帧写（RT 分发要求完整帧）；0x34 addr 必须等于 APP_BASE+written；
 // 数据长度 4 字节对齐（末包 0xFF 填充）；擦除只覆盖 APP 区 0x08002000+，N32 Boot 永不擦除。
 import { N32_CMD, PROXY_MODE, PROXY_STATUS, buildOtaFrame, buildProxyFrame, crc32, parseN32Info } from "./ota-protocol.js?v=status-first-1";
-import { DeviceProbe } from "./device-probe.js?v=f7target-1";
-import { checkAbort, delay } from "./ota-channel.js?v=fast-path-1";
+import { DeviceProbe } from "./device-probe.js?v=f7target-2";
+import { checkAbort, delay } from "./ota-channel.js?v=resync-1";
 
 const N32_APP_BASE = 0x08002000;
 const N32_APP_END = 0x0800F7FF;          // NB:23-24
