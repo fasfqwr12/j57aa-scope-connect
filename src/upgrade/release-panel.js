@@ -140,6 +140,7 @@ export function initReleasePanel(onPublished) {
     const gh = async (path, opts = {}) => {
       const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
         ...opts,
+        signal: AbortSignal.timeout(20000),
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/vnd.github+json",

@@ -84,7 +84,7 @@ export function initOtaUpgrade(context) {
       snapshot: snapshot && { mainMode: snapshot.main.mode, slaveMode: snapshot.slave.mode, proxy: snapshot.proxy.state, routeClear: snapshot.routeClear, deviceId: snapshot.deviceId }
     });
     // 固件库发布面板：上传新固件并更新在线清单
-    import("./release-panel.js?v=rel-1").then(({ initReleasePanel }) =>
+    import("./release-panel.js?v=rel-2").then(({ initReleasePanel }) =>
       initReleasePanel(() => { loadOnlineFirmware(); otaLog("SYS", "在线固件库已更新（GitHub Pages 部署约需 1-2 分钟）"); })
     ).catch(() => {});
   }
@@ -424,7 +424,7 @@ async function startUpgrade() {
 async function loadOnlineFirmware() {
   const list = $("#ota-online-list"); list.textContent = "读取在线清单…";
   try {
-    const response = await fetch(new URL("versions.json", firmwareDirectory()), { cache: "no-store" });
+    const response = await fetch(new URL("versions.json", firmwareDirectory()), { cache: "no-store", signal: AbortSignal.timeout(20000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     const files = (Array.isArray(data.files) ? data.files : []).filter(f => ["w515-app", "n32-app"].includes(f.target));
@@ -445,11 +445,12 @@ async function loadOnlineFirmware() {
       item.addEventListener("click", async () => {
         if (busy) return;
         setBusy(true);
-        action.textContent = "核验中…";
+        action.textContent = "下载中…";
         try {
-          const response = await fetch(firmwareUrl(entry), { cache: "no-store" });
+          const response = await fetch(firmwareUrl(entry), { cache: "no-store", signal: AbortSignal.timeout(20000) });
           if (!response.ok) throw new Error(`下载失败 HTTP ${response.status}`);
           const bytes = new Uint8Array(await response.arrayBuffer()); await verifyDownload(bytes, entry);
+          action.textContent = "核验中…";
           const image = entry.target === "n32-app" ? inspectN32Firmware(bytes, entry.name) : inspectFirmware(bytes, entry.name, entry.target);
           if (entry.metaCrc32 && image.meta && image.meta.appCrc !== parseInt(entry.metaCrc32, 16)) throw new Error("元数据 CRC 与清单不符");
           firmware = image; onlineSelection = entry.name;
