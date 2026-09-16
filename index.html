@@ -355,7 +355,7 @@
               <div class="ota-online-head" id="ota-online-head">在线固件库 <button class="btn compact" id="ota-online-refresh" type="button">刷新清单</button></div>
               <div class="ota-online-list" id="ota-online-list"><span class="ota-online-empty">加载中…</span></div>
             </div>
-            <details class="transfer-details" id="ota-transfer-details">
+            <details class="transfer-details" id="ota-transfer-details" open>
               <summary>传输与校验参数<span>流式窗口核对</span></summary>
               <div class="form-grid small-grid">
                 <label><span>传输档位</span><select id="ota-preset">
@@ -399,6 +399,7 @@
           <section class="ota-dock" aria-label="升级确认区">
             <div class="dock-heading"><span class="step-number" aria-hidden="true">03</span><div><h3>确认与执行</h3><p class="ota-notice" id="ota-gate-reason" role="status">第一步：检测主控与副板状态</p><div class="ota-version-compare" id="ota-version-compare" hidden></div></div></div>
             <div class="action-row">
+              <label class="btn" for="ota-firmware-file" style="cursor:pointer">📁 选择固件</label>
               <button class="btn primary" id="ota-start" type="button" disabled>确认并升级主控</button>
               <button class="btn" id="ota-abort" type="button" disabled>中止</button>
             </div>
