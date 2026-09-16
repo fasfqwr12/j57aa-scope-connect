@@ -393,3 +393,26 @@ body[data-page="upgrade"] .preview-rail { display: none; }
 .ota-console .transfer-details[open] summary { margin-bottom: 8px; }
 .ota-route-summary { display: inline-block; padding: 5px 10px; background: var(--card2); border-radius: 6px; margin: 0 0 12px; }
 .ota-dock { border-top: 2px solid var(--line); margin-top: 14px; }
+
+/* ============ 升级页三轮：密度 + 主次 ============ */
+.ota-intro { display: none; }                                  /* 顶部说明行：信息与 gate 重复 */
+.ota-dock h3 { display: none; }                                /* 「确认与执行」大标题：占行无信息 */
+.ota-console { max-width: 800px; padding: 12px 14px; }         /* 更接近原版 700px 弹窗密度 */
+.ota-upgrade-card { padding: 12px 14px; }
+.ota-card-head { margin-bottom: 6px; }
+.ota-card-vers { margin-bottom: 6px; }
+.ota-card-id { margin-bottom: 8px; }
+.ota-card-footer { padding-top: 8px; }
+.ota-fw-card .ota-file-btn { min-height: 84px; padding: 10px; }
+.ota-online-item { padding: 6px 8px; gap: 6px; }
+.ota-online-list { max-height: 112px; }
+.ota-route-summary { margin: 0 0 10px; font-size: 11px; padding: 4px 8px; }
+.ota-console .transfer-details { padding: 6px 10px; margin-bottom: 8px; }
+.ota-console .transfer-details[open] summary { margin-bottom: 6px; }
+.ota-console .transfer-details .form-grid { gap: 6px 10px; }
+.ota-console .transfer-details .form-grid label span { font-size: 10.5px; }
+.ota-console .transfer-details .form-grid label:has(input[disabled]) { display: none; } /* 写入校验占位框：零信息 */
+.ota-dock { margin-top: 10px; padding: 8px 12px; }
+.ota-dock .dock-heading { margin-bottom: 6px; }
+.ota-dock .dock-heading p.ota-notice { font-size: 12px; margin: 0; }
+.ota-notice { font-size: 10.5px; }
