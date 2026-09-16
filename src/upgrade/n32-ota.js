@@ -246,6 +246,7 @@ export class N32OtaSession {
         }
       }
       // 确认阶段（重开代理+握手）为非致命：固件已写入并校验通过，失败只提示重测确认
+      // 断链自动重连重试：流式结束后 W515 BLE 栈可能断链；重连（无需用户手势）后重开代理确认
       this.rawActive = false;
       try {
         // RAW 已无后续流量：等 idle 自动恢复 → 重开 NORMAL 代理确认副板 APP（对齐 PC 升级后流程）
@@ -259,6 +260,25 @@ export class N32OtaSession {
         this.stage("done", "副板 APP 已确认");
         return { success: true, slaveConfirmed: true, verify: { size, crc } };
       } catch (error) {
+        checkAbort(this.controller.signal);
+        if (this.adapter.reconnect) {
+          // 断链恢复重试（最多 4 轮，每轮先重连再重开代理握手；W515 BLE 栈恢复需数秒）
+          for (let i = 1; i <= 4; i++) {
+            try {
+              this.log("SYS", `确认阶段未成（${error.message}），重连 BLE 后重试（${i}/4）…`);
+              await this.pause(2500, this.controller.signal);
+              await this.adapter.reconnect();
+              this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 3 + i);
+              const reSt = await this.proxy(PROXY_MODE.START);
+              if (reSt !== PROXY_STATUS.OK) throw new Error(`重开代理被拒: ${reSt}`);
+              this.proxyActive = true;
+              await this.waitSlaveMode("APP");
+              this.stage("done", "副板 APP 已确认（断链重连后）");
+              this.log("SYS", `断链重连第${i}轮确认成功`);
+              return { success: true, slaveConfirmed: true, verify: { size, crc }, reconnected: i };
+            } catch (retryError) { checkAbort(this.controller.signal); /* 下一轮 */ }
+          }
+        }
         const msg = `固件已写入且校验通过（${size}B）、已命令副板进 APP；确认阶段失败：${error.message}。请重新检测确认，无需重刷`;
         this.log("WARN", msg);
         this.stage("done", "固件已写入（确认未完成）");
