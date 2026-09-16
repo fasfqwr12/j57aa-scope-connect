@@ -5,7 +5,7 @@ import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCata
 import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-05";
 import { initAdminLog } from "./ui/admin-log.js?v=admin-log-1";
 import { initTestApi } from "./debug/test-api.js?v=admin-log-2";
-import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=inline-1";
+import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=inline-2";
 
 const steps = [
   { id: "device", label: "设备", title: "设备连接", kicker: "DEVICE" },

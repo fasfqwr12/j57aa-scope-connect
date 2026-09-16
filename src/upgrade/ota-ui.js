@@ -21,6 +21,8 @@ function selectTarget(value) {
   $("#ota-target-w515")?.classList.toggle("selected", value === "w515");
   $("#ota-target-n32")?.classList.toggle("selected", value === "n32");
   document.querySelector('input[name="ota-target"][value="' + (value === "n32" ? "n32" : "w515") + '"]')?.click();
+  const hint = $("#ota-target-hint");
+  if (hint) hint.textContent = value === "n32" ? "副板 N32 APP · 经主控代理" : "主控板 App/Boot";
   renderGate();
 }
 
@@ -185,7 +187,6 @@ function uiConfirm(message) {
 async function detect(opts = {}) {
   if (busy) return;
   if (!opts.auto && !(await uiConfirm("检测会暂时占用测距 UART，不发送进 Boot 或擦写命令。\n若副板已在 Boot 启动窗口，查询会使其停留在 Boot。\n请停止测距并保持页面前台。继续检测？"))) return;
-  if (opts.auto) otaLog("SYS", "浮窗打开：自动检测双板状态（不进 Boot、不擦写）");
   snapshot = null; $("#ota-main-only").checked = false; renderSnapshot();
   setBusy(true); probeAbort = new AbortController();
   try {
@@ -211,13 +212,20 @@ function renderSnapshot() {
   $("#ota-main-mode").dataset.mode = main?.mode || "UNKNOWN";
   $("#ota-slave-mode").dataset.mode = slave?.mode || "UNKNOWN";
   // Boot 版本可信度：主控=Boot 时 0x02 上报为真实值；APP 模式下 F7 上报在固件升级前是编译期常量
-  const bootTag = main?.mode === "BOOT" ? "Boot" : (info?.boot_ver ?? 0) > 0x0100 ? "Boot" : "Boot(编译期)";
-  $("#ota-main-info").textContent = info ? `${info.model} · 硬件 ${version(info.hw_ver)} · APP ${version(info.sw_ver)} · ${bootTag} ${version(info.boot_ver)}\nAPP ${hex(info.app_start)} · ${info.app_size}B · CRC ${hex(info.app_crc)}` : "等待主控身份与地址信息";
-  const details = slave?.mode === "APP" ? (slave.info
-    ? `APP v${version(slave.info.sw_ver)} · Boot v${version(slave.info.boot_ver)} · ${slave.info.model}\nAPP ${hex(slave.info.app_start)} · ${slave.info.app_size}B · CRC ${hex(slave.info.app_crc)}`
-    : `APP v${version(slave.appVersion)} · 入口 ${hex(slave.appStart)} · 运行阶段 ${slave.runtimeStage} · 心跳计数 ${slave.heartbeat}`)
-    : slave?.mode === "BOOT" ? (slave.info
-      ? `Boot v${version(slave.info.boot_ver)} · APP v${version(slave.info.sw_ver)} · ${slave.info.model}\nAPP ${hex(slave.info.app_start)} · ${slave.info.app_size}B · CRC ${hex(slave.info.app_crc)} · 向量检查${slave.appValid ? "通过" : "未通过"}`
+  const bootReal = main?.mode === "BOOT" || (info?.boot_ver ?? 0) > 0x0100;
+  $("#ota-main-info").textContent = info ? `${info.model} · 硬件 ${version(info.hw_ver)} · APP 入口 ${hex(info.app_start)}` : "等待主控身份与地址信息";
+  $("#ota-main-boot").textContent = info ? `v${version(info.boot_ver)}${bootReal ? "" : "(编译期)"}` : "--";
+  $("#ota-main-size").textContent = info ? `${info.app_size}B` : "--";
+  $("#ota-main-crc").textContent = info ? hex(info.app_crc) : "--";
+  const sinfo = slave?.info;
+  $("#ota-slave-boot").textContent = sinfo ? `v${version(sinfo.boot_ver)}` : "--";
+  $("#ota-slave-size").textContent = sinfo ? `${sinfo.app_size}B` : "--";
+  $("#ota-slave-crc").textContent = sinfo ? hex(sinfo.app_crc) : "--";
+  const details = slave?.mode === "APP" ? (sinfo
+    ? `${sinfo.model} · APP 入口 ${hex(sinfo.app_start)}`
+    : `APP v${version(slave.appVersion)} · 入口 ${hex(slave.appStart)} · 运行阶段 ${slave.runtimeStage} · 心跳 ${slave.heartbeat}`)
+    : slave?.mode === "BOOT" ? (sinfo
+      ? `${sinfo.model} · APP 入口 ${hex(sinfo.app_start)} · 向量检查${slave.appValid ? "通过" : "未通过"}`
       : `Boot v${slave.bootVersion} · 入口 ${hex(slave.appStart)} · APP 向量检查${slave.appValid ? "通过（非整包CRC）" : "未通过（不能区分空白/损坏）"}`)
     : slave?.reason;
   $("#ota-slave-info").textContent = details || "必须收到副板自身应答；代理正常不等于副板在线";
@@ -226,7 +234,6 @@ function renderSnapshot() {
   const mainVers = $("#ota-main-vers");
   if (mainVers) {
     if (info) {
-      const bootReal = main?.mode === "BOOT" || (info.boot_ver ?? 0) > 0x0100;
       mainVers.hidden = false;
       mainVers.replaceChildren(
         pill("当前 APP", `v${version(info.sw_ver)}`),

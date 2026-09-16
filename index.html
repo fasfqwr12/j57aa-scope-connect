@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./src/app.css?v=status-first-1">
-  <link rel="stylesheet" href="./src/ui-refinement.css?v=inline-1">
+  <link rel="stylesheet" href="./src/ui-refinement.css?v=inline-2">
   <link rel="stylesheet" href="./src/ui/mobile-screens.css?v=mobile-screen-05">
 </head>
 <body data-page="device">
@@ -310,9 +310,21 @@
         <div class="section-panel" data-panel="upgrade">
           <div class="ota-intro"><span class="ota-intro-badge"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>尚未真机验收</span><p>W515 主控与 N32 副板 APP 均可升级；副板经主控代理通道。</p></div>
           <div class="ota-console">
-          <div class="field-band ota-preflight">
-            <div class="band-head"><div class="numbered-heading"><span class="step-number">01</span><div><h3>检测主控与副板</h3><p>先识别设备，再选择更新</p></div></div><span class="source-pill pending">状态优先</span></div>
-            <p class="ota-notice">不发送进 Boot 或擦写命令。检测会暂占测距通道；若 N32 已在 Boot 启动窗口，查询可能让它停留在 Boot。请先停止测距。</p>
+          <div class="ota-targetbar">
+            <span class="ota-tb-label">升级对象</span>
+            <div class="ota-target-row">
+              <label class="ota-target selected" id="ota-target-w515">
+                <input type="radio" name="ota-target" value="w515" checked>
+                <strong>W515 主控</strong>
+                <span>App / Boot</span>
+              </label>
+              <label class="ota-target" id="ota-target-n32">
+                <input type="radio" name="ota-target" value="n32">
+                <strong>N32 测距板</strong>
+                <span>经主控代理</span>
+              </label>
+            </div>
+            <span class="ota-tb-hint" id="ota-target-hint">主控板 App/Boot</span>
             <div class="ota-probe-row">
               <button class="btn primary" id="ota-query-status" type="button"><svg aria-hidden="true"><use href="#i-sync"/></svg>检测双板状态</button>
               <label class="ota-scope"><span>对象</span><select id="ota-probe-scope">
@@ -321,63 +333,60 @@
                 <option value="slave">仅副板(信息)</option>
               </select></label>
             </div>
-            <div class="ota-board-grid" aria-live="polite">
-              <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>W515 主控</h4><strong id="ota-main-mode">未检测</strong><div class="ota-ver-badges" id="ota-main-vers" hidden></div><p id="ota-main-info">等待主控身份与地址信息</p></section>
-              <section class="ota-board"><h4><svg aria-hidden="true"><use href="#i-device"/></svg>N32 副板</h4><strong id="ota-slave-mode">未检测</strong><div class="ota-ver-badges" id="ota-slave-vers" hidden></div><p id="ota-slave-info">等待副板自身应答</p></section>
-            </div>
-            <p class="ota-route-summary">代理通道 <strong id="ota-proxy-state">未检测</strong><span id="ota-state-time">尚无有效状态</span></p>
           </div>
-          <div class="field-band ota-selection">
-            <div class="band-head">
-              <div class="numbered-heading"><span class="step-number">02</span><div><h3>选择固件</h3><p>校验通过后仍需确认升级</p></div></div>
-              <span class="source-pill">W515 APP</span>
-            </div>
-            <div class="ota-target-row">
-              <label class="ota-target selected" id="ota-target-w515">
-                <input type="radio" name="ota-target" value="w515" checked>
-                <strong>W515 主控</strong>
-                <span>Boot SDK 直连升级</span>
-              </label>
-              <label class="ota-target" id="ota-target-n32">
-                <input type="radio" name="ota-target" value="n32">
-                <strong>N32 测距板</strong>
-                <span>经主控代理升级 · Boot 不受影响</span>
-              </label>
-            </div>
-            <div class="ota-file-row">
-              <label class="ota-file-btn">
-                选择 .bin / .hex
-                <input id="ota-firmware-file" type="file" accept=".bin,.hex">
-              </label>
-              <div class="ota-file-meta" id="ota-file-meta">未选择固件</div>
-            </div>
-            <div class="ota-online-row" id="ota-online-row">
-              <div class="ota-online-head" id="ota-online-head">在线固件库 <button class="btn compact" id="ota-online-refresh" type="button">刷新清单</button></div>
-              <div class="ota-online-list" id="ota-online-list"><span class="ota-online-empty">加载中…</span></div>
-            </div>
-            <details class="transfer-details" id="ota-transfer-details" open>
-              <summary>传输与校验参数<span>流式窗口核对</span></summary>
-              <div class="form-grid small-grid">
-                <label><span>传输档位</span><select id="ota-preset">
-                  <option value="fast" selected>快 · 180B / 间隔4ms（默认）</option>
-                  <option value="steady">稳 · 180B / 间隔25ms（断链保守）</option>
-                  <option value="custom">自定义</option>
-                </select></label>
-                <label><span>写入校验</span><input type="text" value="窗口核对 + CRC + APP 回应确认" disabled></label>
+          <div class="ota-cards" aria-live="polite">
+            <section class="ota-upgrade-card">
+              <div class="ota-card-head"><span class="ota-card-label">当前设备 · W515 主控</span><strong id="ota-main-mode" class="ota-mode-badge">未检测</strong></div>
+              <div class="ota-card-vers" id="ota-main-vers" hidden></div>
+              <p class="ota-card-id" id="ota-main-info">等待主控身份与地址信息</p>
+              <div class="ota-card-footer"><span>Boot: <b id="ota-main-boot">--</b></span><span>大小: <b id="ota-main-size">--</b></span><span>CRC: <b id="ota-main-crc">--</b></span></div>
+            </section>
+            <div class="ota-card-arrow">→</div>
+            <section class="ota-upgrade-card">
+              <div class="ota-card-head"><span class="ota-card-label">当前设备 · N32 副板</span><strong id="ota-slave-mode" class="ota-mode-badge">未检测</strong></div>
+              <div class="ota-card-vers" id="ota-slave-vers" hidden></div>
+              <p class="ota-card-id" id="ota-slave-info">等待副板自身应答</p>
+              <div class="ota-card-footer"><span>Boot: <b id="ota-slave-boot">--</b></span><span>大小: <b id="ota-slave-size">--</b></span><span>CRC: <b id="ota-slave-crc">--</b></span></div>
+            </section>
+            <div class="ota-card-arrow">→</div>
+            <section class="ota-upgrade-card ota-fw-card">
+              <div class="ota-card-head"><span class="ota-card-label">目标固件</span><span class="ota-mode-badge">本地 / 在线</span></div>
+              <div class="ota-file-row">
+                <label class="ota-file-btn">
+                  选择 .bin / .hex
+                  <input id="ota-firmware-file" type="file" accept=".bin,.hex">
+                </label>
+                <div class="ota-file-meta" id="ota-file-meta">未选择固件</div>
               </div>
-              <div class="form-grid small-grid" id="ota-tuning-custom" style="display:none">
-                <label><span>数据块(40-224B)</span><input type="number" id="ota-tuning-chunk" min="40" max="224" step="4" value="180"></label>
-                <label><span>窗口(1-64包)</span><input type="number" id="ota-tuning-window" min="1" max="64" step="1" value="16"></label>
-                <label><span>包间隔(0-200ms)</span><input type="number" id="ota-tuning-gap" min="0" max="200" step="1" value="25"></label>
-                <label><span>GATT分片(20-244B)</span><input type="number" id="ota-tuning-gatt" min="20" max="244" step="1" value="244"></label>
-                <label><span>RAW空闲(500-30000ms)</span><input type="number" id="ota-tuning-rawidle" min="500" max="30000" step="100" value="2000"></label>
-                <label><span>代理总时长(10-900s)</span><input type="number" id="ota-tuning-total" min="10000" max="900000" step="1000" value="300000"></label>
-                <label><span>代理空闲(1-300s)</span><input type="number" id="ota-tuning-proxyidle" min="1000" max="300000" step="100" value="5000"></label>
+              <div class="ota-online-row" id="ota-online-row">
+                <div class="ota-online-head" id="ota-online-head">在线固件库 <button class="btn compact" id="ota-online-refresh" type="button">刷新清单</button></div>
+                <div class="ota-online-list" id="ota-online-list"><span class="ota-online-empty">加载中…</span></div>
               </div>
-            </details>
-            <label class="ota-check" id="ota-main-only-row" hidden><input type="checkbox" id="ota-main-only">副板状态未确认；我已查看原因，仅恢复 W515 主控 APP</label>
-            <p class="ota-notice">仅支持匹配的 W515 APP。此浏览器实现尚未真机验证；请保持稳定供电、亮屏、页面前台。失败不自动重发擦写，不支持锁屏续传。</p>
+            </section>
           </div>
+          <p class="ota-route-summary">代理通道 <strong id="ota-proxy-state">未检测</strong><span id="ota-state-time">尚无有效状态</span></p>
+          <details class="transfer-details" id="ota-transfer-details" open>
+            <summary>传输与校验参数<span>流式窗口核对</span></summary>
+            <div class="form-grid small-grid">
+              <label><span>传输档位</span><select id="ota-preset">
+                <option value="fast" selected>快 · 180B / 间隔4ms（默认）</option>
+                <option value="steady">稳 · 180B / 间隔25ms（断链保守）</option>
+                <option value="custom">自定义</option>
+              </select></label>
+              <label><span>写入校验</span><input type="text" value="窗口核对 + CRC + APP 回应确认" disabled></label>
+            </div>
+            <div class="form-grid small-grid" id="ota-tuning-custom" style="display:none">
+              <label><span>数据块(40-224B)</span><input type="number" id="ota-tuning-chunk" min="40" max="224" step="4" value="180"></label>
+              <label><span>窗口(1-64包)</span><input type="number" id="ota-tuning-window" min="1" max="64" step="1" value="16"></label>
+              <label><span>包间隔(0-200ms)</span><input type="number" id="ota-tuning-gap" min="0" max="200" step="1" value="25"></label>
+              <label><span>GATT分片(20-244B)</span><input type="number" id="ota-tuning-gatt" min="20" max="244" step="1" value="244"></label>
+              <label><span>RAW空闲(500-30000ms)</span><input type="number" id="ota-tuning-rawidle" min="500" max="30000" step="100" value="2000"></label>
+              <label><span>代理总时长(10-900s)</span><input type="number" id="ota-tuning-total" min="10000" max="900000" step="1000" value="300000"></label>
+              <label><span>代理空闲(1-300s)</span><input type="number" id="ota-tuning-proxyidle" min="1000" max="300000" step="100" value="5000"></label>
+            </div>
+          </details>
+          <label class="ota-check" id="ota-main-only-row" hidden><input type="checkbox" id="ota-main-only">副板状态未确认；我已查看原因，仅恢复 W515 主控 APP</label>
+          <p class="ota-notice">仅支持匹配的固件；请保持稳定供电、亮屏、页面前台。失败不自动重发擦写。</p>
           </div>
 
           <div class="field-band" id="ota-progress-band" style="display:none">
