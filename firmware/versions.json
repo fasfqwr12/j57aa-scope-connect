@@ -11,8 +11,8 @@
       "sha256": "a0d446c18a04b52ab4b954af6e12cc25534b121d64fd3e30a81cf2f939f14b36",
       "fileCrc32": "8D78A553",
       "metaCrc32": "E4503DFD",
-      "notes": "主控 W515 APP · 已真机验收（2026-08-28 网页 Boot 直连流式升级成功）",
-      "recommended": true
+      "notes": "主控 W515 APP · 已真机验收（2026-08-28 网页 Boot 直连流式升级成功）· 旧版无F7代理",
+      "recommended": false
     },
     {
       "name": "N32-APP-v01p2-20260728.hex",
@@ -22,7 +22,30 @@
       "size": 97460,
       "sha256": "c9dc003f9a32af06388479a2a6864467a02985a1796fb00c47236e6bd9f0706c",
       "fileCrc32": "ECCD603E",
-      "notes": "副板 N32G430 APP · 数据34632B@0x08002000 · 已真机验收（2026-08-28 RAW流式+断点续传成功）",
+      "notes": "副板 N32G430 APP · 数据34632B@0x08002000 · 已真机验收（2026-08-28 RAW流式+断点续传成功）· 旧版无0x3A信息",
+      "recommended": false
+    },
+    {
+      "name": "W515_APP_v0.1.0_0916.bin",
+      "target": "w515-app",
+      "version": "0.1",
+      "date": "2026-09-16",
+      "size": 64152,
+      "sha256": "7ff333ed25efc8195d2845123cc5f8deed68ce229053773b56a0727d8f180b26",
+      "fileCrc32": "4F8A6866",
+      "metaCrc32": "5B154EB4",
+      "notes": "主控 W515 APP · F7目标=1副板信息代理 + Boot版本嵌入块读取 + Boot宏0x0101 · 待真机验证",
+      "recommended": true
+    },
+    {
+      "name": "N32-APP-v1.6.0-20260916.hex",
+      "target": "n32-app",
+      "version": "1.6",
+      "date": "2026-09-16",
+      "size": 83012,
+      "sha256": "9f1ac1e8dedd11c260b859133d609fbe5490bc6e88ca149ac46a25cb9b626536",
+      "fileCrc32": "1B77E669",
+      "notes": "副板 N32G430 APP · 0x3A INFO统一信息 + N3MT meta块(size/CRC构建自动填) · 数据34940B@0x08002000 · 待真机验证",
       "recommended": true
     }
   ]

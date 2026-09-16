@@ -9,9 +9,10 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)));
 const args = process.argv.slice(2);
-const files = args.filter(a => !a.startsWith("--"));
 const flag = name => args.includes(`--${name}`);
 const opt = (name, fallback) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : fallback; };
+// 排除选项名与其取值（--date 2026-09-16 的值不能当文件名）
+const files = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && !["--write", "--recommended"].includes(args[i - 1])));
 
 const crc32Of = bytes => {
   const table = Uint32Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
