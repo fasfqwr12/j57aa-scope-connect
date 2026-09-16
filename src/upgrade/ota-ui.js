@@ -214,19 +214,21 @@ function renderSnapshot() {
   $("#ota-slave-mode").dataset.mode = slave?.mode || "UNKNOWN";
   // Boot 版本可信度：主控=Boot 时 0x02 上报为真实值；APP 模式下 F7 上报在固件升级前是编译期常量
   const bootReal = main?.mode === "BOOT" || (info?.boot_ver ?? 0) > 0x0100;
-  $("#ota-main-info").textContent = info ? `${info.model} · 硬件 ${version(info.hw_ver)} · APP 入口 ${hex(info.app_start)}` : "等待主控身份与地址信息";
+  const sinfo = slave?.info;
+  $("#ota-main-model").textContent = info?.model || "--";
+  $("#ota-main-info").textContent = info ? `硬件 ${version(info.hw_ver)} · APP 入口 ${hex(info.app_start)}` : "等待主控身份与地址信息";
   $("#ota-main-boot").textContent = info ? `v${version(info.boot_ver)}${bootReal ? "" : "(编译期)"}` : "--";
   $("#ota-main-size").textContent = info ? `${info.app_size}B` : "--";
   $("#ota-main-crc").textContent = info ? hex(info.app_crc) : "--";
-  const sinfo = slave?.info;
+  $("#ota-slave-model").textContent = sinfo?.model || "--";
   $("#ota-slave-boot").textContent = sinfo ? `v${version(sinfo.boot_ver)}` : "--";
   $("#ota-slave-size").textContent = sinfo ? `${sinfo.app_size}B` : "--";
   $("#ota-slave-crc").textContent = sinfo ? hex(sinfo.app_crc) : "--";
   const details = slave?.mode === "APP" ? (sinfo
-    ? `${sinfo.model} · APP 入口 ${hex(sinfo.app_start)}`
+    ? `APP 入口 ${hex(sinfo.app_start)}`
     : `APP v${version(slave.appVersion)} · 入口 ${hex(slave.appStart)} · 运行阶段 ${slave.runtimeStage} · 心跳 ${slave.heartbeat}`)
     : slave?.mode === "BOOT" ? (sinfo
-      ? `${sinfo.model} · APP 入口 ${hex(sinfo.app_start)} · 向量检查${slave.appValid ? "通过" : "未通过"}`
+      ? `APP 入口 ${hex(sinfo.app_start)} · 向量检查${slave.appValid ? "通过" : "未通过"}`
       : `Boot v${slave.bootVersion} · 入口 ${hex(slave.appStart)} · APP 向量检查${slave.appValid ? "通过（非整包CRC）" : "未通过（不能区分空白/损坏）"}`)
     : slave?.reason;
   $("#ota-slave-info").textContent = details || "必须收到副板自身应答；代理正常不等于副板在线";

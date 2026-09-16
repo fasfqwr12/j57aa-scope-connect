@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./src/app.css?v=status-first-1">
-  <link rel="stylesheet" href="./src/ui-refinement.css?v=inline-6">
+  <link rel="stylesheet" href="./src/ui-refinement.css?v=inline-7">
   <link rel="stylesheet" href="./src/ui/mobile-screens.css?v=mobile-screen-05">
 </head>
 <body data-page="device">
@@ -310,6 +310,7 @@
         <div class="section-panel" data-panel="upgrade">
           <div class="ota-intro"><span class="ota-intro-badge"><svg aria-hidden="true"><use href="#i-upgrade"/></svg>尚未真机验收</span><p>W515 主控与 N32 副板 APP 均可升级；副板经主控代理通道。</p></div>
           <div class="ota-console">
+          <div class="ota-page-title"><strong>固件升级</strong><span>先检测双板，再选固件确认</span></div>
           <div class="ota-targetbar">
             <span class="ota-tb-label">升级对象</span>
             <div class="ota-target-row">
@@ -342,11 +343,13 @@
                 <strong id="ota-slave-mode" class="ota-mode-badge ota-dev-only" data-dev="n32">未检测</strong>
               </div>
               <div class="ota-dev-fields" data-dev="w515">
+                <div class="ota-card-model" id="ota-main-model">--</div>
                 <div class="ota-card-vers" id="ota-main-vers" hidden></div>
                 <p class="ota-card-id" id="ota-main-info">等待主控身份与地址信息</p>
                 <div class="ota-card-footer"><span>Boot: <b id="ota-main-boot">--</b></span><span>大小: <b id="ota-main-size">--</b></span><span>CRC: <b id="ota-main-crc">--</b></span></div>
               </div>
               <div class="ota-dev-fields" data-dev="n32">
+                <div class="ota-card-model" id="ota-slave-model">--</div>
                 <div class="ota-card-vers" id="ota-slave-vers" hidden></div>
                 <p class="ota-card-id" id="ota-slave-info">等待副板自身应答</p>
                 <div class="ota-card-footer"><span>Boot: <b id="ota-slave-boot">--</b></span><span>大小: <b id="ota-slave-size">--</b></span><span>CRC: <b id="ota-slave-crc">--</b></span></div>

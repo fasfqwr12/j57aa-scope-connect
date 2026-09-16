@@ -416,3 +416,14 @@ body[data-page="upgrade"] .preview-rail { display: none; }
 .ota-dock .dock-heading { margin-bottom: 6px; }
 .ota-dock .dock-heading p.ota-notice { font-size: 12px; margin: 0; }
 .ota-notice { font-size: 10.5px; }
+
+/* ============ 四轮：原上位机层级复刻（标签10灰→型号20白→版本32绿） ============ */
+.ota-page-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.ota-page-title strong { font-size: 16px; font-weight: 700; }
+.ota-page-title span { font-size: 11px; color: var(--muted); }
+.ota-card-model { font-size: 20px; font-weight: 700; letter-spacing: .3px; margin-bottom: 2px; word-break: break-all; }
+.ota-card-vers .ver-pill { font-size: 32px; font-weight: bold; color: var(--ok); padding: 0; line-height: 1.1; }
+.ota-card-vers .ver-pill.dim { font-size: 13px; font-weight: 600; color: var(--muted); opacity: 1; }
+.ota-card-vers .ver-pill .k { font-size: 10px; font-weight: 600; color: var(--muted); margin-right: 6px; }
+.ota-target.selected { background: var(--accent-soft); border-color: var(--accent-line); }
+.ota-target.selected strong { color: var(--accent-deep); }
