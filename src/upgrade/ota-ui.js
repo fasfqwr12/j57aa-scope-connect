@@ -30,10 +30,6 @@ export function initOtaUpgrade(context) {
   $("#ota-start").addEventListener("click", startUpgrade);
   $("#ota-abort").addEventListener("click", () => { session?.abort(); probeAbort?.abort(); otaLog("WARN", "已请求停止，等待当前写入结束和本会话清理"); });
   $("#ota-clear-log").addEventListener("click", () => { $("#ota-log-box").replaceChildren(); clearFeedback(); });
-  // 升级浮窗：打开即自动预检（快照缺失/过期时）；升级中阻止关闭（对齐调试助手行为）
-  $("#ota-open-modal")?.addEventListener("click", openOtaModal);
-  $("#ota-close-modal")?.addEventListener("click", closeOtaModal);
-  $("#ota-modal")?.addEventListener("click", event => { if (event.target.id === "ota-modal") closeOtaModal(); });
   $("#ota-firmware-file").addEventListener("change", async event => {
     const file = event.target.files?.[0]; event.target.value = "";
     if (!file || busy) return;
@@ -126,23 +122,6 @@ async function adapterForProbe() {
   const adapter = ctx.getAdapter();
   if (!adapter?.requestWire || !adapter.isGattConnected()) throw new Error("请先在设备页选择浏览器 BLE 并连接；Bridge 不提供此升级通道");
   return adapter;
-}
-// ===== 升级浮窗 =====
-function openOtaModal() {
-  const modal = $("#ota-modal"); if (!modal) return;
-  modal.hidden = false;
-  otaLog("SYS", "升级浮窗已打开");
-  // 自动预检：快照缺失/过期且空闲时直接跑（浮窗上下文不再弹确认；手动按钮仍走确认）
-  const adapter = ctx.getAdapter();
-  if (!busy && !(snapshot && adapter && snapshotIsFresh(snapshot, adapter))) {
-    if (ctx.isConnected()) detect({ auto: true });
-    else otaLog("SYS", "未连接设备：连接后点「检测双板状态」或重新打开浮窗自动检测");
-  }
-}
-function closeOtaModal() {
-  const modal = $("#ota-modal"); if (!modal) return;
-  if (busy) { otaLog("WARN", "升级进行中，已阻止关闭浮窗（避免打断 RAW 透传）；请等待完成或失败后再关闭"); return; }
-  modal.hidden = true;
 }
 // ===== 升级耗时统计 =====
 let elapsedTimer = null, elapsedStart = 0, elapsedFrozen = null;
