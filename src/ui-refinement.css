@@ -378,3 +378,18 @@ body[data-page="upgrade"] .preview-rail { display: none; }
   .ota-card-arrow { transform: rotate(90deg); padding: 2px 0; }
   .ota-upgrade-card, .ota-fw-card { min-width: 0; width: 100%; }
 }
+
+/* ============ 升级页视觉打磨二轮 ============ */
+.ota-targetbar { gap: 12px; padding: 10px 12px; }
+.ota-target-row .ota-target { padding: 8px 14px; }
+.ota-cards { margin-bottom: 12px; }
+.ota-upgrade-card { flex: 1 1 260px; padding: 14px 16px; }
+.ota-fw-card { flex: 1.15 1 300px; }
+.ota-card-arrow { font-size: 18px; opacity: .55; }
+.ota-online-item { padding: 8px 10px; gap: 8px; }
+.ota-online-list { max-height: 122px; }
+.ota-console .transfer-details { background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 0 0 10px; }
+.ota-console .transfer-details summary { list-style: none; cursor: pointer; display: flex; gap: 10px; align-items: baseline; }
+.ota-console .transfer-details[open] summary { margin-bottom: 8px; }
+.ota-route-summary { display: inline-block; padding: 5px 10px; background: var(--card2); border-radius: 6px; margin: 0 0 12px; }
+.ota-dock { border-top: 2px solid var(--line); margin-top: 14px; }
