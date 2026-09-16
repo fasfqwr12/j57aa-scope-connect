@@ -222,6 +222,7 @@ export class N32OtaSession {
             const vAddr = dv.getUint32(1, false), vSize = dv.getUint32(5, false), expected = dv.getUint32(9, false), actual = dv.getUint32(13, false);
             if (vAddr !== N32_APP_BASE || vSize !== size || expected !== crc || actual !== crc) throw new Error(`校验诊断不一致：addr=${hex(vAddr)} size=${vSize} 期望=${hex(expected)} 实算=${hex(actual)}；不进APP`);
           } else this.log("WARN", "0x35 应答短于17B，仅确认状态码");
+          this.verified = true; // 擦写+校验全部成功：此后任何失败都不应报"升级失败"
           break; // 擦写+校验全部成功
         } catch (error) {
           checkAbort(this.controller.signal);
@@ -235,19 +236,29 @@ export class N32OtaSession {
       }
       this.stage("enterapp", "0x37 命令副板进入 APP");
       await this.ack(N32_CMD.ENTER_APP, [], 3000);
-      // RAW 已无后续流量：等 idle 自动恢复 → 重开 NORMAL 代理确认副板 APP（对齐 PC 升级后流程）
+      // 确认阶段（重开代理+握手）为非致命：固件已写入并校验通过，失败只提示重测确认
       this.rawActive = false;
-      this.log("SYS", "等待主控 RAW 空闲自动恢复（约 2.4s）…");
-      await this.pause(2400, this.controller.signal);
-      this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 3);
-      const reSt = await this.proxy(PROXY_MODE.START);
-      if (reSt !== PROXY_STATUS.OK) throw new Error(`确认阶段重开代理失败: ${reSt}`);
-      this.proxyActive = true;
-      await this.waitSlaveMode("APP");
-      this.stage("done", "副板 APP 已确认");
-      return { success: true, slaveConfirmed: true, verify: { size, crc } };
+      try {
+        // RAW 已无后续流量：等 idle 自动恢复 → 重开 NORMAL 代理确认副板 APP（对齐 PC 升级后流程）
+        this.log("SYS", "等待主控 RAW 空闲自动恢复（约 2.4s）…");
+        await this.pause(2400, this.controller.signal);
+        this.sessionId = globalThis.crypto?.getRandomValues(new Uint32Array(1))[0] || ((Date.now() >>> 0) + 3);
+        const reSt = await this.proxy(PROXY_MODE.START);
+        if (reSt !== PROXY_STATUS.OK) throw new Error(`重开代理被拒: ${reSt}`);
+        this.proxyActive = true;
+        await this.waitSlaveMode("APP");
+        this.stage("done", "副板 APP 已确认");
+        return { success: true, slaveConfirmed: true, verify: { size, crc } };
+      } catch (error) {
+        const msg = `固件已写入且校验通过（${size}B）、已命令副板进 APP；确认阶段失败：${error.message}。请重新检测确认，无需重刷`;
+        this.log("WARN", msg);
+        this.stage("done", "固件已写入（确认未完成）");
+        return { success: true, slaveConfirmed: false, verified: true, verify: { size, crc }, confirmError: error.message };
+      }
     } catch (error) {
-      this.log("WARN", this.mutatingStarted ? "操作已停止；N32 Boot 不受影响，可重新检测后再试完整升级。" : "前置检查未通过，未擦写副板。");
+      this.log("WARN", !this.mutatingStarted ? "前置检查未通过，未擦写副板。"
+        : this.verified ? "写入与校验已完成，后续阶段异常——请重新检测确认，通常无需重刷。"
+        : "操作已停止；N32 Boot 不受影响，可重新检测后再试完整升级。");
       throw error;
     } finally {
       if (this.rawActive) {

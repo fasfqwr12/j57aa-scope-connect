@@ -1,5 +1,5 @@
 import { W515OtaSession } from "./w515-ota.js?v=tuning-1";
-import { N32OtaSession, n32Gate } from "./n32-ota.js?v=ver-1";
+import { N32OtaSession, n32Gate } from "./n32-ota.js?v=confirmfix-1";
 import { DeviceProbe, snapshotIsFresh, w515Gate } from "./device-probe.js?v=f7target-2";
 import { inspectFirmware, inspectN32Firmware, validateFirmwareForDevice } from "./firmware-image.js?v=status-first-1";
 import { firmwareDirectory, firmwareUrl, verifyDownload } from "./firmware-library.js?v=status-first-1";
@@ -399,13 +399,15 @@ async function startUpgrade() {
   const reason = gateReason(); if (reason) { otaLog("WARN", reason); return; }
   const image = firmware, adapter = ctx.getAdapter(), deviceId = snapshot.deviceId;
   if (target === "n32") {
-    if (!(await uiConfirm(`升级 N32 副板 APP：${image.name}\n经主控代理擦除并写入 0x08002000 的副板 APP 区（${image.bytes.length}B，CRC32 ${image.crc.toString(16).toUpperCase()}）。\n主控 W515 不会被刷写；N32 Boot 不受影响（失败可重试）。\n此路径尚未真机验证。确认执行？`))) return;
+    if (!(await uiConfirm(`升级 N32 副板 APP：${image.name}\n经主控代理擦除并写入 0x08002000 的副板 APP 区（${image.bytes.length}B，CRC32 ${image.crc.toString(16).toUpperCase()}）。\n主控 W515 不会被刷写；N32 Boot 不受影响；中断自动断点续传（最多3次）。\n建议选择稳档传输。确认执行？`))) return;
     setBusy(true);
     try {
       await keepAwake();
       session = new N32OtaSession(adapter, { onLog: otaLog, onStage, onProgress, onSnapshot: value => { snapshot = value; renderSnapshot(); } });
       const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId, tuning: readTuning() });
-      otaLog("SYS", result.success ? `副板升级完成：${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}；建议重新检测确认` : "未完成");
+      if (result.success && result.slaveConfirmed) otaLog("SYS", `副板升级完成：${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}；建议重新检测确认`);
+      else if (result.success) otaLog("WARN", `副板固件已写入并校验通过（${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}）；确认阶段未完成：${result.confirmError || "未知"}——重新检测确认即可，无需重刷`);
+      else otaLog("SYS", "未完成");
     } catch (error) { onStage("error", "已停止 / 未完成"); otaLog("ERR", error.message); }
     finally { session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }
     return;
