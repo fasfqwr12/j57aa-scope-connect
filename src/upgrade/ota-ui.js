@@ -23,6 +23,7 @@ function selectTarget(value) {
   document.querySelector('input[name="ota-target"][value="' + (value === "n32" ? "n32" : "w515") + '"]')?.click();
   const hint = $("#ota-target-hint");
   if (hint) hint.textContent = value === "n32" ? "副板 N32 APP · 经主控代理" : "主控板 App/Boot";
+  $("#ota-device-card")?.setAttribute("data-target", value);
   renderGate();
 }
 

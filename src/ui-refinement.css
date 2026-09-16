@@ -356,3 +356,10 @@ body[data-page="upgrade"] .preview-rail { display: none; }
 .ota-fw-card .ota-online-list { max-height: 128px; }
 .ota-route-summary { margin: 0 0 10px; font-size: 11.5px; }
 .ota-route-summary span { margin-left: 10px; }
+
+/* ============ 当前设备卡：随升级对象切换显示（对齐 debug_pro 单卡切换） ============ */
+.ota-dev-fields { display: flex; flex-direction: column; flex: 1; }
+#ota-device-card[data-target="w515"] .ota-dev-only[data-dev="n32"],
+#ota-device-card[data-target="w515"] .ota-dev-fields[data-dev="n32"] { display: none; }
+#ota-device-card[data-target="n32"] .ota-dev-only[data-dev="w515"],
+#ota-device-card[data-target="n32"] .ota-dev-fields[data-dev="w515"] { display: none; }
