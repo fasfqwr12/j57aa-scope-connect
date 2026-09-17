@@ -263,10 +263,22 @@ function renderSnapshot() {
   $("#ota-main-only-row").hidden = !snapshot || ["APP", "BOOT"].includes(slave?.mode);
   renderGate();
 }
-// 目标固件版本：W515 读 bin 内嵌元数据 meta.version；N32 hex 无内嵌版本，从文件名提取（v0p1 / v01p2 / v1.2 等）
+// N32 hex 内嵌 N3MT meta（镜像偏移 0x200 = 0x08002200；n32_post_build.py 填 size/crc，version 编译期=源码宏）
+function n32FileMeta(image) {
+  try {
+    const b = image;
+    if (!(b instanceof Uint8Array) || b.length < 0x220) return null;
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    if (dv.getUint32(0x200, true) !== 0x4E334D54) return null; // "N3MT"
+    return { version: dv.getUint16(0x204, true) };
+  } catch { return null; }
+}
+// 目标固件版本：W515 读 bin 内嵌元数据 meta.version；N32 优先读 N3MT meta 版本（编译期=源码宏，文件名可能滞后），无 meta 才从文件名提取
 function firmwareVersionText() {
   if (!firmware) return null;
   if (firmware.target === "n32-app") {
+    const mv = n32FileMeta(firmware.bytes)?.version;
+    if (mv) return `${mv >>> 8}.${mv & 255}`;
     // 文件名约定 v01p2 = v0.1 patch2（NNpN: 前两位=major.minor，p后=patch）；v0.1.2/v1.2 直接三段
     const m3 = firmware.name.match(/v(\d+)\.(\d+)\.(\d+)/i);
     if (m3) return `${Number(m3[1])}.${Number(m3[2])}.${Number(m3[3])}`;
