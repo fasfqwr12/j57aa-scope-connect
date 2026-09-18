@@ -490,3 +490,14 @@ body[data-page="upgrade"] .preview-rail { display: none; }
 /* ============ 九轮：两卡底部条严格等高（38px + 上边框同高） ============ */
 .ota-card-footer, .ota-fw-card .ota-online-row { height: 38px; min-height: 0; padding-top: 0; align-items: center; border-top: 1px solid var(--line); margin-top: auto; }
 .ota-fw-card .ota-online-row { justify-content: space-between; }
+
+/* ============ 十轮：仪表读数式分栏（标签在上/等宽数值在下/竖分隔线） ============ */
+.ota-card-footer { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); height: 46px; gap: 0; align-items: center; padding-top: 0; }
+.ota-card-footer > span { display: flex; flex-direction: column; gap: 3px; font-size: 10px; line-height: 1.1; color: var(--muted); letter-spacing: .6px; padding: 0 10px; min-width: 0; }
+.ota-card-footer > span:first-child { padding-left: 0; }
+.ota-card-footer > span + span { border-left: 1px solid var(--line); }
+.ota-card-footer > span b { font: 600 12px/1.2 var(--mono); color: var(--text); letter-spacing: 0; overflow-wrap: anywhere; }
+.ota-dev-hero .ota-card-model { font-size: 20px; font-weight: 700; letter-spacing: .2px; }
+.ota-dev-hero .ota-card-id { margin: 8px 0 0; font-size: 11px; line-height: 1.5; color: var(--muted); }
+.ota-fw-card .ota-online-row { height: 46px; }
+.ota-dropzone > span:last-of-type { letter-spacing: .4px; }
