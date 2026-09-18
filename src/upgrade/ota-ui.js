@@ -218,11 +218,12 @@ function renderSnapshot() {
   $("#ota-main-mode").dataset.mode = main?.mode || "UNKNOWN";
   $("#ota-slave-mode").dataset.mode = slave?.mode || "UNKNOWN";
   // Boot 版本可信度：主控=Boot 时 0x02 上报为真实值；APP 模式下 F7 上报在固件升级前是编译期常量
+  // （"(编译期)"注记只在 hero 徽章显示，footer 不再重复）
   const bootReal = main?.mode === "BOOT" || (info?.boot_ver ?? 0) > 0x0100;
   const sinfo = slave?.info;
   $("#ota-main-model").textContent = info?.model || "--";
   $("#ota-main-info").textContent = info ? `硬件 ${version(info.hw_ver)} · APP 入口 ${hex(info.app_start)}` : "等待主控身份与地址信息";
-  $("#ota-main-boot").textContent = info ? `v${version(info.boot_ver)}${bootReal ? "" : "(编译期)"}` : "--";
+  $("#ota-main-boot").textContent = info ? `v${version(info.boot_ver)}` : "--";
   $("#ota-main-size").textContent = info ? `${info.app_size}B` : "--";
   $("#ota-main-crc").textContent = info ? hex(info.app_crc) : "--";
   $("#ota-slave-model").textContent = sinfo?.model || "--";
@@ -326,12 +327,15 @@ function renderFirmware() {
   const isN32 = firmware?.target === "n32-app";
   set("#ota-fw-name", firmware ? firmware.name : "--");
   set("#ota-fw-version", fv ? `v${fv}` : firmware ? "无版本" : "--");
+  // note 行标注数值来源：三种头格式分别说明；无头旧镜像提示数值为现算（footer 大小/CRC 回退现算值）
   set("#ota-file-meta", firmware
     ? (firmware.header?.format === "j5aa"
       ? `${firmware.header.imageType === "boot" ? "Boot" : "APP"} · ${firmware.header.target === "w515" ? "主控 W515" : "副板 N32"} · 头自述 ${firmware.header.model}${firmware.header.hcrcOk ? " ✓" : "（头校验失败）"}`
-      : (isN32
-        ? `副板 N32 APP · 数据 ${firmware.bytes.length}B @0x08002000`
-        : `${firmware.meta?.model || "J57AA-W515"} · 镜像完整性已核对`))
+      : firmware.header?.format === "n3mt"
+        ? `N3MT 头自述 · 入口 0x08002000`
+        : isN32
+          ? `副板 N32 APP · 无镜像头（数值现算）`
+          : `${firmware.meta?.model || "J57AA-W515"} · FIRM 头 · 完整性已核对`)
     : "");
   set("#ota-fw-target", firmware
     ? (firmware.header?.format === "j5aa"
