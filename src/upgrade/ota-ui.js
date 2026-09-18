@@ -338,10 +338,12 @@ function renderFirmware() {
       ? (firmware.header.imageType === "boot" ? "Boot" : "APP") + " · " + (firmware.header.target === "w515" ? "主控 W515" : "副板 N32")
       : (isN32 ? "副板 N32" : "主控 W515"))
     : "--");
-  set("#ota-fw-size", firmware ? `${firmware.bytes.length}B` : "--");
-  // W515 镜像无顶层 crc（inspectFirmware 返 meta.appCrc）；N32 返 crc。两者都要兜住
-  const crcVal = firmware ? (firmware.crc ?? firmware.meta?.appCrc) : null;
-  set("#ota-fw-crc", crcVal == null ? "--" : `0x${(crcVal >>> 0).toString(16).toUpperCase().padStart(8, "0")}`);
+  // 显示一律"直接读"镜像头/meta（与设备 0x82/0x3A 上报同源），不重算 → 两卡同值同口径
+  // 回退：J5AA/FIRM/N3MT 头 → 无头旧镜像才用现算值（firmware.crc，校验口径）
+  const dispSize = firmware ? (firmware.header?.appSize ?? firmware.bytes.length) : null;
+  const dispCrc = firmware ? (firmware.header?.appCrc ?? firmware.crc ?? firmware.meta?.appCrc) : null;
+  set("#ota-fw-size", dispSize == null ? "--" : `${dispSize}B`);
+  set("#ota-fw-crc", dispCrc == null ? "--" : `0x${(dispCrc >>> 0).toString(16).toUpperCase().padStart(8, "0")}`);
   $("#ota-main-only").checked = false; renderGate();
   renderOnlineSelection();
 }
@@ -482,8 +484,8 @@ async function startUpgrade() {
       await keepAwake();
       session = new N32OtaSession(adapter, { onLog: otaLog, onStage, onProgress, onSnapshot: value => { snapshot = value; renderSnapshot(); } });
       const result = await session.run(image, { confirmed: true, expectedDeviceId: deviceId, tuning: readTuning() });
-      if (result.success && result.slaveConfirmed) otaLog("SYS", `副板升级完成：${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}，耗时 ${elapsedText()}；建议重新检测确认`);
-      else if (result.success) otaLog("WARN", `副板固件已写入并校验通过（${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}，耗时 ${elapsedText()}）；确认阶段未完成：${result.confirmError || "未知"}——重新检测确认即可，无需重刷`);
+      if (result.success && result.slaveConfirmed) otaLog("SYS", `副板升级完成：${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}（校验口径，Boot 现行整像 CRC）耗时 ${elapsedText()}；建议重新检测确认`);
+      else if (result.success) otaLog("WARN", `副板固件已写入并校验通过（${result.verify.size}B CRC32 ${result.verify.crc.toString(16).toUpperCase()}（校验口径），耗时 ${elapsedText()}）；确认阶段未完成：${result.confirmError || "未知"}——重新检测确认即可，无需重刷`);
       else otaLog("SYS", "未完成");
     } catch (error) { onStage("error", "已停止 / 未完成"); otaLog("ERR", error.message); }
     finally { freezeElapsed(); session = null; snapshot = null; renderSnapshot(); await releaseAwake(); setBusy(false); }
