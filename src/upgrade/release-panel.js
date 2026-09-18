@@ -1,6 +1,6 @@
 // 固件库发布面板（仅 ?admin=1）：选文件 → 自动识别版本/校验 → GitHub Contents API 上传并更新在线清单。
 // token 存 localStorage（仅本浏览器），不经过任何第三方；建议用仅本仓库 Contents 读写的细粒度 PAT。
-import { inspectFirmware, inspectN32Firmware } from "./firmware-image.js?v=confirmfix-3";
+import { inspectFirmware, inspectN32Firmware } from "./firmware-image.js?v=j5aa-1";
 
 const REPO = "fasfqwr12/j57aa-scope-connect";
 const BRANCH = "main";

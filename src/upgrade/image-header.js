@@ -58,13 +58,14 @@ export function finalizeJ5aaImage(header, payloadBefore, payloadAfter = new Uint
   return image;
 }
 
-// 统一入口：读 image+0x200 的 magic，按格式归一化；无任何已知 magic → null（走回退）
+// 统一入口：读 image+0x200 的 magic（小端 u32，与固件常量同口径），按格式归一化；无任何已知 magic → null（走回退）
 export function readImageMeta(image) {
   try {
     if (!(image instanceof Uint8Array) || image.length < META_OFFSET + 0x28) return null;
     const dv = new DataView(image.buffer, image.byteOffset, image.byteLength);
-    const m0 = image[META_OFFSET], m1 = image[META_OFFSET + 1], m2 = image[META_OFFSET + 2], m3 = image[META_OFFSET + 3];
-    if (m0 === 0x4A && m1 === 0x35 && m2 === 0x41 && m3 === 0x41) {           // "J5AA"
+    const magic = dv.getUint32(META_OFFSET, true);
+    // "J5AA"：规范常量 0x4141354A（flash 字节 4A 35 41 41，dump 可读作 "J5AA"）；兼容反序拼写 0x4A354141
+    if (magic === 0x4141354A || magic === 0x4A354141) {
       if (image.length < META_OFFSET + J5AA_HEADER_SIZE) return null;
       const h = image.subarray(META_OFFSET, META_OFFSET + J5AA_HEADER_SIZE);
       const hdv = new DataView(h.buffer, h.byteOffset, h.byteLength);
@@ -84,7 +85,7 @@ export function readImageMeta(image) {
         model: ascii(h, 0x20, 12),
       };
     }
-    if (m0 === 0x46 && m1 === 0x49 && m2 === 0x52 && m3 === 0x4D) {           // "FIRM"（W515 旧，Boot 三连事实源）
+    if (magic === 0x4649524D) {                                              // "FIRM"（W515 旧，Boot 三连事实源）
       return {
         format: "firm", headerSize: 0x28, hcrcOk: null,
         fwVersion: dv.getUint32(META_OFFSET + 4, true),
@@ -94,7 +95,7 @@ export function readImageMeta(image) {
         model: ascii(image, META_OFFSET + 0x10, 16),
       };
     }
-    if (m0 === 0x4E && m1 === 0x33 && m2 === 0x4D && m3 === 0x54) {           // "N3MT"（N32 旧，0x3A 上报事实源）
+    if (magic === 0x4E334D54) {                                              // "N3MT"（N32 旧，0x3A 上报事实源）
       return {
         format: "n3mt", headerSize: 0x20, hcrcOk: null,
         fwVersion: dv.getUint16(META_OFFSET + 4, true),
