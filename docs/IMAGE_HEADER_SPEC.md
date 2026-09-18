@@ -69,7 +69,25 @@ J5AA 解析同时兼容反序拼写 `0x4A354141`；FIRM/N3MT 只认历史字节�
 | 旧固件（FIRM/N3MT/无头） | 上位机按 magic 分发或回退 → **照常升级** |
 | 新固件（J5AA）+ 现行 Boot | 头是附加信息，Boot 校验逻辑零改动 → **照常升级**（N32 Boot 模式 0x3A 读不到 N3MT → 退回最近一次 0x35 校验值，Boot main.c:1236-1239 已有此兜底） |
 | 新固件 + 新上位机 | 类型/目标/版本/大小/CRC/基址全从头里读，只读不算 |
-| W515 FIRM | 永久保留在 0x200-0x227（Boot 三连绑定），J5AA 头与其并存需错开（W515 侧上 J5AA 时头放 0x230，见 §7） |
+| W515 FIRM | **不再是永久方案**：统一目标是把 W515 也换成 0x200 的 J5AA v1（见 §7 迁移顺序）；但 W515 Boot 升级成功条件硬绑 `meta->magic == FW_META_MAGIC`（bootloader.c:1246，`product_config.h:105` 该门=1），**必须先把 W515 Boot 改成双接受，再发 J5AA 的 W515 APP** |
+
+## 4.1 同一偏移、三种布局的字节对照（为什么要换 Boot 才能统一）
+
+| 偏移 | J5AA v1（48B，统一目标） | FIRM（40B，W515 现状） | N3MT（32B，N32 现状） |
+|---|---|---|---|
+| +0x00 | magic `J5AA` | magic `FIRM` | magic `N3MT` |
+| +0x04 | header_ver u16 + type u8 + target u8 | version u32 | app_version u16 + rsvd u16 |
+| +0x08 | fw_version u16 + hw_version u16 | hw_version u32 | app_size u32 |
+| +0x0C | payload_size u32 | model[16] 起 | app_crc32 u32 |
+| +0x10 | payload_crc32 u32 | model[16] | hw_version u32 |
+| +0x14 | payload_base u32 | ↑ | model[12] |
+| +0x18 | flags u32 | ↑ | ↑ |
+| +0x1C | min_boot u16 + rsvd u16 | ↑ | ↑ |
+| +0x20 | **model[12]** | **app_size u32** | —（块仅到 +0x1F） |
+| +0x24 | ↑ | **app_crc u32** | — |
+| +0x2C | header_crc32 u32 | — | — |
+
+**冲突点**：+0x20 处 J5AA 放 model、FIRM 放 app_size（+0x24 放 app_crc）——两者无法共存于同一 magic 之下，所以 Boot 必须按 magic 分派布局，这是"换 Boot"的根因。
 
 ## 6. 上位机解析流程（通用，不挑项目）
 
@@ -90,9 +108,21 @@ J5AA 解析同时兼容反序拼写 `0x4A354141`；FIRM/N3MT 只认历史字节�
 | N32 APP 头结构 | MCU_Slave `SeerLib/SystemAPI/MiniModule_SystemConfig.c` | `n32_app_meta_t` 32B→48B，magic 改 "J5AA"，新增 type/target/min_boot/flags/hcrc 字段（保留 version/size/crc/hw/model 语义） |
 | N32 构建脚本 | `tool/n32_post_build.py` | 写 48B：size、payload_crc（排除头块口径）、hcrc（头前 44B）；幂等 |
 | N32 Boot 兼容 | MCU_Slave_Boot_N32 `src/main.c` 0x3A meta 读 | magic 判定改双接受（N3MT 或 J5AA），字段偏移按格式分派 |
-| W515 APP 头 | W515 APP `firmware_meta.c` | FIRM 保留 0x200-0x227 不动；J5AA 头放 **image+0x230**（紧随 FIRM），Boot 三连零影响 |
-| W515 构建脚本 | `post_build_crc.py` | 追加写 0x230 的 48B J5AA 头（FIRM 填写逻辑不变） |
-| Boot 镜像头 | 两个 Boot 工程 | 各嵌 48B 头 @Boot_image+0x200（0x3A 自述替代 JBVT） |
+| **W515 APP 头** | W515 APP `firmware_meta.c` | FIRM 块整体替换为 **0x200 的 48B J5AA 头**（与 N32 完全同布局同偏移） |
+| W515 构建脚本 | `post_build_crc.py` | 写 48B J5AA（替换原 FIRM 填写逻辑） |
+| **W515 Boot 校验** | `boot_sdk_w515/Core/Src/bootloader.c:1240-1260` | 按 magic 分派：`FIRM`→0xFF 掩码口径+三连（旧）；`J5AA`→排除头块口径+J5AA 三连（新）；`flash_calc_verify_crc` 同步分派 |
+| W515 Boot 上报 | 同上 `bootloader.c:451-522` | 0x82/F7 信息按 magic 分派读新头 |
+| Boot 镜像头 | 两个 Boot 工程 | 各嵌 48B 头 @Boot_image+0x200（0x3A 自述替代 JBVT）；**Boot 区升级不查 meta**（`bootloader.c:848` 非 APP 地址走 plain CRC），故 Boot 带头无风险 |
+
+## 7.1 迁移顺序（强制，顺序错会导致 W515 升级失败）
+
+| 步 | 动作 | 前置 | 失败后果 |
+|---|---|---|---|
+| 1 | W515 Boot 改为双接受并烧录（网页 Boot 流程） | 无 | — |
+| 2 | W515 APP 改 0x200 J5AA 头并发布 | 步1 | 未做步1 则 0x06 校验 ERR_VERIFY_FAIL |
+| 3 | N32 APP 改 0x200 J5AA 头并发布 | 无（N32 升级不查 meta） | 仅 0x3A 上报退兜底 |
+| 4 | N32 Boot 改双接受并出厂/SWD 重烧 | 步3 之后 | 未做则 0x3A 一直用 0x35 兜底值 |
+| 5 | 旧固件（FIRM/N3MT/无头） | 永久保留回退路径 | — |
 
 ## 8. 与现行三口径的关系（速查）
 
