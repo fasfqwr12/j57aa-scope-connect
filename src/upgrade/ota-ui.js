@@ -509,7 +509,7 @@ async function loadOnlineFirmware() {
           if (entry.metaCrc32 && image.meta && image.meta.appCrc !== parseInt(entry.metaCrc32, 16)) throw new Error("元数据 CRC 与清单不符");
           firmware = image; onlineSelection = entry.name;
           selectTarget(entry.target === "n32-app" ? "n32" : "w515");
-          renderFirmware(); otaLog("SYS", "在线固件长度与 SHA-256 已核对（不代表真机验收）");
+          renderFirmware(); $("#ota-online-dialog")?.close(); otaLog("SYS", "在线固件长度与 SHA-256 已核对（不代表真机验收）");
         } catch (error) { firmware = null; renderFirmware(); otaLog("ERR", error.message); }
         finally { setBusy(false); }
       });
