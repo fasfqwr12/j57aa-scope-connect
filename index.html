@@ -359,16 +359,28 @@
             <section class="ota-upgrade-card ota-fw-card">
               <div class="ota-card-head"><span class="ota-card-label">目标固件</span><span class="ota-mode-badge">本地 / 在线</span></div>
               <div class="ota-file-row">
-                <label class="ota-file-btn">
-                  选择 .bin / .hex
+                <label class="ota-file-btn ota-dropzone">
+                  <span class="ota-drop-icon">↑</span>
+                  <strong>点击选择或拖入固件</strong>
+                  <span>.bin / .hex · 本地文件</span>
                   <input id="ota-firmware-file" type="file" accept=".bin,.hex">
                 </label>
                 <div class="ota-file-meta" id="ota-file-meta">未选择固件</div>
               </div>
               <div class="ota-online-row" id="ota-online-row">
-                <div class="ota-online-head" id="ota-online-head">在线固件库 <button class="btn compact" id="ota-online-refresh" type="button">刷新清单</button></div>
-                <div class="ota-online-list" id="ota-online-list"><span class="ota-online-empty">加载中…</span></div>
+                <div class="ota-online-head" id="ota-online-head">
+                  <span>在线固件库</span>
+                  <button class="btn compact ota-online-open" id="ota-online-open" type="button">打开固件库</button>
+                </div>
               </div>
+              <dialog class="ota-online-dialog" id="ota-online-dialog" aria-labelledby="ota-online-title">
+                <div class="ota-dialog-head">
+                  <div><strong id="ota-online-title">在线固件库</strong><span>选择后自动回填目标固件</span></div>
+                  <button class="ota-dialog-close" id="ota-online-close" type="button" aria-label="关闭">×</button>
+                </div>
+                <div class="ota-dialog-tools"><span>官方清单 · SHA-256 核验</span><button class="btn compact" id="ota-online-refresh" type="button">刷新清单</button></div>
+                <div class="ota-online-list" id="ota-online-list"><span class="ota-online-empty">加载中…</span></div>
+              </dialog>
             </section>
           </div>
           <p class="ota-route-summary">代理通道 <strong id="ota-proxy-state">未检测</strong><span id="ota-state-time">尚无有效状态</span></p>

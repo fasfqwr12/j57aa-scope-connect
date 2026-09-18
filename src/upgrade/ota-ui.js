@@ -54,6 +54,11 @@ export function initOtaUpgrade(context) {
     if (radio.checked) selectTarget(radio.value);
   }));
   $("#ota-online-refresh").addEventListener("click", () => { if (!busy) loadOnlineFirmware(); });
+  $("#ota-online-open")?.addEventListener("click", () => $("#ota-online-dialog")?.showModal());
+  $("#ota-online-close")?.addEventListener("click", () => $("#ota-online-dialog")?.close());
+  $("#ota-online-dialog")?.addEventListener("click", event => {
+    if (event.target === $("#ota-online-dialog")) $("#ota-online-dialog").close();
+  });
   // 传输档位：切换自定义显隐 + 记忆选择
   const presetSelect = $("#ota-preset");
   if (presetSelect) {
