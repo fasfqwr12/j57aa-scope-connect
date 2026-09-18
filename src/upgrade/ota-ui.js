@@ -315,11 +315,16 @@ function compareVersion(cur, next) {
 }
 function renderFirmware() {
   const fv = firmwareVersionText();
-  $("#ota-file-meta").textContent = firmware
-    ? (firmware.target === "n32-app"
-      ? `${firmware.name} · 副板 N32 APP${fv ? ` · 新版本 v${fv}` : ""} · ${firmware.bytes.length}B @0x08002000 · CRC32 ${firmware.crc.toString(16).toUpperCase()}`
-      : `${firmware.name} · ${firmware.bytes.length}B · ${firmware.meta.model}${fv ? ` · 新版本 v${fv}` : "（meta 无版本）"} · CRC已核对`)
-    : "未选择有效固件";
+  const meta = $("#ota-file-meta");
+  // 空态不显示占位条：右卡主体带因此与左卡显示带等高（对称）
+  if (meta) {
+    meta.hidden = !firmware;
+    meta.textContent = firmware
+      ? (firmware.target === "n32-app"
+        ? `${firmware.name} · 副板 N32 APP${fv ? ` · 新版本 v${fv}` : ""} · ${firmware.bytes.length}B @0x08002000 · CRC32 ${firmware.crc.toString(16).toUpperCase()}`
+        : `${firmware.name} · ${firmware.bytes.length}B · ${firmware.meta.model}${fv ? ` · 新版本 v${fv}` : "（meta 无版本）"} · CRC已核对`)
+      : "";
+  }
   $("#ota-main-only").checked = false; renderGate();
   renderOnlineSelection();
 }

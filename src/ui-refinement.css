@@ -450,3 +450,43 @@ body[data-page="upgrade"] .preview-rail { display: none; }
 .ota-online-dialog .ota-online-list { max-height: none; overflow: visible; gap: 8px; }
 .ota-online-dialog .ota-online-item { padding: 10px 12px; }
 .ota-online-dialog .fw-copy small { line-height: 1.6; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ============ 六轮：左右对称 + 统一卡片解剖（头行/主体伸展/底行分隔条） ============ */
+.ota-cards { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 12px; }
+.ota-upgrade-card, .ota-fw-card { flex: none; min-width: 0; display: flex; flex-direction: column; min-height: 268px; padding: 14px 16px; }
+.ota-card-arrow { align-self: center; justify-self: center; font-size: 16px; color: var(--dim); opacity: .5; margin: 0; }
+.ota-dev-fields[data-dev] { flex: 1 1 auto; min-height: 0; }
+.ota-card-model { font-size: 19px; margin: 6px 0 4px; }
+.ota-card-vers .ver-pill { font-size: 30px; }
+.ota-card-id { margin: 0 0 10px; }
+.ota-card-footer { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
+.ota-fw-card .ota-file-row { flex: 1 1 auto; display: flex; flex-direction: column; margin: 8px 0 0; padding: 0; border: none; background: transparent; gap: 8px; }
+.ota-fw-card .ota-dropzone { flex: 1 1 auto; min-height: 132px; }
+.ota-fw-card .ota-online-row { margin: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.ota-online-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ota-online-open { min-width: 132px; }
+@media (max-width: 900px) {
+  .ota-cards { grid-template-columns: minmax(0, 1fr); }
+  .ota-card-arrow { transform: rotate(90deg); }
+}
+
+/* ============ 七轮：左卡"显示带"与右卡"拖放带"同尺寸同底纹（统一卡片解剖） ============ */
+.ota-dev-fields[data-dev] { gap: 10px; }
+.ota-dev-hero { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 132px; padding: 14px; border: 1px solid var(--line2); border-radius: 10px; background: var(--card2); }
+.ota-dev-hero .ota-card-model { margin: 0; }
+.ota-dev-hero .ota-card-id { margin: 6px 0 0; }
+.ota-card-footer { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
+.ota-fw-card .ota-file-row { gap: 10px; }
+.ota-online-open { width: auto; flex: 0 0 auto; min-width: 132px; }
+
+/* ============ 八轮：两卡主体带/底部条严格等高（实测驱动） ============ */
+.ota-fw-card .ota-file-row { display: flex; flex-direction: column; align-items: stretch; }
+.ota-fw-card .ota-file-btn.ota-dropzone { justify-self: stretch; width: 100%; flex: 1 1 auto; }
+.ota-card-footer, .ota-fw-card .ota-online-row { min-height: 40px; display: flex; align-items: center; }
+.ota-dev-fields[data-dev] .ota-card-footer { justify-content: space-between; margin-top: auto; }
+.ota-fw-card .ota-online-row { justify-content: space-between; margin-top: auto; }
+.ota-online-open { min-height: 30px; padding: 4px 14px; font-size: 12px; }
+
+/* ============ 九轮：两卡底部条严格等高（38px + 上边框同高） ============ */
+.ota-card-footer, .ota-fw-card .ota-online-row { height: 38px; min-height: 0; padding-top: 0; align-items: center; border-top: 1px solid var(--line); margin-top: auto; }
+.ota-fw-card .ota-online-row { justify-content: space-between; }

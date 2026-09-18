@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./src/app.css?v=status-first-1">
-  <link rel="stylesheet" href="./src/ui-refinement.css?v=inline-8">
+  <link rel="stylesheet" href="./src/ui-refinement.css?v=inline-12">
   <link rel="stylesheet" href="./src/ui/mobile-screens.css?v=mobile-screen-05">
 </head>
 <body data-page="device">
@@ -343,15 +343,19 @@
                 <strong id="ota-slave-mode" class="ota-mode-badge ota-dev-only" data-dev="n32">未检测</strong>
               </div>
               <div class="ota-dev-fields" data-dev="w515">
-                <div class="ota-card-model" id="ota-main-model">--</div>
-                <div class="ota-card-vers" id="ota-main-vers" hidden></div>
-                <p class="ota-card-id" id="ota-main-info">等待主控身份与地址信息</p>
+                <div class="ota-dev-hero">
+                  <div class="ota-card-model" id="ota-main-model">--</div>
+                  <div class="ota-card-vers" id="ota-main-vers" hidden></div>
+                  <p class="ota-card-id" id="ota-main-info">等待主控身份与地址信息</p>
+                </div>
                 <div class="ota-card-footer"><span>Boot: <b id="ota-main-boot">--</b></span><span>大小: <b id="ota-main-size">--</b></span><span>CRC: <b id="ota-main-crc">--</b></span></div>
               </div>
               <div class="ota-dev-fields" data-dev="n32">
-                <div class="ota-card-model" id="ota-slave-model">--</div>
-                <div class="ota-card-vers" id="ota-slave-vers" hidden></div>
-                <p class="ota-card-id" id="ota-slave-info">等待副板自身应答</p>
+                <div class="ota-dev-hero">
+                  <div class="ota-card-model" id="ota-slave-model">--</div>
+                  <div class="ota-card-vers" id="ota-slave-vers" hidden></div>
+                  <p class="ota-card-id" id="ota-slave-info">等待副板自身应答</p>
+                </div>
                 <div class="ota-card-footer"><span>Boot: <b id="ota-slave-boot">--</b></span><span>大小: <b id="ota-slave-size">--</b></span><span>CRC: <b id="ota-slave-crc">--</b></span></div>
               </div>
             </section>
@@ -365,7 +369,7 @@
                   <span>.bin / .hex · 本地文件</span>
                   <input id="ota-firmware-file" type="file" accept=".bin,.hex">
                 </label>
-                <div class="ota-file-meta" id="ota-file-meta">未选择固件</div>
+                <div class="ota-file-meta" id="ota-file-meta" hidden></div>
               </div>
               <div class="ota-online-row" id="ota-online-row">
                 <div class="ota-online-head" id="ota-online-head">
@@ -566,6 +570,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/app.js?v=ui6-3"></script>
+  <script type="module" src="./src/app.js?v=ui6-4"></script>
 </body>
 </html>
