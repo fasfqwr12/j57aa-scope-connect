@@ -315,16 +315,24 @@ function compareVersion(cur, next) {
 }
 function renderFirmware() {
   const fv = firmwareVersionText();
-  const meta = $("#ota-file-meta");
-  // 空态不显示占位条：右卡主体带因此与左卡显示带等高（对称）
-  if (meta) {
-    meta.hidden = !firmware;
-    meta.textContent = firmware
-      ? (firmware.target === "n32-app"
-        ? `${firmware.name} · 副板 N32 APP${fv ? ` · 新版本 v${fv}` : ""} · ${firmware.bytes.length}B @0x08002000 · CRC32 ${firmware.crc.toString(16).toUpperCase()}`
-        : `${firmware.name} · ${firmware.bytes.length}B · ${firmware.meta.model}${fv ? ` · 新版本 v${fv}` : "（meta 无版本）"} · CRC已核对`)
-      : "";
-  }
+  const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+  // 主体带两态：空态=拖放框；选中=读数（与左卡同解剖：身份 / 版本大字 / 说明 / 三格）
+  const dz = $("#ota-dropzone"), hero = $("#ota-fw-hero");
+  if (dz) dz.hidden = !!firmware;
+  if (hero) hero.hidden = !firmware;
+  const isN32 = firmware?.target === "n32-app";
+  set("#ota-fw-name", firmware ? firmware.name : "--");
+  set("#ota-fw-version", fv ? `v${fv}` : firmware ? "无版本" : "--");
+  set("#ota-file-meta", firmware
+    ? (isN32
+      ? `副板 N32 APP · 数据 ${firmware.bytes.length}B @0x08002000`
+      : `${firmware.meta?.model || "J57AA-W515"} · 镜像完整性已核对`)
+    : "");
+  set("#ota-fw-target", firmware ? (isN32 ? "副板 N32" : "主控 W515") : "--");
+  set("#ota-fw-size", firmware ? `${firmware.bytes.length}B` : "--");
+  // W515 镜像无顶层 crc（inspectFirmware 返 meta.appCrc）；N32 返 crc。两者都要兜住
+  const crcVal = firmware ? (firmware.crc ?? firmware.meta?.appCrc) : null;
+  set("#ota-fw-crc", crcVal == null ? "--" : `0x${(crcVal >>> 0).toString(16).toUpperCase().padStart(8, "0")}`);
   $("#ota-main-only").checked = false; renderGate();
   renderOnlineSelection();
 }
@@ -354,14 +362,18 @@ function renderGate() {
   const n32Mode = target === "n32";
   $("#ota-start").disabled = busy || !!reason;
   $("#ota-start").textContent = n32Mode ? "确认并升级副板" : "确认并升级主控";
-  // 版本对照行：检测+选好固件后显示 当前→新；升降级给醒目标签
+  // 版本对照行：只要选定固件就显示（不等门控），明确"相同 / 升级 / 降级"
   const verRow = $("#ota-version-compare");
   if (verRow) {
     const cur = deviceVersionText(), next = firmwareVersionText(), cmp = compareVersion(cur, next);
-    if (!reason && firmware && (cur || next)) {
+    if (firmware && (cur || next)) {
       verRow.hidden = false;
       verRow.dataset.cmp = cmp == null ? "unknown" : String(cmp);
-      const tag = cmp === 1 ? "升级" : cmp === 0 ? "同版本重刷" : cmp === -1 ? "降级 ⚠️" : "版本未知";
+      // 明确回答"相同还是不同"；无法比对时说清为什么、下一步做什么
+      const tag = cmp === 1 ? "升级"
+        : cmp === 0 ? "相同版本（将重刷）"
+        : cmp === -1 ? "降级 ⚠️"
+        : (snapshot ? "设备未上报版本" : "先检测设备再比对");
       const mk = (cls, key, val) => {
         const s = document.createElement("span"); s.className = cls;
         if (key) { const k = document.createElement("span"); k.className = "k"; k.textContent = key; s.append(k); }
@@ -369,9 +381,9 @@ function renderGate() {
         return s;
       };
       verRow.replaceChildren(
-        mk("vc-pill", "当前", cur ?? "未知"),
+        mk("vc-pill", "当前", cur ?? (snapshot ? "未上报" : "待检测")),
         mk("vc-arrow", null, "→"),
-        mk("vc-pill", "新", next ?? "未知"),
+        mk("vc-pill", "目标", next ?? "未知"),
         mk("vc-tag", null, tag)
       );
     } else { verRow.hidden = true; verRow.replaceChildren(); }

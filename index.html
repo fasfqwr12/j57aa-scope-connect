@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./src/app.css?v=status-first-1">
-  <link rel="stylesheet" href="./src/ui-refinement.css?v=inline-13">
+  <link rel="stylesheet" href="./src/ui-refinement.css?v=inline-20">
   <link rel="stylesheet" href="./src/ui/mobile-screens.css?v=mobile-screen-05">
 </head>
 <body data-page="device">
@@ -361,22 +361,25 @@
             </section>
             <div class="ota-card-arrow">→</div>
             <section class="ota-upgrade-card ota-fw-card">
-              <div class="ota-card-head"><span class="ota-card-label">目标固件</span><span class="ota-mode-badge">本地 / 在线</span></div>
+              <div class="ota-card-head">
+                <span class="ota-card-label">目标固件</span>
+                <button class="ota-online-open" id="ota-online-open" type="button">在线固件库</button>
+              </div>
               <div class="ota-file-row">
-                <label class="ota-file-btn ota-dropzone">
+                <label class="ota-file-btn ota-dropzone" id="ota-dropzone">
                   <span class="ota-drop-icon">↑</span>
                   <strong>点击选择或拖入固件</strong>
                   <span>.bin / .hex · 本地文件</span>
                   <input id="ota-firmware-file" type="file" accept=".bin,.hex">
                 </label>
-                <div class="ota-file-meta" id="ota-file-meta" hidden></div>
-              </div>
-              <div class="ota-online-row" id="ota-online-row">
-                <div class="ota-online-head" id="ota-online-head">
-                  <span>在线固件库</span>
-                  <button class="btn compact ota-online-open" id="ota-online-open" type="button">打开固件库</button>
+                <div class="ota-fw-hero" id="ota-fw-hero" hidden>
+                  <div class="ota-fw-name" id="ota-fw-name">--</div>
+                  <div class="ota-card-vers"><span class="ver-pill"><span class="k">目标版本</span><b id="ota-fw-version">--</b></span></div>
+                  <p class="ota-file-meta" id="ota-file-meta"></p>
+                  <label class="ota-reselect" for="ota-firmware-file">重新选择本地文件</label>
                 </div>
               </div>
+              <div class="ota-card-footer"><span>目标<b id="ota-fw-target">--</b></span><span>大小<b id="ota-fw-size">--</b></span><span>CRC<b id="ota-fw-crc">--</b></span></div>
               <dialog class="ota-online-dialog" id="ota-online-dialog" aria-labelledby="ota-online-title">
                 <div class="ota-dialog-head">
                   <div><strong id="ota-online-title">在线固件库</strong><span>选择后自动回填目标固件</span></div>
@@ -387,6 +390,7 @@
               </dialog>
             </section>
           </div>
+          <div class="ota-version-compare" id="ota-version-compare" hidden></div>
           <p class="ota-route-summary">代理通道 <strong id="ota-proxy-state">未检测</strong><span id="ota-state-time">尚无有效状态</span></p>
           <details class="transfer-details" id="ota-transfer-details" open>
             <summary>传输与校验参数<span>流式窗口核对</span></summary>
@@ -429,7 +433,7 @@
           </div>
 
           <section class="ota-dock" aria-label="升级确认区">
-            <div class="dock-heading"><span class="step-number" aria-hidden="true">03</span><div><h3>确认与执行</h3><p class="ota-notice" id="ota-gate-reason" role="status">第一步：检测主控与副板状态</p><div class="ota-version-compare" id="ota-version-compare" hidden></div></div></div>
+            <div class="dock-heading"><span class="step-number" aria-hidden="true">03</span><div><h3>确认与执行</h3><p class="ota-notice" id="ota-gate-reason" role="status">第一步：检测主控与副板状态</p></div></div>
             <div class="action-row">
               <label class="btn" for="ota-firmware-file" style="cursor:pointer">📁 选择固件</label>
               <button class="btn primary" id="ota-start" type="button" disabled>确认并升级主控</button>
@@ -570,6 +574,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/app.js?v=ui6-4"></script>
+  <script type="module" src="./src/app.js?v=ui6-7"></script>
 </body>
 </html>
