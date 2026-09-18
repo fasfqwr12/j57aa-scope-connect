@@ -1,5 +1,6 @@
 import { readFirmwareMeta, crc32MetaCompatible, crc32, W515_LAYOUT, validateW515Window } from "./ota-protocol.js?v=status-first-1";
 import { N32_LAYOUT } from "./n32-ota.js?v=confirmfix-4";
+import { readImageMeta } from "./image-header.js?v=j5aa-1";
 
 // Intel HEX addresses are preserved and validated, never flashed as ASCII text.
 export function parseIntelHex(text, { min = W515_LAYOUT.appMin, max = W515_LAYOUT.flashEnd } = {}) {
@@ -41,7 +42,9 @@ export function inspectFirmware(value, name, target = "w515-app") {
   if (crc32MetaCompatible(data) !== meta.appCrc) throw new Error("固件元数据 CRC32 与计算值不符");
   const dv = new DataView(data.buffer, data.byteOffset, data.byteLength), sp = dv.getUint32(0, true), reset = dv.getUint32(4, true);
   if (sp <= W515_LAYOUT.ramBase || sp > W515_LAYOUT.ramEnd || sp % 8 || !(reset & 1)) throw new Error("固件向量表非法");
-  return { ...parsed, name, meta, sp, reset, target };
+  // 统一镜像头（image+0x200 magic 分发：J5AA 新 / FIRM 旧）：归一化自述信息供 UI 展示，校验事实源仍是 meta（FIRM）
+  const header = readImageMeta(data);
+  return { ...parsed, name, meta, header, sp, reset, target };
 }
 export function validateFirmwareForDevice(firmware, info) {
   validateW515Window(info);
@@ -68,5 +71,7 @@ export function inspectN32Firmware(value, name) {
   const sp = dv.getUint32(0, true), reset = dv.getUint32(4, true);
   if (sp <= 0x20000000 || sp > 0x20008000 || sp % 4) throw new Error("N32 向量表 SP 非法（不在 RAM 范围）");
   if (!(reset & 1) || reset - 1 < N32_LAYOUT.appBase || reset - 1 > N32_LAYOUT.appEnd) throw new Error("N32 复位向量不在 APP 窗口");
-  return { ...parsed, name, target: "n32-app", crc: crc32(parsed.bytes), sp, reset, size };
+  // 统一镜像头（image+0x200 magic 分发：J5AA 新 / N3MT 旧）：归一化自述信息供 UI 展示；校验仍走整像 CRC32（Boot 现行口径）
+  const header = readImageMeta(parsed.bytes);
+  return { ...parsed, name, target: "n32-app", header, crc: crc32(parsed.bytes), sp, reset, size };
 }

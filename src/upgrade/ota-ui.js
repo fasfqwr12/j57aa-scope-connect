@@ -278,11 +278,14 @@ function n32FileMeta(image) {
     return { version: dv.getUint16(0x204, true) };
   } catch { return null; }
 }
-// 目标固件版本：W515 读 bin 内嵌元数据 meta.version；N32 优先读 N3MT meta 版本（编译期=源码宏，文件名可能滞后），无 meta 才从文件名提取
+// 目标固件版本：统一镜像头（J5AA）优先；其次 W515 读 FIRM meta.version、N32 读 N3MT meta 版本（编译期=源码宏），无 meta 才从文件名提取
 function firmwareVersionText() {
   if (!firmware) return null;
+  // J5AA 统一头自述版本（image+0x200，规范见 docs/IMAGE_HEADER_SPEC.md）
+  const hv = firmware.header?.format === "j5aa" ? firmware.header.fwVersion : null;
+  if (hv) return `${hv >>> 8}.${hv & 255}`;
   if (firmware.target === "n32-app") {
-    const mv = n32FileMeta(firmware.bytes)?.version;
+    const mv = firmware.header?.format === "n3mt" ? firmware.header.fwVersion : n32FileMeta(firmware.bytes)?.version;
     if (mv) return `${mv >>> 8}.${mv & 255}`;
     // 文件名约定 v01p2 = v0.1 patch2（NNpN: 前两位=major.minor，p后=patch）；v0.1.2/v1.2 直接三段
     const m3 = firmware.name.match(/v(\d+)\.(\d+)\.(\d+)/i);
@@ -324,11 +327,17 @@ function renderFirmware() {
   set("#ota-fw-name", firmware ? firmware.name : "--");
   set("#ota-fw-version", fv ? `v${fv}` : firmware ? "无版本" : "--");
   set("#ota-file-meta", firmware
-    ? (isN32
-      ? `副板 N32 APP · 数据 ${firmware.bytes.length}B @0x08002000`
-      : `${firmware.meta?.model || "J57AA-W515"} · 镜像完整性已核对`)
+    ? (firmware.header?.format === "j5aa"
+      ? `${firmware.header.imageType === "boot" ? "Boot" : "APP"} · ${firmware.header.target === "w515" ? "主控 W515" : "副板 N32"} · 头自述 ${firmware.header.model}${firmware.header.hcrcOk ? " ✓" : "（头校验失败）"}`
+      : (isN32
+        ? `副板 N32 APP · 数据 ${firmware.bytes.length}B @0x08002000`
+        : `${firmware.meta?.model || "J57AA-W515"} · 镜像完整性已核对`))
     : "");
-  set("#ota-fw-target", firmware ? (isN32 ? "副板 N32" : "主控 W515") : "--");
+  set("#ota-fw-target", firmware
+    ? (firmware.header?.format === "j5aa"
+      ? (firmware.header.imageType === "boot" ? "Boot" : "APP") + " · " + (firmware.header.target === "w515" ? "主控 W515" : "副板 N32")
+      : (isN32 ? "副板 N32" : "主控 W515"))
+    : "--");
   set("#ota-fw-size", firmware ? `${firmware.bytes.length}B` : "--");
   // W515 镜像无顶层 crc（inspectFirmware 返 meta.appCrc）；N32 返 crc。两者都要兜住
   const crcVal = firmware ? (firmware.crc ?? firmware.meta?.appCrc) : null;
