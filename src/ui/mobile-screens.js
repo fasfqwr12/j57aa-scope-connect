@@ -1,8 +1,8 @@
 // Mobile-only page composition. Move existing nodes; never clone controls or state.
 const $ = selector => document.querySelector(selector);
 const all = selector => [...document.querySelectorAll(selector)];
-const card = (...nodes) => ({ className: 'field-band mobile-group-card', nodes });
-const grid = nodes => ({ className: 'form-grid', nodes });
+const card = (...nodes) => ({ className: 'field-band mobile-group-card', nodes: nodes.filter(n => n instanceof Element) });
+const grid = nodes => ({ className: 'form-grid', nodes: nodes.filter(n => n instanceof Element) });
 const group = (id, label, ...blocks) => ({ id, label, blocks });
 
 function definitions() {
@@ -11,7 +11,7 @@ function definitions() {
   const syncBands = all('[data-panel="sync"] > .field-band');
   return {
     device: [
-      group('connection', '连接', $('.device-overview'), card($('.connection-panel > .form-grid'), $('.connection-panel > .action-row'))),
+      group('connection', '连接', $('.device-overview'), card($('.connection-panel > .form-grid'), ...($('#conn-banner') ? [$('#conn-banner')] : []), $('.connection-panel > .action-row'))),
       group('settings', '参数', card($('#connection-advanced'))),
       group('status', '状态', $('#adapter-label').closest('.field-band'))
     ],
@@ -36,9 +36,9 @@ function definitions() {
       group('information', '说明', syncBands[0])
     ],
     upgrade: [
-      group('detect', '检测', $('.ota-intro'), $('.ota-preflight')),
-      group('file', '文件', $('.ota-selection')),
-      group('execute', '执行', $('#ota-main-only-row'), $('.ota-selection > .ota-notice:last-child'), $('#ota-progress-band'), $('.ota-dock'), $('#ota-log-details'))
+      group('detect', '检测', $('.ota-intro'), $('.ota-targetbar')),
+      group('file', '文件', $('.ota-cards'), $('#ota-version-compare'), $('.ota-route-summary')),
+      group('execute', '执行', $('#ota-progress-band'), $('.transfer-details'), $('.ota-dock'), $('#ota-log-details'))
     ]
   };
 }
@@ -57,6 +57,7 @@ export function initMobileScreens() {
     node.before(marker); moved.push({ node, marker }); parent.append(node);
   }
   function build(block, parent) {
+    if (!block) return;
     if (block instanceof Element) { move(block, parent); return; }
     const wrapper = document.createElement('div'); wrapper.className = block.className;
     parent.append(wrapper); block.nodes.forEach(node => build(node, wrapper));

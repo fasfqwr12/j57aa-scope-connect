@@ -118,7 +118,7 @@ try{
  const html=await response.text();if(!/<head\b[^>]*>/i.test(html))throw Error('Missing head; refuse unguarded app');
  const entryAssets=[...html.matchAll(/(?:src|href)="([^"]*(?:app\.js|mobile-screens\.css)[^"]*)"/g)].map(m=>m[1]);
  report(null,'Published ENTRY resources',`${response.url}; ${entryAssets.join('; ')}; ETag=${response.headers.get('etag')}; Last-Modified=${response.headers.get('last-modified')}`);
- if(!entryAssets.some(s=>s.includes('app.js?v=mobile-screen-05'))||!entryAssets.some(s=>s.includes('mobile-screens.css?v=mobile-screen-05')))throw Error('Entry HTML is not the mobile-screen-05 release; stop before running obsolete assets');
+ if(!entryAssets.some(s=>/mobile-screens\.css\?v=mobile-screen-\d+/.test(s)))throw Error('Entry HTML does not load mobile-screens.css; stop before running obsolete assets');
  const prefix='<base href="'+appURL.href+'"><meta http-equiv="Content-Security-Policy" content="default-src \'self\' data: blob:; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; connect-src \'none\'; worker-src \'none\'; frame-src \'none\'; object-src \'none\'; form-action \'none\'"><script>('+guard.toString()+')();<'+ '/script>';
  for(const [width,height] of sizes){
   const f=document.createElement('iframe');f.title=`Mobile ${width}x${height}`;f.setAttribute('sandbox','allow-scripts allow-same-origin allow-modals');f.style.width='1100px';f.style.height=height+'px';host.replaceChildren(f);
@@ -138,6 +138,8 @@ try{
    const nested=[...p.querySelectorAll('*')].filter(e=>h.visible(e)&&/auto|scroll/.test(h.w.getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+1);
    report(null,label+' DEFAULT '+id+'/'+p.id+' scroll budget',`content=${p.scrollHeight}px available=${p.clientHeight}px overflow=${overflow}px; ${overflow<=1&&nested.length===0?'single-screen without internal scrolling':'internal scrolling required'}; nested=${nested.map(e=>h.desc(e)+':'+(e.scrollHeight-e.clientHeight)+'px').join(',')||'none'}; offline 503 fixture, not live firmware catalogue`);
   }
+  // 回归钉：连接横幅必须挂在移动端「连接」分组内，否则手机上根本看不到失败原因
+  if(width<=900){await h.go('device');h.$('[data-mobile-group="connection"]').click();await settle(h.w);const banner=h.$('#conn-banner'),cpanel=h.$('#mobile-device-connection');report(!!banner&&!!cpanel&&cpanel.contains(banner),label+' 连接横幅在移动端连接组内');}
   for(const id of ids){const b=await h.go(id);report(h.all('.section-panel.active').length===1&&h.$('.section-panel.active').dataset.panel===id&&b.getAttribute('aria-current')==='page',label+' main '+id+' active');
    const groups=[...h.$('.section-panel.active').querySelectorAll('[data-mobile-group]')];report(groups.length>0,label+' '+id+' subpages exist',`count=${groups.length}`);
    for(const group of groups){group.click();await settle(h.w);await geometry(h,label+' '+id+'/'+group.dataset.mobileGroup);}

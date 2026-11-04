@@ -43,6 +43,8 @@
   .mobile-page .profile-info-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mobile-page .toggle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .mobile-page .toggle-pill { min-height: 44px; padding: 8px 10px; font-size: 12px; }
+  /* 在线固件库按钮在移动端满足 44px 触摸目标 */
+  .mobile-page .ota-online-open { min-height: 44px; padding-inline: 12px; }
   .mobile-page .toggle-pill span { overflow-wrap: anywhere; }
   .mobile-page .range-stack { margin: 0; }
   .mobile-page .log-box { height: min(260px, 42dvh); }
