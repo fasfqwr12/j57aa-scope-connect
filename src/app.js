@@ -45,6 +45,7 @@ const zoneLabels = {
 const state = loadState();
 let adapter = null;
 let adapterMode = null;
+let solveTimer = null;
 let saveTimer = null;
 let otaBusy = false;
 let connecting = false;
@@ -52,6 +53,8 @@ let mobileScreens = null;
 let adminTap = null;
 
 const $ = selector => document.querySelector(selector);
+// 版本标记直接取入口 URL 的 ?v=，与缓存链同源，不会写错
+const BUILD_VERSION = (import.meta.url.match(/[?&]v=([^&]+)/) || [])[1] || '';
 const $$ = selector => Array.from(document.querySelectorAll(selector));
 
 init();
@@ -73,6 +76,8 @@ function init() {
   bindForms();
   bindActions();
   buildReticle();
+  const buildTag = $("#build-tag");
+  if (buildTag) buildTag.textContent = BUILD_VERSION || "dev";
   setStep(state.activeStep || "device");
   refreshAll();
   initOtaUpgrade({
@@ -202,9 +207,9 @@ function refreshAll(options = {}) {
   writeBindings(options.fromInput);
   syncZoneInputs();
   const input = buildBallisticInput(state);
-  const jsSolution = solvePreview(input);
-  state.lastSolution = jsSolution;
-  renderPreview(input, state.lastSolution);
+  // 网页不做本地解算：结果只能来自设备（BLE）或上位机 C 核（Bridge）；参数一变旧结果立即失效
+  state.lastSolution = null;
+  renderPreview(input, null);
   renderDeviceMetrics();
   renderSyncSummary(input);
   renderProfileInfo();
@@ -212,7 +217,6 @@ function refreshAll(options = {}) {
   scheduleBridgeSolve(input);
 }
 
-let solveTimer = null;
 function scheduleBridgeSolve(input) {
   if (state.connection.mode !== "local-bridge") return;
   if (solveTimer) clearTimeout(solveTimer);
@@ -220,11 +224,13 @@ function scheduleBridgeSolve(input) {
     try {
       const bridge = adapter instanceof LocalBridgeAdapter ? adapter : new LocalBridgeAdapter(state.connection, log);
       const result = await bridge.solveLocal(input);
-      state.lastSolution = { ...state.lastSolution, ...result };
-      $("#metric-solver").textContent = "LOCAL-C";
+      state.lastSolution = { ...result, solveSource: "bridge" };
       renderPreview(input, state.lastSolution);
-    } catch {
-      $("#metric-solver").textContent = "JS";
+      log("SYS", `上位机 C 核解算已回填：${result.version || "ballistics_core"}`);
+    } catch (err) {
+      state.lastSolution = null;
+      renderPreview(input, null);
+      log("WARN", `上位机 C 核解算失败：${err.message || err}（检查上位机是否在 ${state.connection.bridgeBase || "http://127.0.0.1:8766"} 运行）`);
     }
   }, 250);
 }
@@ -251,31 +257,35 @@ function syncZoneInputs() {
 
 function renderPreview(input, solution) {
   const units = state.hud.units;
+  const ok = !!solution;
   const dist = fmtDistance(input.range_m, units);
-  const wind = Math.abs(Number(solution.windage_mil) || 0);
+  const wind = Math.abs(Number(solution?.windage_mil) || 0);
   const primaryRange = !toBool(state.hud.swapRangeWind);
   $("#hud-primary-label").textContent = primaryRange ? "DIST" : "WIND";
-  $("#hud-primary-value").textContent = primaryRange ? dist.value : wind.toFixed(1);
+  $("#hud-primary-value").textContent = primaryRange ? dist.value : (ok ? wind.toFixed(1) : "--");
   $("#hud-primary-unit").textContent = primaryRange ? dist.unit : "DOT";
   $("#hud-secondary-label").textContent = primaryRange ? "WIND" : "DIST";
-  $("#hud-secondary-value").textContent = primaryRange ? wind.toFixed(1) : dist.value;
+  $("#hud-secondary-value").textContent = primaryRange ? (ok ? wind.toFixed(1) : "--") : dist.value;
   $("#hud-secondary-unit").textContent = primaryRange ? "DOT" : dist.unit;
   $("#hud-angle").textContent = Math.round(input.angle_deg);
 
-  const status = shotStatusText(solution.shot_status);
+  const status = ok ? shotStatusText(solution.shot_status) : "未连接";
   $("#shot-state").textContent = status;
-  $("#shot-energy").textContent = `${Math.round(solution.energy_j || 0)} J`;
-  $("#shot-margin").textContent = solution.min_energy_j > 0 ? `${solution.shot_margin_pct >= 0 ? "+" : ""}${Math.round(solution.shot_margin_pct)}%` : "OFF";
-  $("#solve-strip").classList.toggle("bad", status === "NO SHOT");
-  $("#solve-strip").classList.toggle("warn", status === "MARGINAL");
+  $("#shot-energy").textContent = ok ? `${Math.round(solution.energy_j || 0)} J` : "-- J";
+  $("#shot-margin").textContent = ok
+    ? (solution.min_energy_j > 0 ? `${solution.shot_margin_pct >= 0 ? "+" : ""}${Math.round(solution.shot_margin_pct)}%` : "OFF")
+    : "--";
+  $("#solve-strip").classList.toggle("bad", ok && status === "NO SHOT");
+  $("#solve-strip").classList.toggle("warn", ok && status === "MARGINAL");
 
-  const fault = hudFaultText(solution.hud_fault);
+  const fault = ok ? hudFaultText(solution.hud_fault) : "";
   $("#hud-fault").textContent = fault;
   $("#hud-fault").classList.toggle("show", !!fault);
-  $("#shot-x").classList.toggle("show", !!solution.show_x);
-  $("#aim-dot").classList.toggle("show", !!solution.show_aim_dot && !solution.show_x);
-  $("#aim-dot").style.left = `${Number(solution.reticle_x_pct || 50).toFixed(2)}%`;
-  $("#aim-dot").style.top = `${Number(solution.reticle_y_pct || 50).toFixed(2)}%`;
+  $("#shot-x").classList.toggle("show", !!solution?.show_x);
+  $("#aim-dot").classList.toggle("show", !!solution?.show_aim_dot && !solution?.show_x);
+  $("#aim-dot").style.left = ok ? `${Number(solution.reticle_x_pct || 50).toFixed(2)}%` : "50%";
+  $("#aim-dot").style.top = ok ? `${Number(solution.reticle_y_pct || 50).toFixed(2)}%` : "48%";
+  $("#metric-solver").textContent = ok ? (solution.solveSource === "device" ? "设备" : solution.solveSource === "bridge" ? "上位机 C" : "外部") : "—";
 
   const previewTarget = $("#preview-target");
   previewTarget.className = `target-shape target-${state.target.type || "deer"}`;
@@ -287,10 +297,12 @@ function renderPreview(input, solution) {
   const scale = targetScale(input);
   previewTarget.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(3)})`;
 
-  $("#metric-aim").textContent = fault || (solution.show_x ? "SCI X" : `R${solution.reticle_row ?? "--"} C${solution.reticle_col ?? "--"}`);
-  $("#metric-velocity").textContent = `${Math.round(solution.final_velocity_ms || 0)} m/s`;
-  $("#metric-windage").textContent = `${Number(solution.windage_mil || 0).toFixed(2)} mil`;
-  $("#metric-reticle").textContent = `${solution.reticle_side < 0 ? "L" : solution.reticle_side > 0 ? "R" : "C"} ${solution.reticle_row ?? "--"}/${solution.reticle_col ?? "--"}`;
+  $("#metric-aim").textContent = ok ? (fault || (solution.show_x ? "SCI X" : `R${solution.reticle_row ?? "--"} C${solution.reticle_col ?? "--"}`)) : "--";
+  $("#metric-velocity").textContent = ok ? `${Math.round(solution.final_velocity_ms || 0)} m/s` : "-- m/s";
+  $("#metric-windage").textContent = ok ? `${Number(solution.windage_mil || 0).toFixed(2)} mil` : "-- mil";
+  $("#metric-reticle").textContent = ok
+    ? `${solution.reticle_side < 0 ? "L" : solution.reticle_side > 0 ? "R" : "C"} ${solution.reticle_row ?? "--"}/${solution.reticle_col ?? "--"}`
+    : "--";
 
   applyHudZoneVisibility();
 }
@@ -443,10 +455,9 @@ async function solveLocal() {
   try {
     const bridge = adapter instanceof LocalBridgeAdapter ? adapter : new LocalBridgeAdapter(state.connection, log);
     const result = await bridge.solveLocal(buildBallisticInput(state));
-    state.lastSolution = { ...state.lastSolution, ...result };
-    $("#metric-solver").textContent = "LOCAL-C";
+    state.lastSolution = { ...result, solveSource: "bridge" };
     renderPreview(buildBallisticInput(state), state.lastSolution);
-    log("SYS", "本地 C 解算已回填");
+    log("SYS", "上位机 C 核解算已回填");
   } catch (err) {
     log("ERR", err.message || err);
   }
@@ -456,10 +467,9 @@ async function solveDevice() {
   try {
     if (!adapter) adapter = makeAdapter();
     const result = await adapter.solveDevice(buildBallisticInput(state));
-    state.lastSolution = { ...state.lastSolution, ...result };
-    $("#metric-solver").textContent = "DEVICE";
+    state.lastSolution = { ...result, solveSource: "device" };
     renderPreview(buildBallisticInput(state), state.lastSolution);
-    log("SYS", "设备解算已回填");
+    log("SYS", "设备解算已回填（BLE）");
   } catch (err) {
     log("ERR", err.message || err);
   }

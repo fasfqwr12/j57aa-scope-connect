@@ -23,7 +23,7 @@
       <div class="top-status" aria-live="polite">
         <span class="status-dot" id="status-dot"></span>
         <span id="connection-label">未连接</span>
-        <span class="build-tag" id="build-tag">ui6-16</span>
+        <span class="build-tag" id="build-tag">build</span>
       </div>
 
       <div class="top-actions">
@@ -128,7 +128,7 @@
               <div class="metric"><span>距离</span><strong id="metric-range">-- m</strong></div>
               <div class="metric"><span>电量</span><strong id="metric-battery">--</strong></div>
               <div class="metric"><span>环境</span><strong id="metric-env">手动</strong></div>
-              <div class="metric"><span>解算源</span><strong id="metric-solver">JS</strong></div>
+              <div class="metric"><span>解算源</span><strong id="metric-solver">—</strong></div>
             </div>
           </div>
         </div>
@@ -285,7 +285,7 @@
               </div>
             </div>
             <div class="validation-note">
-              当前网页 JS 是交互预览解算，不作为最终认证。2000m 需选择 .375/.408/.50 等 ELR Profile，并使用 ELR 阵列参数；正式判定以 py-ballisticcalc 参考表、固件 C 输出和实测靶纸三方闭环为准。
+              网页不再本地解算：结果只来自设备（BLE）或上位机 C 核（Bridge），未连接时显示空值。2000m 需选择 .375/.408/.50 等 ELR Profile，并使用 ELR 阵列参数；正式判定以 py-ballisticcalc 参考表、固件 C 输出和实测靶纸三方闭环为准。
             </div>
           </div>
           <div class="field-band">
@@ -452,9 +452,9 @@
       </section>
 
       <aside class="preview-rail" aria-label="瞄具预览" data-expanded="false">
-        <div class="preview-heading"><div><span class="hero-eyebrow">VISUAL PREVIEW</span><h3>界面预览</h3></div><button class="btn compact" id="btn-preview-toggle" type="button" aria-expanded="false" aria-controls="preview-content">展开预览</button><span class="preview-desktop-label">非设备状态</span></div>
+        <div class="preview-heading"><div><span class="hero-eyebrow">VISUAL PREVIEW</span><h3>界面预览</h3></div><button class="btn compact" id="btn-preview-toggle" type="button" aria-expanded="false" aria-controls="preview-content">展开预览</button><span class="preview-desktop-label">解算来源：设备 / 上位机</span></div>
         <div id="preview-content">
-        <p class="preview-disclaimer">本地配置效果示意，不代表设备实时状态。</p>
+        <p class="preview-disclaimer">解算结果来自设备或上位机 C 核；未连接时显示空值，网页不自行计算。</p>
         <div class="solve-strip" id="solve-strip">
           <span id="shot-state">WAIT</span>
           <strong id="shot-energy">-- J</strong>
@@ -576,6 +576,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/app.js?v=ui6-16"></script>
+  <script type="module" src="./src/app.js?v=ui6-22"></script>
 </body>
 </html>

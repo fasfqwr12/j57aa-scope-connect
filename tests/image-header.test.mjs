@@ -44,30 +44,40 @@ test('J5AA magic 兼容反序拼写', () => {
 });
 
 test('真实 W515 bin 分发到 FIRM 旧格式，且校验事实源仍是 meta', () => {
-  const bin = new Uint8Array(fs.readFileSync(new URL('../firmware/W515_APP_v0.1.0_0916.bin', import.meta.url)));
+  const bin = new Uint8Array(fs.readFileSync(new URL('../firmware/W515_APP_20260918.bin', import.meta.url)));
   const meta = readImageMeta(bin);
   assert.equal(meta.format, 'firm');
   assert.equal(meta.model, 'J57AA-W515');
   assert.equal(meta.appSize, bin.length);
-  const insp = inspectFirmware(bin, 'W515_APP_v0.1.0_0916.bin');
+  const insp = inspectFirmware(bin, 'W515_APP_20260918.bin');
   assert.equal(insp.header.format, 'firm');
   assert.equal(insp.header.appCrc, insp.meta.appCrc);
 });
 
 test('真实 N32 hex 分发到 N3MT 旧格式：展示口径与校验口径并存', () => {
-  const hex = new TextEncoder().encode(fs.readFileSync(new URL('../firmware/N32-APP-v1.6.0-20260916.hex', import.meta.url), 'ascii'));
-  const insp = inspectN32Firmware(hex, 'N32-APP-v1.6.0-20260916.hex');
+  const hex = new TextEncoder().encode(fs.readFileSync(new URL('../firmware/N32-APP-v1.7.0-20260918.hex', import.meta.url), 'ascii'));
+  const insp = inspectN32Firmware(hex, 'N32-APP-v1.7.0-20260918.hex');
   assert.equal(insp.header.format, 'n3mt');
-  assert.equal(insp.header.fwVersion, 0x0106);
+  assert.equal(insp.header.fwVersion, 0x0107);
   assert.equal(insp.header.appSize, 34940);
-  assert.equal(insp.header.appCrc, 0xFC66B04A);               // meta 口径（0xFF 掩码）
-  assert.equal(insp.crc, 0x9ACE3E2F);                          // 校验口径（整像 plain，Boot 现行）
+  assert.equal(insp.header.appCrc, 0x3ED69120);               // meta 口径（0xFF 掩码）
+  assert.equal(insp.crc, 0xD1BC2147);                          // 校验口径（整像 plain，Boot 现行）
   assert.notEqual(insp.crc, insp.header.appCrc);
 });
 
-test('无头旧固件回退为 null 且照常可解析', () => {
-  const hex = new TextEncoder().encode(fs.readFileSync(new URL('../firmware/N32-APP-v01p2-20260728.hex', import.meta.url), 'ascii'));
-  const insp = inspectN32Firmware(hex, 'N32-APP-v01p2-20260728.hex');
+test('无头固件回退为 null 且照常可解析', () => {
+  const image = new Uint8Array(4096).fill(0xAA);
+  const base = 0x08002000;
+  const rec = (bytes) => ':' + [...bytes, (0x100 - (bytes.reduce((a, b) => a + b, 0) & 0xFF)) & 0xFF]
+    .map(b => b.toString(16).toUpperCase().padStart(2, '0')).join('') + '\n';
+  let hex = rec([0x02, 0x00, 0x00, 0x04, 0x08, 0x00]);
+  for (let off = 0; off < image.length; off += 16) {
+    const slice = image.subarray(off, off + 16);
+    const abs = base + off;
+    hex += rec([slice.length, (abs >> 8) & 0xFF, abs & 0xFF, 0x00, ...slice]);
+  }
+  hex += ':00000001FF\n';
+  const insp = inspectN32Firmware(new TextEncoder().encode(hex), 'headerless.hex');
   assert.equal(insp.header, null);
   assert.equal(insp.target, 'n32-app');
   assert.ok(insp.size > 0);
