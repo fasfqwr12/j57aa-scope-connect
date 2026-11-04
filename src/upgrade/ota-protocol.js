@@ -6,6 +6,8 @@ export const N32_MAGIC = Object.freeze({ BOOT: "N32B", APP: "N32A" });
 export const PROXY_MODE = Object.freeze({ START: 1, STOP: 2, STATUS: 3, KEEPALIVE: 4 });
 export const PROXY_STATUS = Object.freeze({ OK: 0, BAD_FRAME: 1, BUSY: 3, SESSION_MISMATCH: 4, INACTIVE: 5, UNSUPPORTED: 7 });
 export const PROXY_FLAG_RAW_UPGRADE = 2;
+// 弹道板单次事务：W515 只转发一帧查询到 N32→弹道板，收到回复或终态后自动退出
+export const PROXY_FLAG_BALLISTIC_TRANSACTION = 4;
 export const W515_LAYOUT = Object.freeze({ flashBase: 0x08000000, flashEnd: 0x08200000, appMin: 0x08008000, page: 4096, ramBase: 0x20000000, ramEnd: 0x20070000 });
 const bytes = value => Uint8Array.from(value || []);
 const view = value => { const b = bytes(value); return new DataView(b.buffer); };

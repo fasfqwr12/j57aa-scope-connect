@@ -46,7 +46,11 @@ export class LocalBridgeAdapter {
 
   async solveDevice(input) {
     const r = await this.call("scope_ballistic_solve", input);
-    if (!r || !r.success) throw new Error(r?.error || "设备解算失败");
+    if (!r || !r.success) {
+      const err = new Error(r?.error || "设备解算失败");
+      err.detail = r;   // 带上 stage / tx / rx / proxy_status，供「协议」面板展示
+      throw err;
+    }
     return { ...r.result, source: "DEVICE", raw: r };
   }
 

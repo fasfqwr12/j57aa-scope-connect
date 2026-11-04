@@ -7,3 +7,6 @@ build/
 .idea/
 .vscode/
 *.log
+
+# 私有：弹道 C 核与运行时 DLL，不入公开仓库
+vendor/ballistics_core/

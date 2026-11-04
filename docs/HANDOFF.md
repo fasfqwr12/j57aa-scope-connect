@@ -291,3 +291,23 @@ git add firmware && git commit -m "release: N32 v1.7" && git push
 - 设备：`method = scope_ballistic_solve`（经主控代理下发瞄具）
 
 网页端**不做任何本地解算**：没解算过就是空值 `--`，不会显示估算数字。
+
+### 14.1 设备解算是「GLPX 弹道板单次事务」，不是一帧查询
+
+上位机与网页都必须走三步，缺一步就是「协议不通」（W515 不在代理模式会直接丢弃查询帧，且不回任何字节）：
+
+| 步骤 | 方向 | 内容 | 长度 |
+|---|---|---|---|
+| 1 | 网页→W515 | GLPX START，`flags=0x04`（弹道事务） | 28 B |
+| 2 | 网页→W515→N32→弹道板 | 弹道查询帧 `FE FF FF FE …` | 52 B |
+| 3 | 弹道板→N32→W515→网页 | 弹道回复（参数区 ≥13 B） | 23 B |
+| 4 | 设备自动退出 | 失败再补 GLPX STOP | 27 B |
+
+- 网页侧实现：`src/adapters/web-bluetooth.js → solveDevice()`
+- 帧构造：`src/protocol/scope-protocol.js:buildBallisticQuery()` + `src/upgrade/ota-protocol.js:buildProxyFrame()`
+- 逐字节对齐测试：`tests/ballistic-frame.test.mjs`（与上位机 Python 同参数输出比对，5 项）
+- 「协议」面板会打印 GLPX START / 52B 查询 / 回复原文，失败时带 `stage`（如 `ballistic_proxy_enter`）与 `proxy_status`
+
+### 14.2 C 核与 DLL 在仓库里的位置
+
+`vendor/ballistics_core/`：G1/G7 物理、策略、兼容层 8 个 C 文件 + 运行时 DLL（`bin/ballistics_core_runtime_1793755311505.dll`，SHA-256 `CA7772BEB11B7FB46DAE3B77DD70FA24430BDE54C3CD1713CC3B17CC4BD8297D`）。网页不加载 DLL，只通过上位机 Bridge 拿结果。

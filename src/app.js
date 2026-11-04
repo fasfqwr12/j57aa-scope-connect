@@ -1,5 +1,5 @@
-import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closure1";
-import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=conn-ux-1";
+import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=ballistic-tx-1";
+import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=ballistic-tx-1";
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText } from "./core/ballistics.js?v=nojs-1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
 import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-12";
@@ -503,7 +503,10 @@ async function solveDevice() {
   const input = buildBallisticInput(state);
   try {
     if (!adapter) adapter = makeAdapter();
-    if (!adapter.connected) throw new Error("设备未连接：先在「设备」页连接 BLE，再点解算");
+    // BLE 模式必须已连设备；Bridge 模式由上位机自己判断链路（它可能已经连着瞄具）
+    if (state.connection.mode !== "local-bridge" && !adapter.connected) {
+      throw new Error("设备未连接：先在「设备」页连接 BLE，再点解算");
+    }
     const t0 = performance.now();
     const result = await adapter.solveDevice(input);
     const ms = Math.round(performance.now() - t0);
@@ -511,13 +514,17 @@ async function solveDevice() {
     state.lastSolveMeta = { source: "device", at: stamp(), ms, request: input, response: result };
     renderSolveResult(state.lastSolution, state.lastSolveMeta);
     renderPreview(input, state.lastSolution);
-    log("SYS", `设备解算完成（${ms}ms，BLE）`);
+    log("SYS", `设备解算完成（${ms}ms，${state.connection.mode === "local-bridge" ? "上位机转发 BLE" : "BLE"}）`);
   } catch (err) {
     state.lastSolution = null;
-    state.lastSolveMeta = { source: "device", at: stamp(), error: err.message || String(err), request: input };
+    const stage = err.detail?.stage ? `（阶段 ${err.detail.stage}）` : "";
+    state.lastSolveMeta = {
+      source: "device", at: stamp(), error: `${err.message || err}${stage}`, request: input,
+      response: err.detail || (err.trace ? { trace: err.trace } : null)
+    };
     renderSolveResult(null, state.lastSolveMeta);
     renderPreview(input, null);
-    log("ERR", `设备解算失败：${err.message || err}`);
+    log("ERR", `设备解算失败：${err.message || err}${stage}`);
   }
 }
 
@@ -580,7 +587,9 @@ function renderProtocol(meta) {
     JSON.stringify(meta.request ?? null, null, 2),
     "",
     `# 响应${meta.error ? "（失败）" : ""}`,
-    JSON.stringify(meta.error ? { success: false, error: meta.error } : meta.response ?? null, null, 2)
+    JSON.stringify(meta.error
+      ? { success: false, error: meta.error, detail: meta.response ?? null }
+      : meta.response ?? null, null, 2)
   ].join("\n");
 }
 

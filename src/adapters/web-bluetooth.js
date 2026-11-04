@@ -1,5 +1,22 @@
 import { buildBallisticQuery, buildSensorQuery, bytesToHex, findFrames, parseBallisticReply, parseMeasurement, parseSensorReply } from "../protocol/scope-protocol.js?v=20260616_closure1";
 import { WireChannel, checkAbort } from "../upgrade/ota-channel.js?v=resync-1";
+import { buildProxyFrame, PROXY_FLAG_BALLISTIC_TRANSACTION, PROXY_MODE, PROXY_STATUS } from "../upgrade/ota-protocol.js?v=ballistic-1";
+
+// GLPX 状态码 → 人话（对齐 W515 upgrade_proxy.c 与弹道板终态 0x10-0x15）
+const PROXY_STATUS_TEXT = {
+  1: "固件判定帧非法（BAD_FRAME）",
+  3: "代理通道已被占用（BUSY）：先断开其它会话或重连 BLE",
+  4: "会话号不匹配（SESSION_MISMATCH）：请在设备页重连后重试",
+  5: "代理未激活（INACTIVE）",
+  7: "固件不支持该模式（UNSUPPORTED）：确认主控固件带 upgrade_proxy",
+  0x10: "W515 拒绝了无效的 52 字节弹道查询",
+  0x11: "W515 等待超时，未收到 N32 的弹道事务终态",
+  0x12: "W515 收到的旧式 23 字节弹道回复无效",
+  0x13: "N32 已发出查询，弹道板 1.8s 内没有任何返回（检查弹道板供电与串口接线）",
+  0x14: "N32 收到弹道板数据，但长度/校验/帧结构无效",
+  0x15: "N32 的 USART2 初始化回读或 DMA 发送检查失败"
+};
+const proxyStatusText = status => PROXY_STATUS_TEXT[Number(status)] || `GLPX 代理状态异常（0x${Number(status || 0).toString(16).toUpperCase()}）`;
 
 export class WebBluetoothAdapter {
   constructor(config, log = () => {}) {
@@ -7,6 +24,7 @@ export class WebBluetoothAdapter {
     this.device = null; this.server = null; this.rx = null; this.tx = null;
     this.buffer = []; this.connected = false; this.generation = 0;
     this.exclusive = null; this.normalRequests = 0; this.writing = false;
+    this.collectDuringExclusive = false;   // 弹道事务：独占期间仍收集业务帧
     this.channel = new WireChannel((bytes, options) => this.writeRaw(bytes, options), log);
     this.notifyHandler = event => this.onNotify(event);
     this.disconnectHandler = () => {
@@ -125,7 +143,14 @@ export class WebBluetoothAdapter {
     this.tap?.push?.("rx", data);
     // Track complete envelopes even between exclusive sessions.
     this.channel.receive(data);
-    if (this.exclusive) return;
+    if (this.exclusive) {
+      // 弹道事务期间通道被 GLPX 占用，但业务帧回复要照样收进 buffer
+      if (this.collectDuringExclusive) {
+        this.log("RX", bytesToHex(data)); this.buffer.push(...data);
+        if (this.buffer.length > 8192) this.buffer.splice(0, this.buffer.length - 8192);
+      }
+      return;
+    }
     this.log("RX", bytesToHex(data)); this.buffer.push(...data);
     if (this.buffer.length > 8192) this.buffer.splice(0, this.buffer.length - 8192);
   }
@@ -165,11 +190,59 @@ export class WebBluetoothAdapter {
       return { ...m, raw: { rx: bytesToHex(frame.raw) } };
     } finally { this.normalRequests--; }
   }
+  // 设备解算 = GLPX 弹道板单次事务：
+  //   START(flags=0x04) → 一帧 52B 查询（W515 转发 N32→弹道板）→ 23B 回复 → 设备自动退出
+  // 旧实现只发查询帧：固件不在代理模式，W515 直接丢弃且无任何回包，表现就是「协议不通」。
   async solveDevice(input) {
-    const frame = await this.requestFrame(buildBallisticQuery(input), 3000);
-    const result = parseBallisticReply(frame.params);
-    if (!result) throw new Error("设备解算回复长度不对");
-    return { ...result, source: "DEVICE", raw: { rx: bytesToHex(frame.raw) } };
+    const query = buildBallisticQuery(input);
+    const session = (Math.floor(Math.random() * 0x7ffffffe) + 1) >>> 0;
+    const proxyArgs = { session, baud: 115200, idleMs: 2500, totalMs: 5000 };
+    const startPkt = buildProxyFrame(PROXY_MODE.START, { ...proxyArgs, flags: PROXY_FLAG_BALLISTIC_TRANSACTION });
+    const stopPkt = buildProxyFrame(PROXY_MODE.STOP, proxyArgs);
+    const release = this.beginExclusive("ballistic-solve");
+    const trace = { session, tx: [], rx: [] };
+    try {
+      trace.tx.push({ step: "GLPX START(flags=0x04)", hex: bytesToHex(startPkt) });
+      const ack = await this.requestWire(startPkt, { protocol: "proxy", cmd: null, timeoutMs: 3000, chunkSize: startPkt.length });
+      trace.rx.push({ step: "GLPX START ack", hex: bytesToHex(ack?.raw || []) });
+      const status = Number(ack?.raw?.[8] ?? 0xff);
+      if (status !== PROXY_STATUS.OK) throw new Error(proxyStatusText(status));
+
+      this.buffer = [];
+      this.collectDuringExclusive = true;
+      trace.tx.push({ step: "弹道查询 52B", hex: bytesToHex(query) });
+      await this.writeRaw(query, { chunkSize: query.length, withResponse: false });
+      const frame = await this.waitBusinessFrame(4200, p => p.length >= 13);
+      trace.rx.push({ step: "弹道回复 23B", hex: bytesToHex(frame.raw) });
+      const result = parseBallisticReply(frame.params);
+      if (!result) throw new Error(`弹道板回复参数区不足 13 字节（收到 ${frame.params.length}B）`);
+      return { ...result, source: "DEVICE", raw: trace };
+    } catch (error) {
+      error.trace = trace;
+      throw error;
+    } finally {
+      this.collectDuringExclusive = false;
+      try {
+        trace.tx.push({ step: "GLPX STOP", hex: bytesToHex(stopPkt) });
+        const ack = await this.requestWire(stopPkt, { protocol: "proxy", cmd: null, timeoutMs: 1200, chunkSize: stopPkt.length });
+        trace.rx.push({ step: "GLPX STOP ack", hex: bytesToHex(ack?.raw || []) });
+      } catch { /* 单次事务设备端会自行退出；STOP 失败不影响已拿到的结果 */ }
+      release();
+    }
+  }
+
+  // 业务帧（FE FF FF FE ... EF FF FF EF）等待：独占期间也能收，因为弹道事务期间通道被 GLPX 占用
+  waitBusinessFrame(timeoutMs, predicate = () => true) {
+    const start = performance.now();
+    return new Promise((resolve, reject) => {
+      const tick = () => {
+        if (!this.isGattConnected()) { reject(new Error("BLE 已断开")); return; }
+        const found = findFrames(this.buffer).find(f => f.checksum_ok && predicate(f.params));
+        if (found) { this.buffer = []; resolve(found); return; }
+        if (performance.now() - start >= timeoutMs) { reject(new Error("弹道板无有效回复：N32 在 1.8s 内没有收到任何字节，或回复帧结构/校验不通过")); return; }
+        setTimeout(tick, 40);
+      }; tick();
+    });
   }
   async solveLocal() { throw new Error("浏览器 BLE 模式不能直接调用本地 C，请切换 Bridge 校验"); }
   async syncProfile() { throw new Error("PROFILE_WRITE_NOT_DEFINED"); }
