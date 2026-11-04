@@ -66,6 +66,21 @@ http://127.0.0.1:5188/index.html?admin=1&fake=1
 
 单次传输档位：默认 `180B / 4ms`；链路不稳选「稳 · 25ms」。
 
+### 4.1 本地上位机（可选，仅开发兜底）
+
+网页自己就能做 BLE 升级，**不需要上位机**。上位机只在两种场景用：①浏览器不支持 Web Bluetooth 时走本地 Bridge；②固件编译/烧录/闭环脚本。
+
+| 项 | 值 |
+|---|---|
+| 位置 | `E:\phase1\debug_toll\unified-tool` |
+| 启动 | 双击 `启动上位机-测距.cmd`（内部 `start_unified_instance.ps1 -Instance range`） |
+| 端口 | `127.0.0.1:8766`（API 前缀 `/api/call`） |
+| 停止 | `停止上位机-测距.cmd` |
+| 另一个实例 | `启动上位机-滑台.cmd`（滑台/其它工位，端口另配） |
+| 依赖 | 纯 Python 标准库，无需 pip 安装 |
+| 代码仓库 | `git@github.com:fasfqwr12/unified-tool.git`（本地与 `origin/main` 同步） |
+| 体积 | 全目录约 6.4 GB，其中 `data`/`_backup`/`runtime`/`data_instances` 是运行数据，不是代码 |
+
 ---
 
 ## 5. 代码地图
@@ -242,8 +257,10 @@ git add firmware && git commit -m "release: N32 v1.7" && git push
 | GitHub 仓库写权限 | `fasfqwr12/j57aa-scope-connect`（交接时需转移/加协作者） |
 | GitHub PAT | 细粒度，仅该仓库 Contents 读写；网页发版用，勿写进代码 |
 | 固件源码 | `E:\phase1\debug_toll\` 下 W515 / N32 工程（Keil MDK） |
-| 旧 OTA console | `E:\tof\qiangmiao\data\J57AACode_20260507\J57AACode_20260507\tool\start_ble_ota_console.cmd`（端口 9000） |
-| 统一工具 API | `E:\phase1\debug_toll\unified-tool`（端口 8766，供本地 Bridge 兜底） |
+| 本地上位机 | `E:\phase1\debug_toll\unified-tool`（`启动上位机-测距.cmd`，端口 8766；仓库 `fasfqwr12/unified-tool`） |
+| J57AA 专用工具脚本 | `E:\tof\qiangmiao\data\J57AACode_20260507\J57AACode_20260507\tool`（约 43 MB） |
+| 旧 OTA console | 上条目录内 `start_ble_ota_console.cmd`（端口 9000，仅历史参考） |
+| 构建/烧录脚本 | 上条目录内 `build_n32_range_app.ps1`、`flash_n32_app.py`、`flash_boot_keil.py`、`n32_post_build.py`、`qa_ble_ota_closure.ps1` |
 | 硬件 | 瞄具样机、ST-Link、USB 串口、Keil MDK + 对应 pack |
 
 ---
