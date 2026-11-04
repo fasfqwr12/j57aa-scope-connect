@@ -36,8 +36,7 @@ function definitions() {
       group('information', '说明', syncBands[0])
     ],
     upgrade: [
-      group('detect', '检测', $('.ota-intro'), $('.ota-targetbar')),
-      group('file', '文件', $('.ota-cards'), $('#ota-version-compare'), $('.ota-route-summary')),
+      group('detect', '检测', $('.ota-intro'), $('.ota-targetbar'), $('.ota-cards'), $('#ota-version-compare'), $('.ota-route-summary')),
       group('execute', '执行', $('#ota-progress-band'), $('.transfer-details'), $('.ota-dock'), $('#ota-log-details'))
     ]
   };
