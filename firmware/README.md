@@ -5,24 +5,22 @@
 ## 发布规则
 
 1. 只放已获准公开的镜像；仓库和 GitHub Pages 均为公开访问。
-2. OTA 候选清单当前仅允许 `target: "w515-app"`（网页升级路径只实现 W515 APP）；N32 刷写路径协议已提取（见 docs/OTA_FLOW_INTERACTIONS.md §5）但网页未实现，副板镜像与 Boot 文件**仅存档**（URL 可直接下载），待上位机 B 路径实现后再登记为候选。
+2. OTA 候选清单允许 `target: "w515-app"` 与 `target: "n32-app"`（副板经主控代理通道刷写）；Boot 镜像不进候选清单，仅存档（URL 可直接下载），Boot 只能用 Keil + ST-Link 烧写。
 3. 文件名只能是本目录的安全文件名，不允许路径、URL 或 `..`。
 4. `size` 必须是原始下载文件的准确字节数；`sha256` 必填，64位十六进制。
 5. `fileCrc32` 是整文件 CRC32；`metaCrc32` 是 W515 元数据兼容 CRC32，二者不可混用。
 6. `version`、`date`、`notes` 用于说明来源，不作为“最新”或真机验收的证明；未验收时保持 `recommended: false`。
 7. 先运行离线测试，再提交发布；GitHub Pages 的完成时间需实际核验，不承诺固定分钟数。
 
-## 当前候选
+## 当前候选（仅保留最新两个）
 
-- 文件：`W515_APP_v0.1.0_0810.bin`；63776字节；目标 W515 APP。
-- SHA-256：`a0d446c18a04b52ab4b954af6e12cc25534b121d64fd3e30a81cf2f939f14b36`。
-- 整文件 CRC32：`8D78A553`；元数据兼容 CRC32：`E4503DFD`。
-- 本地元数据、向量及校验已核对；未证明它对应最新源码，也未通过浏览器OTA真机验收。
+- `W515_APP_20260918.bin`：主控 W515 APP v0.2，64560 字节；SHA-256 `0a06327583a7aa9ecfe5264f14c20646cec93dfe62fbe4e2da4e044353a454c4`；整文件 CRC32 `1174E156`；元数据兼容 CRC32 `E3884829`。
+- `N32-APP-v1.7.0-20260918.hex`：副板 N32G430 APP v1.7，Intel HEX，数据 34940B @0x08002000；SHA-256 `51d04b6dc4709dfad63b83f12679d19ca1bd95405ddc99c0b77e4027d9419383`；整文件 CRC32 `0B6044AE`。
+- 两者均为 2026-09-18 构建，**待真机验证**（`recommended: true` 仅表示清单里的默认推荐项）。
 
 ## 存档镜像（不在 OTA 候选清单）
 
-- `N32-APP-v01p2-20260728.hex`：副板 N32 APP，Intel HEX，数据 34632B @0x08002000~0x0800A748；整文件 SHA-256 `c9dc003f9a32af06388479a2a6864467a02985a1796fb00c47236e6bd9f0706c`、CRC32 `ECCD603E`。升级协议见 docs/OTA_FLOW_INTERACTIONS.md §5；网页 B 路径未实现，暂不可在线刷写。
-- `W515_BOOT_20260804.bin`：主控 Boot 存档，12272B；SHA-256 `74af9cd9e36b87c15f71bda6feb94c7e3a50e6fd9d7977bdaebb680a50bbe65f`、CRC32 `71BEDF62`。Boot 不经网页刷写。
+- `W515_BOOT_20260804.bin`：主控 Boot 存档，12272B；SHA-256 `74af9cd9e36b87c15f71bda6feb94c7e3a50e6fd9d7977bdaebb680a50bbe65f`、CRC32 `71BEDF62`。Boot 不经网页刷写，只能用 Keil + ST-Link 烧写。
 
 ## 使用入口
 
