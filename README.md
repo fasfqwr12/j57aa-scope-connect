@@ -10,6 +10,10 @@ https://fasfqwr12.github.io/j57aa-scope-connect/
 
 远端访问走 GitHub Pages HTTPS，浏览器 BLE 权限可正常触发。其他人不需要装上位机即可打开配置界面；只有开发调试用的本地 Bridge 需要在各自电脑上运行。
 
+## 接手维护
+
+第一次接手请先读 **[交接说明 docs/HANDOFF.md](docs/HANDOFF.md)**：环境、跑通步骤、代码地图、缓存版本链、已知坑、发版流程、待办和交接自检清单都在里面。
+
 ## 定位
 
 - 管理弹药 Profile、枪/归零参数、目标与 SCI 最低能量阈值。
@@ -55,14 +59,14 @@ python tools\generate_reference_trajectory.py --profile 308_168_match --max-rang
 
 ## 状态优先的浏览器 OTA
 
-先检测主控与副板，再选择固件并确认升级；当前仅刷写 W515 APP，副板只做独立状态检测。离线与页面模拟测试不能替代真机验收。
+先检测主控与副板，再选择固件并确认升级；支持 W515 主控 APP 与 N32 副板 APP 两条链路（副板经主控代理转发）。离线与页面模拟测试不能替代真机验收。
 
 - [操作指南及16种镜像组合](docs/UPGRADE_GUIDE.md)。
 - [当前固件协议与源码证据](docs/CURRENT_FIRMWARE_OTA.md)。
 - [公开候选固件库](firmware/README.md)。
 - 离线回归：`node --test tests/ota.test.mjs tests/ota-boundaries.test.mjs`。
 - 页面回归：通过 HTTP(S) 打开 `tests/browser-smoke.html`；不会请求真实蓝牙设备。
-- 尚无 service worker，不承诺断网冷启动；Boot自升级、N32刷写与ENC均未开放。
+- 尚无 service worker，不承诺断网冷启动；Boot 自升级与 ENC 未开放（Boot 需 Keil + ST-Link 烧写）。
 
 ## 界面与响应式验收
 
