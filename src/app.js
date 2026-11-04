@@ -2,7 +2,7 @@ import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closur
 import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=conn-ux-1";
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText } from "./core/ballistics.js?v=nojs-1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
-import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-10";
+import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-12";
 import { initAdminLog } from "./ui/admin-log.js?v=admin-log-1";
 import { initTestApi } from "./debug/test-api.js?v=admin-log-2";
 import { initOtaUpgrade } from "./upgrade/ota-ui.js?v=inline-15";
@@ -13,7 +13,7 @@ const steps = [
   { id: "environment", label: "环境", title: "环境参数", kicker: "ENV" },
   { id: "target", label: "目标", title: "目标 / SCI", kicker: "TARGET" },
   { id: "hud", label: "HUD", title: "HUD 显示", kicker: "HUD" },
-  { id: "sync", label: "同步", title: "同步 DOPE", kicker: "SYNC" },
+  { id: "sync", label: "解算", title: "弹道解算", kicker: "SOLVE" },
   { id: "upgrade", label: "升级", title: "固件升级", kicker: "OTA" }
 ];
 
@@ -23,7 +23,7 @@ const pageDescriptions = {
   environment: "集中管理环境输入与数据来源。",
   target: "查看当前目标配置与本地参数。",
   hud: "调整显示布局，在预览区查看效果。",
-  sync: "检查配置与支持状态，操作记录保留在日志中。",
+  sync: "选数据源 → 点解算 → 看结果表或协议原文。",
   upgrade: "先检测双板状态，再核验文件并确认更新。"
 };
 const ASSET_V = "status-first-1";
@@ -78,6 +78,12 @@ function init() {
   buildReticle();
   const buildTag = $("#build-tag");
   if (buildTag) buildTag.textContent = BUILD_VERSION || "dev";
+  const sourceSel = $("#solve-source");
+  if (sourceSel) {
+    sourceSel.value = state.solveSource || (state.connection.mode === "local-bridge" ? "bridge" : "device");
+    state.solveSource = sourceSel.value;
+  }
+  renderSolveResult(null, null);
   setStep(state.activeStep || "device");
   refreshAll();
   initOtaUpgrade({
@@ -122,9 +128,13 @@ function bindActions() {
   $("#btn-solve-run").addEventListener("click", solveFromUi);
   $("#btn-solve-protocol").addEventListener("click", toggleProtocol);
   $("#solve-source").addEventListener("change", ev => {
+    // 切换数据源后旧结果作废，必须重新解算，避免把设备结果当上位机结果看
     state.solveSource = ev.target.value;
+    state.lastSolution = null;
+    state.lastSolveMeta = null;
     scheduleSave();
-    renderSolveResult(state.lastSolution, state.lastSolveMeta);
+    renderSolveResult(null, null);
+    renderPreview(buildBallisticInput(state), null);
   });
   $("#btn-clear-log").addEventListener("click", () => { $("#log-box").innerHTML = ""; });
   $("#btn-open-hud").addEventListener("click", openLegacyHud);
@@ -224,17 +234,23 @@ function refreshAll(options = {}) {
 
 function scheduleBridgeSolve(input) {
   if (state.connection.mode !== "local-bridge") return;
+  if (state.solveSource === "device") return;   // 数据源选设备时不打扰，等用户手动点解算
   if (solveTimer) clearTimeout(solveTimer);
   solveTimer = setTimeout(async () => {
     try {
       const bridge = adapter instanceof LocalBridgeAdapter ? adapter : new LocalBridgeAdapter(state.connection, log);
+      const t0 = performance.now();
       const result = await bridge.solveLocal(input);
+      const ms = Math.round(performance.now() - t0);
       state.lastSolution = { ...result, solveSource: "bridge" };
+      state.lastSolveMeta = { source: "bridge", at: stamp(), ms, request: input, response: result };
       renderPreview(input, state.lastSolution);
+      renderSolveResult(state.lastSolution, state.lastSolveMeta);
       log("SYS", `上位机 C 核解算已回填：${result.version || "ballistics_core"}`);
     } catch (err) {
       state.lastSolution = null;
       renderPreview(input, null);
+      renderSolveResult(null, { source: "bridge", at: stamp(), error: err.message || String(err), request: input });
       log("WARN", `上位机 C 核解算失败：${err.message || err}（检查上位机是否在 ${state.connection.bridgeBase || "http://127.0.0.1:8766"} 运行）`);
     }
   }, 250);
@@ -352,12 +368,14 @@ function renderDeviceMetrics() {
   $("#metric-env").textContent = `${Math.round(densityAltitude(state.environment))} m DA`;
 }
 
-function renderSyncSummary(input) {
+function renderSyncSummary() {
+  // 同步摘要已并入「弹道解算」卡，仅在旧布局存在时渲染
+  const host = $("#sync-summary");
+  if (!host) return;
   const profile = currentProfile(state);
-  $("#sync-summary").innerHTML = `
+  host.innerHTML = `
     <div><span>Profile</span><strong>${escapeHtml(profile.name || profile.ammo)}</strong></div>
     <div><span>弹道</span><strong>${escapeHtml(profile.model)} / BC ${Number(profile.bc).toFixed(3)}</strong></div>
-    <div><span>DOPE 预览</span><strong>${Math.round(input.range_m)} m / ${Math.round(input.min_energy_j)} J</strong></div>
     <div><span>HUD</span><strong>${Object.values(state.hud.zones).filter(Boolean).length}/10 区开启</strong></div>
   `;
 }

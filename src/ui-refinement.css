@@ -566,3 +566,16 @@ body[data-page="upgrade"] .preview-rail { display: none; }
   background: color-mix(in srgb, var(--status-error) 10%, transparent);
   font-weight: 600;
 }
+
+/* ===== 弹道解算卡（数据源 / 结果表 / 协议原文） ===== */
+.solve-inputs { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.solve-metrics { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin: 10px 0; }
+.solve-metrics .metric { padding: 8px 10px; border-radius: 10px; background: var(--panel-2, rgba(255, 255, 255, 0.04)); border: 1px solid var(--line, rgba(255, 255, 255, 0.08)); }
+.solve-metrics .metric span { font-size: 11px; opacity: 0.72; }
+.solve-metrics .metric strong { font-size: 14px; font-variant-numeric: tabular-nums; }
+.solve-protocol { margin: 10px 0 0; padding: 10px 12px; max-height: 260px; overflow: auto; border-radius: 10px; background: var(--panel-2, rgba(0, 0, 0, 0.3)); border: 1px solid var(--line, rgba(255, 255, 255, 0.08)); font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
+.solve-help { margin-top: 8px; }
+.solve-help > summary { cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: baseline; padding: 6px 0; font-size: 12px; }
+.solve-help > summary::-webkit-details-marker { display: none; }
+.solve-help .details-hint { font-size: 11px; opacity: 0.6; }
+.solve-help[open] > summary { margin-bottom: 6px; }

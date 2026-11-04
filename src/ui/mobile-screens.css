@@ -99,3 +99,8 @@
   .mobile-screen-mode .workspace-head { margin-bottom: 6px; }
   .mobile-screen-mode .mobile-tabs { min-height: 56px; padding-block: 3px; padding-bottom: calc(3px + env(safe-area-inset-bottom)); }
 }
+
+/* 弹道解算卡：说明折叠标题需满足 44px 触控高度 */
+.mobile-page .solve-help > summary { min-height: 44px; padding: 10px 0; align-items: center; }
+.mobile-page .solve-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mobile-page .solve-protocol { max-height: 300px; }

@@ -31,9 +31,8 @@ function definitions() {
       group('display', '显示', card($('[data-panel="hud"] .form-grid')))
     ],
     sync: [
-      group('sync', '同步', syncBands[1]),
-      group('logs', '日志', syncBands[2]),
-      group('information', '说明', syncBands[0])
+      group('solve', '解算', syncBands[0]),
+      group('logs', '日志', syncBands[1])
     ],
     upgrade: [
       group('detect', '检测', $('.ota-intro'), $('.ota-targetbar'), $('.ota-cards'), $('#ota-version-compare'), $('.ota-route-summary')),

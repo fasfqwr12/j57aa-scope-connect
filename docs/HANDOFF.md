@@ -270,3 +270,24 @@ git add firmware && git commit -m "release: N32 v1.7" && git push
 ## 13. 一句话总结
 
 **前端能改的都在这一个仓库里；刷 Boot 和改镜像头是固件侧的事，两边靠 `docs/IMAGE_HEADER_SPEC.md` 的「0x200 统一头 + 双 CRC 口径」对齐。改代码先想缓存版本链，交接包只认 git 产物。**
+
+## 14. 弹道解算怎么用（网页 ⇄ 设备 / 上位机）
+
+统一入口：顶部导航「同步」→「弹道解算」卡（手机端为「解算」页）。
+
+| 项 | 设备解算 | 上位机 C 核 |
+|---|---|---|
+| 前置 | 先连 BLE（设备页） | 上位机在 8766 运行 |
+| 数据源选择 | 设备解算（BLE 固件 C 核） | 上位机 C 核（Bridge） |
+| 点「解算」后 | 结果表 + 顶部横幅显示耗时 | 同上 |
+| 正常标志 | 横幅绿字、状态 `MARGINAL (#2)` | 同上 |
+| 未连接 | 横幅红字：设备未连接… | 横幅红字：确认上位机在 … 运行 |
+
+结果表字段（与 `ballistics_core` 输出一一对应）：下坠角 mil/moa、风偏角 mil/moa、飞行时间 s、末速 m/s、能量 J、能量余量 %、HUD 阵列 row/col/side、红点位置 x%/y%、射击状态、HUD 故障、空气密度 kg/m³、可射击。
+
+点「协议」展开请求/响应原文：请求是网页 `buildBallisticInput()` 组装的完整入参，响应是 C 核原始 JSON（含 `coordinate_contract`）。这是判断「网页—上位机—设备」协议是否打通的直接证据：
+
+- 上位机：`method = scope_ballistic_solve_local`
+- 设备：`method = scope_ballistic_solve`（经主控代理下发瞄具）
+
+网页端**不做任何本地解算**：没解算过就是空值 `--`，不会显示估算数字。
