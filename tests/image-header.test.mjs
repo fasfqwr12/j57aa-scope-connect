@@ -67,6 +67,8 @@ test('真实 N32 hex 分发到 N3MT 旧格式：展示口径与校验口径并�
 
 test('无头固件回退为 null 且照常可解析', () => {
   const image = new Uint8Array(4096).fill(0xAA);
+  // 合法向量表：SP=0x20001000、PC=0x08002101，其余填充 0xAA（无 N3MT 头）
+  image.set([0x00, 0x10, 0x00, 0x20, 0x01, 0x21, 0x00, 0x08], 0);
   const base = 0x08002000;
   const rec = (bytes) => ':' + [...bytes, (0x100 - (bytes.reduce((a, b) => a + b, 0) & 0xFF)) & 0xFF]
     .map(b => b.toString(16).toUpperCase().padStart(2, '0')).join('') + '\n';

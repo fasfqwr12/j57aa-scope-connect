@@ -55,7 +55,7 @@ python -m pip install py-ballisticcalc==2.2.10
 python tools\generate_reference_trajectory.py --profile 308_168_match --max-range-m 1000 --step-m 100
 ```
 
-完整流程见 `docs/ballistics-validation.md`。网页 JS 只做交互预览，正式校准以开源参考表、固件 C 和实测靶纸三方闭环为准。
+完整流程见 `docs/ballistics-validation.md`。网页不再本地解算，只显示设备解算或上位机 C 核的结果；未连接时为空值。正式校准以开源参考表、固件 C 和实测靶纸三方闭环为准。
 
 ## 状态优先的浏览器 OTA
 
