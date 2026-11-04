@@ -1,6 +1,6 @@
 import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closure1";
 import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=conn-ux-1";
-import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
+import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText } from "./core/ballistics.js?v=nojs-1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
 import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-10";
 import { initAdminLog } from "./ui/admin-log.js?v=admin-log-1";
