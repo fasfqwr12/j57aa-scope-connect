@@ -15,23 +15,38 @@ export class WebBluetoothAdapter {
     };
   }
   supported() { return !!globalThis.navigator?.bluetooth; }
-  async connect() {
+  async connect(options = {}) {
     if (this.exclusive) throw new Error("检测/升级中，不可更换设备");
     if (!this.supported()) throw new Error("当前浏览器不支持 Web Bluetooth；请使用 Android/电脑 Chrome 或 Edge，iOS/微信内置浏览器不支持此升级通道");
-    if (this.device) {
+    // 顺序关键：requestDevice 必须紧贴用户点击同步发起，前面不能有任何 await。
+    // 否则手机 Chrome 的用户手势会过期，设备选择框静默不弹（表现成"点了连接没反应"）。
+    const picked = options.device || await this.pickDevice();
+    if (this.device && this.device !== picked) {
       this.device.removeEventListener("gattserverdisconnected", this.disconnectHandler);
       await this.disconnect();
     }
-    const serviceUuid = normalizeUuid(this.config.serviceUuid);
-    const namePrefix = String(this.config.namePrefix || "").trim();
-    const scanMode = this.config.scanMode || "all";
-    try { this.device = await navigator.bluetooth.requestDevice(makeRequestOptions({ scanMode, namePrefix, serviceUuid })); }
-    catch (error) { if (error.name === "NotFoundError") throw new Error("未选择 BLE 设备，请确认设备开机且未被其它手机/上位机占用"); throw error; }
+    this.device = picked;
     this.device.addEventListener("gattserverdisconnected", this.disconnectHandler);
     await this.bindGatt();
     const name = this.device.name || this.device.id;
     this.log("SYS", `BLE 已连接: ${name}`);
     return { connected: true, name };
+  }
+
+  // 唤起浏览器的设备选择框（这就是"扫描"）。错误翻译成人话，供页面直接展示。
+  async pickDevice() {
+    const serviceUuid = normalizeUuid(this.config.serviceUuid);
+    const namePrefix = String(this.config.namePrefix || "").trim();
+    const scanMode = this.config.scanMode || "all";
+    try {
+      return await navigator.bluetooth.requestDevice(makeRequestOptions({ scanMode, namePrefix, serviceUuid }));
+    } catch (error) {
+      if (error.name === "NotFoundError") throw new Error("未选择 BLE 设备：请确认瞄具已开机、未被其它手机或上位机占用，并在选择框中选中 E104-BT5005A");
+      if (error.name === "SecurityError") throw new Error("浏览器拦截了设备选择框（点击手势已失效）：请重新点一次「连接」，中间不要切换页面");
+      if (error.name === "NotAllowedError") throw new Error("蓝牙权限被拒绝：请在系统设置中允许浏览器使用「蓝牙 / 附近设备」权限后重试");
+      if (error.name === "InvalidStateError") throw new Error("设备选择框已在别处打开：请先关闭上一次的选择框再重试");
+      throw error;
+    }
   }
   async bindGatt() {
     this.connected = false;

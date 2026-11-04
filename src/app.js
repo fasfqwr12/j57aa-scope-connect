@@ -1,5 +1,5 @@
 import { LocalBridgeAdapter } from "./adapters/local-bridge.js?v=20260616_closure1";
-import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=status-first-1";
+import { WebBluetoothAdapter } from "./adapters/web-bluetooth.js?v=conn-ux-1";
 import { buildBallisticInput, densityAltitude, hudFaultText, shotStatusText, solvePreview } from "./core/ballistics.js?v=20260616_closure1";
 import { ammoPresets, currentProfile, loadState, makeProfileId, profileIntroCatalog, saveState, setCurrentProfile } from "./core/profile-store.js?v=20260616_closure1";
 import { initMobileScreens } from "./ui/mobile-screens.js?v=mobile-screen-05";
@@ -44,6 +44,7 @@ const zoneLabels = {
 
 const state = loadState();
 let adapter = null;
+let adapterMode = null;
 let saveTimer = null;
 let otaBusy = false;
 let connecting = false;
@@ -81,6 +82,8 @@ function init() {
     setBusy: value => {
       otaBusy = value;
       $$("#btn-connect, #btn-connect-panel, #btn-hint-connect, #btn-disconnect, #btn-read-env, #btn-read-env-panel, #btn-listen-range, #btn-solve-device, #btn-sync-profile, [data-bind^='connection.']").forEach(el => { el.disabled = value; });
+      if (value) setConnBanner("busy", "检测/升级进行中，蓝牙与连接按钮暂时锁定；结束后会恢复");
+      else clearConnBanner("busy");
     }
   });
   log("SYS", "Scope Connect 已就绪");
@@ -368,16 +371,32 @@ function renderProfileInfo() {
 }
 
 async function connect() {
-  if (connecting || adapter?.exclusive) { log("WARN", "连接/检测/升级进行中，不更换设备"); return; }
+  if (connecting || adapter?.exclusive) {
+    setConnBanner("warn", adapter?.exclusive ? "检测/升级正在进行，蓝牙通道被独占；等它结束后再连接" : "正在连接中，请稍候");
+    log("WARN", "连接/检测/升级进行中，不更换设备");
+    return;
+  }
+  const mode = state.connection.mode === "local-bridge" ? "local-bridge" : "web-bluetooth";
+  if (mode === "web-bluetooth" && !globalThis.navigator?.bluetooth) {
+    setConnBanner("error", "当前浏览器不支持 Web Bluetooth：请改用 Android / 电脑版 Chrome 或 Edge；iOS Safari、微信、QQ 等内置浏览器不支持蓝牙升级");
+    log("ERR", "当前浏览器不支持 Web Bluetooth");
+    return;
+  }
   connecting = true;
+  // 复用同一适配器：换设备时由适配器先弹选择框再断开旧链路，
+  // 保证 requestDevice 紧贴点击手势（否则手机端会静默不弹框）。
+  if (!adapter || adapterMode !== mode) { adapter = makeAdapter(); adapterMode = mode; }
+  setConnBanner("info", mode === "web-bluetooth"
+    ? "正在唤起浏览器设备选择框，请在扫描结果里选中 E104-BT5005A…"
+    : "正在连接上位机 Bridge…");
   try {
     setConnectionState("working", "连接中");
-    if (adapter) await adapter.disconnect();
-    adapter = makeAdapter();
     const r = await adapter.connect();
     setConnectionState(r.connected ? "on" : "bridge", r.name || "已就绪");
+    setConnBanner("", "");
   } catch (err) {
     setConnectionState("off", "连接失败");
+    setConnBanner("error", err.message || String(err));
     log("ERR", err.message || err);
   } finally { connecting = false; }
 }
@@ -472,6 +491,22 @@ function setConnectionState(kind, label) {
   $("#status-dot").className = `status-dot ${kind}`;
   $("#connection-label").textContent = label;
   document.body.classList.toggle("ble-live", kind === "on" || kind === "bridge");
+}
+
+// 设备页连接横幅：把"扫描/连接"的进度和失败原因直接显示在按钮上方，
+// 不再要求用户切到"同步"页翻日志才知道为什么没反应。
+function setConnBanner(kind, text) {
+  const el = $("#conn-banner");
+  if (!el) return;
+  if (!text) { el.hidden = true; el.textContent = ""; el.removeAttribute("data-kind"); return; }
+  el.hidden = false;
+  el.dataset.kind = kind || "info";
+  el.textContent = text;
+}
+
+function clearConnBanner(kind) {
+  const el = $("#conn-banner");
+  if (el && (!kind || el.dataset.kind === kind)) setConnBanner("", "");
 }
 
 function newProfile() {
