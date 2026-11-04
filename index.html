@@ -263,42 +263,63 @@
         <div class="section-panel" data-panel="sync">
           <div class="field-band">
             <div class="band-head">
-              <h3>弹道算法验证</h3>
-              <span class="source-pill live">py-ballisticcalc 2.2.10</span>
+              <h3>弹道解算</h3>
+              <span class="source-pill" id="solve-pill">未解算</span>
             </div>
-            <div class="validation-grid">
-              <div>
-                <strong>1. 参考表</strong>
-                <span>用开源 3DoF 库生成 golden table：drop、wind、TOF、末速、能量。</span>
-              </div>
-              <div>
-                <strong>2. 固件回归</strong>
-                <span>同一输入喂给固件 C，允许误差按距离分档，超过阈值必须查模型/单位。</span>
-              </div>
-              <div>
-                <strong>3. 靶场校准</strong>
-                <span>实测初速、镜高、归零、100-800m 靶纸落点，反校 BC/初速。</span>
-              </div>
-              <div>
-                <strong>4. HUD 验收</strong>
-                <span>确认阵列行列、红点位置、NO SHOT X、TOO FAR/ZOOM OUT 和能量阈值一致。</span>
-              </div>
+            <div class="form-grid solve-inputs">
+              <label>
+                <span>数据源</span>
+                <select id="solve-source">
+                  <option value="device">设备解算（BLE 固件 C 核）</option>
+                  <option value="bridge">上位机 C 核（Bridge）</option>
+                </select>
+              </label>
+              <label>
+                <span>解算距离 m</span>
+                <input data-bind="target.range_m" type="number" min="1" step="1">
+              </label>
+              <label>
+                <span>横风 m/s</span>
+                <input data-bind="target.cross_wind_ms" type="number" step="0.1">
+              </label>
+              <label>
+                <span>逆/顺风 m/s</span>
+                <input data-bind="target.head_wind_ms" type="number" step="0.1">
+              </label>
             </div>
-            <div class="validation-note">
-              网页不再本地解算：结果只来自设备（BLE）或上位机 C 核（Bridge），未连接时显示空值。2000m 需选择 .375/.408/.50 等 ELR Profile，并使用 ELR 阵列参数；正式判定以 py-ballisticcalc 参考表、固件 C 输出和实测靶纸三方闭环为准。
+            <p class="conn-banner" id="solve-banner" role="status" aria-live="polite" hidden></p>
+            <div class="metric-grid solve-metrics">
+              <div class="metric"><span>下坠角</span><strong id="sv-drop">--</strong></div>
+              <div class="metric"><span>风偏角</span><strong id="sv-wind">--</strong></div>
+              <div class="metric"><span>飞行时间</span><strong id="sv-time">--</strong></div>
+              <div class="metric"><span>末速</span><strong id="sv-vel">--</strong></div>
+              <div class="metric"><span>能量</span><strong id="sv-energy">--</strong></div>
+              <div class="metric"><span>能量余量</span><strong id="sv-margin">--</strong></div>
+              <div class="metric"><span>HUD 阵列</span><strong id="sv-reticle">--</strong></div>
+              <div class="metric"><span>红点位置</span><strong id="sv-dot">--</strong></div>
+              <div class="metric"><span>射击状态</span><strong id="sv-status">--</strong></div>
+              <div class="metric"><span>HUD 故障</span><strong id="sv-fault">--</strong></div>
+              <div class="metric"><span>空气密度</span><strong id="sv-density">--</strong></div>
+              <div class="metric"><span>可射击</span><strong id="sv-canshoot">--</strong></div>
             </div>
-          </div>
-          <div class="field-band">
-            <div class="band-head">
-              <h3>同步 DOPE</h3>
-              <span class="source-pill pending">固件写入命令待定</span>
-            </div>
-            <div class="sync-summary" id="sync-summary"></div>
             <div class="action-row">
-              <button class="btn primary" id="btn-sync-profile" type="button">同步到瞄具</button>
-              <button class="btn" id="btn-solve-device" type="button">设备解算</button>
-              <button class="btn" id="btn-solve-local" type="button">本地 C 校验</button>
+              <button class="btn primary" id="btn-solve-run" type="button">解算</button>
+              <button class="btn" id="btn-solve-protocol" type="button">协议</button>
+              <button class="btn" id="btn-sync-profile" type="button">同步到瞄具</button>
             </div>
+            <pre class="solve-protocol" id="solve-protocol" hidden></pre>
+            <details class="solve-help" id="solve-help">
+              <summary><span>说明与验证口径</span><span class="details-hint">参考表 · 固件回归 · 靶场 · HUD</span></summary>
+              <div class="validation-grid">
+                <div><strong>1. 参考表</strong><span>用开源 3DoF 库生成 golden table：drop、wind、TOF、末速、能量。</span></div>
+                <div><strong>2. 固件回归</strong><span>同一输入喂给固件 C，允许误差按距离分档，超过阈值必须查模型/单位。</span></div>
+                <div><strong>3. 靶场校准</strong><span>实测初速、镜高、归零、100-800m 靶纸落点，反校 BC/初速。</span></div>
+                <div><strong>4. HUD 验收</strong><span>确认阵列行列、红点位置、NO SHOT X、TOO FAR/ZOOM OUT 和能量阈值一致。</span></div>
+              </div>
+              <div class="validation-note">
+                网页不再本地解算：结果只来自设备（BLE）或上位机 C 核（Bridge），未连接时显示空值。2000m 需选择 .375/.408/.50 等 ELR Profile，并使用 ELR 阵列参数；正式判定以 py-ballisticcalc 参考表、固件 C 输出和实测靶纸三方闭环为准。
+              </div>
+            </details>
           </div>
           <div class="field-band">
             <div class="band-head">

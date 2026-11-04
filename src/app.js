@@ -119,8 +119,13 @@ function bindActions() {
     refreshAll();
   });
   $("#btn-sync-profile").addEventListener("click", syncProfile);
-  $("#btn-solve-device").addEventListener("click", solveDevice);
-  $("#btn-solve-local").addEventListener("click", solveLocal);
+  $("#btn-solve-run").addEventListener("click", solveFromUi);
+  $("#btn-solve-protocol").addEventListener("click", toggleProtocol);
+  $("#solve-source").addEventListener("change", ev => {
+    state.solveSource = ev.target.value;
+    scheduleSave();
+    renderSolveResult(state.lastSolution, state.lastSolveMeta);
+  });
   $("#btn-clear-log").addEventListener("click", () => { $("#log-box").innerHTML = ""; });
   $("#btn-open-hud").addEventListener("click", openLegacyHud);
   $("#btn-hint-connect").addEventListener("click", connect);
@@ -451,28 +456,121 @@ async function listenMeasurement() {
   }
 }
 
+function solveFromUi() {
+  return $("#solve-source")?.value === "bridge" ? solveLocal() : solveDevice();
+}
+
 async function solveLocal() {
+  const input = buildBallisticInput(state);
   try {
-    const bridge = adapter instanceof LocalBridgeAdapter ? adapter : new LocalBridgeAdapter(state.connection, log);
-    const result = await bridge.solveLocal(buildBallisticInput(state));
+    const bridge = new LocalBridgeAdapter(state.connection, log);
+    const t0 = performance.now();
+    const result = await bridge.solveLocal(input);
+    const ms = Math.round(performance.now() - t0);
     state.lastSolution = { ...result, solveSource: "bridge" };
-    renderPreview(buildBallisticInput(state), state.lastSolution);
-    log("SYS", "上位机 C 核解算已回填");
+    state.lastSolveMeta = { source: "bridge", at: stamp(), ms, request: input, response: result };
+    renderSolveResult(state.lastSolution, state.lastSolveMeta);
+    renderPreview(input, state.lastSolution);
+    log("SYS", `上位机 C 核解算完成（${ms}ms）`);
   } catch (err) {
-    log("ERR", err.message || err);
+    state.lastSolution = null;
+    state.lastSolveMeta = { source: "bridge", at: stamp(), error: err.message || String(err), request: input };
+    renderSolveResult(null, state.lastSolveMeta);
+    renderPreview(input, null);
+    log("ERR", `上位机解算失败：${err.message || err}（确认上位机在 ${state.connection.bridgeBase || "http://127.0.0.1:8766"} 运行）`);
   }
 }
 
 async function solveDevice() {
+  const input = buildBallisticInput(state);
   try {
     if (!adapter) adapter = makeAdapter();
-    const result = await adapter.solveDevice(buildBallisticInput(state));
+    if (!adapter.connected) throw new Error("设备未连接：先在「设备」页连接 BLE，再点解算");
+    const t0 = performance.now();
+    const result = await adapter.solveDevice(input);
+    const ms = Math.round(performance.now() - t0);
     state.lastSolution = { ...result, solveSource: "device" };
-    renderPreview(buildBallisticInput(state), state.lastSolution);
-    log("SYS", "设备解算已回填（BLE）");
+    state.lastSolveMeta = { source: "device", at: stamp(), ms, request: input, response: result };
+    renderSolveResult(state.lastSolution, state.lastSolveMeta);
+    renderPreview(input, state.lastSolution);
+    log("SYS", `设备解算完成（${ms}ms，BLE）`);
   } catch (err) {
-    log("ERR", err.message || err);
+    state.lastSolution = null;
+    state.lastSolveMeta = { source: "device", at: stamp(), error: err.message || String(err), request: input };
+    renderSolveResult(null, state.lastSolveMeta);
+    renderPreview(input, null);
+    log("ERR", `设备解算失败：${err.message || err}`);
   }
+}
+
+function stamp() {
+  return new Date().toLocaleTimeString("zh-CN", { hour12: false });
+}
+
+// 解算结果表：字段口径对齐上位机 ballistics_core 输出，未解算一律空值
+function renderSolveResult(solution, meta) {
+  const pill = $("#solve-pill");
+  if (pill) {
+    pill.textContent = solution ? (meta?.source === "device" ? "设备解算" : "上位机 C 核") : "未解算";
+    pill.className = `source-pill${solution ? " live" : ""}`;
+  }
+  const banner = $("#solve-banner");
+  if (banner) {
+    if (meta?.error) {
+      banner.hidden = false; banner.dataset.kind = "error";
+      banner.textContent = meta.error;
+    } else if (solution) {
+      banner.hidden = false; banner.dataset.kind = "info";
+      banner.textContent = `${meta?.source === "device" ? "设备解算（BLE）" : "上位机 C 核（Bridge）"} · ${meta?.ms ?? "-"} ms · ${meta?.at ?? ""}`;
+    } else {
+      banner.hidden = true; banner.textContent = ""; banner.removeAttribute("data-kind");
+    }
+  }
+  const set = (sel, text) => { const el = $(sel); if (el) el.textContent = text; };
+  const ids = ["#sv-drop", "#sv-wind", "#sv-time", "#sv-vel", "#sv-energy", "#sv-margin", "#sv-reticle", "#sv-dot", "#sv-status", "#sv-fault", "#sv-density", "#sv-canshoot"];
+  if (!solution) { ids.forEach(id => set(id, "--")); return; }
+  const mil = v => `${Number(v || 0).toFixed(2)} mil`;
+  const moa = v => `${Number(v || 0).toFixed(2)} moa`;
+  set("#sv-drop", `${mil(solution.elevation_mil)} / ${moa(solution.elevation_moa)}`);
+  set("#sv-wind", `${mil(solution.windage_mil)} / ${moa(solution.windage_moa)}`);
+  set("#sv-time", `${Number(solution.time_s || 0).toFixed(3)} s`);
+  set("#sv-vel", `${Math.round(solution.final_velocity_ms || 0)} m/s`);
+  set("#sv-energy", `${Math.round(solution.energy_j || 0)} J`);
+  set("#sv-margin", solution.min_energy_j > 0 ? `${Math.round(solution.shot_margin_pct)}%` : "OFF");
+  set("#sv-reticle", solution.reticle_row == null ? "--" : `${solution.reticle_side < 0 ? "L" : solution.reticle_side > 0 ? "R" : "C"} ${solution.reticle_row}/${solution.reticle_col}`);
+  set("#sv-dot", solution.reticle_x_pct == null ? "--" : `${Number(solution.reticle_x_pct).toFixed(1)}% / ${Number(solution.reticle_y_pct).toFixed(1)}%`);
+  set("#sv-status", `${shotStatusText(solution.shot_status)}${solution.shot_status == null ? "" : ` (#${solution.shot_status})`}`);
+  set("#sv-fault", hudFaultText(solution.hud_fault) || "无");
+  set("#sv-density", solution.density_kg_m3 ? `${Number(solution.density_kg_m3).toFixed(3)} kg/m³` : "--");
+  set("#sv-canshoot", solution.can_shoot == null ? "--" : (solution.can_shoot ? "是" : "否"));
+  const proto = $("#solve-protocol");
+  if (proto && !proto.hidden) renderProtocol(meta);
+}
+
+function protocolMethod(source) {
+  return source === "device"
+    ? "scope_ballistic_solve（经主控代理下发瞄具）"
+    : "scope_ballistic_solve_local（上位机 C 核）";
+}
+
+function renderProtocol(meta) {
+  const el = $("#solve-protocol");
+  if (!el) return;
+  if (!meta) { el.textContent = "尚未解算。点「解算」后此处显示请求与响应原文。"; return; }
+  el.textContent = [
+    `# 请求 method = ${protocolMethod(meta.source)}`,
+    JSON.stringify(meta.request ?? null, null, 2),
+    "",
+    `# 响应${meta.error ? "（失败）" : ""}`,
+    JSON.stringify(meta.error ? { success: false, error: meta.error } : meta.response ?? null, null, 2)
+  ].join("\n");
+}
+
+function toggleProtocol() {
+  const el = $("#solve-protocol");
+  if (!el) return;
+  el.hidden = !el.hidden;
+  if (!el.hidden) renderProtocol(state.lastSolveMeta);
 }
 
 async function syncProfile() {
